@@ -555,3 +555,6 @@ textarea.plain, input.plain { border: 0 !important; box-shadow: none !important;
 .rem select { width: auto; min-height: 40px; padding: 6px 8px; }
 .rem input[type=time] { width: auto; min-height: 40px; padding: 6px 8px; }
 .rem .x-btn { margin-left: auto; }
+.emo-row { display: flex; gap: 10px; align-items: center; }
+.emo-row input { width: 64px !important; flex: none; text-align: center; font-size: 28px; padding: 4px; min-height: 56px; }
+div.field > span { display: block; font-size: 13px; color: var(--muted); margin: 0 2px 4px; }

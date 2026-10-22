@@ -283,10 +283,23 @@ function sectionMenu(s) {
 
 const EMOJI_SUGGEST = ['🔨', '🛒', '💡', '📞', '🏡', '🌳', '🚗', '🧹', '🔧', '💰', '📄', '🎁', '🐶', '🏬', '⚡', '🧾'];
 function emojiField(v) {
-  return `<label class="field"><span>Ženkliukas (nebūtinas)</span><input type="text" name="emoji" value="${esc(v || '')}" maxlength="4" style="width:90px;text-align:center;font-size:20px"></label>
+  return `<div class="field"><span>Ženkliukas (nebūtinas)</span>
+    <div class="emo-row"><input type="text" name="emoji" id="emo-in" value="${esc(v || '')}" autocomplete="off" placeholder="🙂" aria-label="Ženkliukas">
+      <div class="muted small">Paspauskite laukelį ir telefono klaviatūroje atsidarykite <b>🙂 emoji</b> skiltį – tinka bet kuris. Arba pasirinkite žemiau.</div></div></div>
     <div class="emojis">${EMOJI_SUGGEST.map(e => `<button type="button" data-em="${e}">${e}</button>`).join('')}</div>`;
 }
-function bindEmoji(form) { $$('[data-em]', form).forEach(b => b.onclick = () => { form.elements.emoji.value = form.elements.emoji.value === b.dataset.em ? '' : b.dataset.em; }); }
+// paliekamas tik vienas (paskutinis įvestas) emoji
+function oneEmoji(str) {
+  str = (str || '').trim();
+  if (!str) return '';
+  try { const seg = [...new Intl.Segmenter('lt', { granularity: 'grapheme' }).segment(str)].map(x => x.segment).filter(x => x.trim()); return seg[seg.length - 1] || ''; }
+  catch (e) { return [...str].slice(-2).join(''); }
+}
+function bindEmoji(form) {
+  const inp = form.elements.emoji;
+  inp.addEventListener('input', () => { const one = oneEmoji(inp.value); if (one !== inp.value) inp.value = one; });
+  $$('[data-em]', form).forEach(b => b.onclick = () => { inp.value = inp.value === b.dataset.em ? '' : b.dataset.em; });
+}
 
 function sectionSheet(s) {
   formSheet({
@@ -294,7 +307,7 @@ function sectionSheet(s) {
     fields: [{ k: 'name', label: 'Pavadinimas', ph: 'pvz. Darbai, Pirkiniai, Skambučiai' }],
     extra: emojiField(s?.emoji),
     bind: f => { bindEmoji(f); if (!s) setTimeout(() => f.elements.name.focus(), 50); },
-    onSave: async (v, f) => { await saveRow('sections', { id: s?.id, name: v.name, emoji: f.elements.emoji.value }); },
+    onSave: async (v, f) => { await saveRow('sections', { id: s?.id, name: v.name, emoji: oneEmoji(f.elements.emoji.value) }); },
   });
 }
 function sectionDelete(s) {
@@ -366,7 +379,7 @@ function tagSheet(g, after) {
     fields: [{ k: 'name', label: 'Pavadinimas', ph: 'pvz. Senukai, Ermitažas, Prie progos' }],
     extra: emojiField(g?.emoji),
     bind: f => { bindEmoji(f); if (!g) setTimeout(() => f.elements.name.focus(), 50); },
-    onSave: async (v, f) => { const r = await saveRow('tags', { id: g?.id, name: v.name, emoji: f.elements.emoji.value }); after && after(r.id); },
+    onSave: async (v, f) => { const r = await saveRow('tags', { id: g?.id, name: v.name, emoji: oneEmoji(f.elements.emoji.value) }); after && after(r.id); },
     onDelete: g ? async () => { await delRow('tags', g.id); } : null,
   });
 }
@@ -705,7 +718,7 @@ routes.settings = () => {
     <label class="li go"><span class="ic">♻️</span><div class="grow"><div class="t">Atkurti iš kopijos</div><div class="s">Dabartiniai duomenys bus pakeisti</div></div><input type="file" id="st-restore" accept=".zip" hidden></label>
     <label class="li go"><span class="ic">📥</span><div class="grow"><div class="t">Importuoti užduotis (.json)</div><div class="s">Tik papildo, nieko netrina</div></div><input type="file" id="st-import" accept=".json,application/json" hidden></label>
   </div>
-  <p class="muted small center" style="margin-top:18px">Ūkis 1.3.0 · Duomenys patenka į Home Assistant atsargines kopijas</p>`;
+  <p class="muted small center" style="margin-top:18px">Ūkis 1.3.1 · Duomenys patenka į Home Assistant atsargines kopijas</p>`;
   $('#st-sec-new').onclick = () => sectionSheet();
   $('#st-tag-new').onclick = () => tagSheet();
   $$('[data-sedit]').forEach(el => el.onclick = () => sectionMenu(I.sections[el.dataset.sedit]));

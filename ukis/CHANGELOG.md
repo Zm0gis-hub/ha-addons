@@ -1,5 +1,8 @@
 # Pakeitimai
 
+## 1.3.1
+- Sekcijų ir žymų ženkliukui galima įrašyti bet kurį emoji iš telefono klaviatūros (taip pat vėliavas ir kitus sudėtinius).
+
 ## 1.3.0
 - Užduotis gali turėti laiką „nuo–iki“ arba būti visos dienos (kaip Google kalendoriuje).
 - Kiekviena užduotis turi savus priminimus (kelis): pvz. 30 min. prieš, 1 d. prieš 20:00, 1 sav. prieš. Bendri vakaro / ryto laikai pašalinti.
