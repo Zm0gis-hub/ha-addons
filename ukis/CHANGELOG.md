@@ -1,5 +1,10 @@
 # Pakeitimai
 
+## 1.2.0
+- Priminimai telefone per Home Assistant programėlę: vakare prieš ir / ar ryte tą dieną, pavėluotos – kas rytą.
+- Pranešime mygtukai „✓ Atlikta“ ir „Rytoj“ (atidėti dienai).
+- Galima pasirinkti kelis telefonus ir išjungti priminimus konkrečiai užduočiai.
+
 ## 1.1.1
 - Paruošta diegti iš GitHub saugyklos; HA kalendoriaus adresas nustatomas automatiškai.
 - Instrukcija atnaujinta (Home Assistant Cloud vietoj Tailscale).

@@ -4,7 +4,9 @@
 Naudoja tik standartinę Python biblioteką (be papildomų paketų).
 Duomenys ir failai saugomi /data aplanke (patenka į HA atsargines kopijas).
 """
+import base64
 import calendar
+import struct
 import datetime as dt
 import http.client
 import time
@@ -57,14 +59,14 @@ AUTH_TOKEN = hashlib.sha256(("ukis:" + PIN).encode()).hexdigest() if PIN else ""
 # lentelė -> stulpeliai, kuriuos galima keisti per bendrą „save“ veiksmą
 TABLES = {
     "sections": ["name", "emoji", "pos", "collapsed"],
-    "tasks": ["section_id", "title", "notes", "due", "done", "done_at", "pos", "tags", "created", "repeat"],
+    "tasks": ["section_id", "title", "notes", "due", "done", "done_at", "pos", "tags", "created", "repeat", "notify"],
     "subtasks": ["task_id", "title", "done", "pos"],
     "comments": ["task_id", "text", "created"],
     "files": ["task_id", "filename", "orig_name", "mime", "size", "created"],
     "tags": ["name", "emoji", "pos"],
     "task_log": ["task_id", "date", "due", "note"],
 }
-NUMERIC = {"pos", "collapsed", "section_id", "done", "task_id", "size"}
+NUMERIC = {"pos", "collapsed", "section_id", "done", "task_id", "size", "notify"}
 POS_GROUP = {"sections": None, "tags": None, "tasks": "section_id", "subtasks": "task_id"}
 
 SCHEMA = """
@@ -86,6 +88,12 @@ CREATE TABLE IF NOT EXISTS task_log (id INTEGER PRIMARY KEY, task_id INTEGER, da
 DEFAULT_SETTINGS = {
     "done_keep_days": 1,   # kiek dienų atliktos užduotys dar rodomos perbrauktos
     "ha_days": 7,          # kiek dienų į priekį rodyti HA kortelėje
+    "notify_services": [],  # mobile_app_* paslaugos (telefonai)
+    "notify_evening": True,
+    "evening_time": "20:00",
+    "notify_morning": True,
+    "morning_time": "07:30",
+    "notify_overdue": True,
 }
 DEFAULT_SECTIONS = [("Darbai", "🔨"), ("Pirkiniai", "🛒"), ("Kada nors", "💡")]
 DEFAULT_TAGS = [("Senukai", "🏬"), ("Ermitažas", "🏬")]
@@ -124,6 +132,9 @@ def meta_set(key, value):
 def init_db():
     with LOCK:
         DB.executescript(SCHEMA)
+        have = {r["name"] for r in DB.execute("PRAGMA table_info(tasks)")}
+        if "notify" not in have:
+            DB.execute("ALTER TABLE tasks ADD COLUMN notify INTEGER DEFAULT 1")
         if meta_get("version") is None:
             meta_set("version", 1)
         s = meta_get("settings") or {}
@@ -337,9 +348,17 @@ def act_settings_save(d):
     for k, dflt in DEFAULT_SETTINGS.items():
         if k in d:
             v = d[k]
-            if isinstance(dflt, int):
+            if isinstance(dflt, bool):
+                v = bool(v) and v not in ("0", "false")
+            elif isinstance(dflt, int):
                 v = num(v)
                 v = dflt if v is None else int(v)
+            elif isinstance(dflt, list):
+                v = [str(x).strip() for x in (v if isinstance(v, list) else []) if str(x).strip()]
+            else:
+                v = str(v or "").strip()
+                if k.endswith("_time"):
+                    v = hm(v, dflt)
             s[k] = v
     meta_set("settings", s)
 
@@ -638,9 +657,259 @@ def act_restore(d):
     return {"ok": True}
 
 
+# ---------------------------------------------------------------- priminimai telefone
+
+NOTIFY_STATE = {"ws": False, "error": "", "last_sent": ""}
+ACTION_PREFIX = "UKIS_"
+
+
+def hm(v, dflt="20:00"):
+    m = re.match(r"^(\d{1,2}):(\d{2})$", str(v or "").strip())
+    return f"{int(m.group(1)):02d}:{m.group(2)}" if m and int(m.group(1)) < 24 and int(m.group(2)) < 60 else dflt
+
+
+def ingress_path():
+    """Kelias į šį priedą HA viduje (pvz. /hassio/ingress/a0d7b954_ukis)."""
+    return "/hassio/ingress/" + socket.gethostname().replace("-", "_", 1)
+
+
+def notify_services():
+    if not SUPERVISOR_TOKEN:
+        return []
+    out = []
+    for d in ha_request("GET", "/services") or []:
+        if d.get("domain") == "notify":
+            out += [n for n in d.get("services", {}) if n.startswith("mobile_app_")]
+    return sorted(out)
+
+
+def send_notification(message, title="🏡 Ūkis", actions=None, tag=None, services=None):
+    services = services or (meta_get("settings") or {}).get("notify_services") or []
+    if not services:
+        raise ValueError("Nepasirinktas telefonas (Nustatymai → Priminimai telefone)")
+    data = {"clickAction": ingress_path(), "channel": "Ūkis"}
+    if actions:
+        data["actions"] = actions
+    if tag:
+        data["tag"] = tag
+    errs = []
+    for svc in services:
+        try:
+            ha_request("POST", f"/services/notify/{svc}", {"title": title, "message": message, "data": data})
+        except Exception as e:  # noqa
+            errs.append(f"{svc}: {e}")
+    if errs and len(errs) == len(services):
+        raise ValueError("; ".join(errs))
+    NOTIFY_STATE["last_sent"] = now()
+
+
+def task_actions(t, kind):
+    acts = [{"action": f"{ACTION_PREFIX}DONE_{t['id']}", "title": "✓ Atlikta"}]
+    if kind == "m":
+        acts.append({"action": f"{ACTION_PREFIX}TOMORROW_{t['id']}", "title": "Rytoj"})
+    return acts
+
+
+def collect_notifications():
+    """Ką reikia išsiųsti dabar. Grąžina sąrašą ir pažymi kaip išsiųstus."""
+    st = meta_get("settings") or {}
+    if not st.get("notify_services"):
+        return []
+    t0 = dt.date.today()
+    nowdt = dt.datetime.now()
+    sent = meta_get("notified") or {}
+    out = []
+
+    def in_window(key, hours):
+        start = dt.datetime.combine(t0, dt.time.fromisoformat(hm(st.get(key), DEFAULT_SETTINGS[key])))
+        return start <= nowdt <= start + dt.timedelta(hours=hours)
+
+    def task_list(cond):
+        res = []
+        for t in rows("SELECT * FROM tasks WHERE done=0 AND due IS NOT NULL AND COALESCE(notify,1)=1 ORDER BY due, pos, id"):
+            n = (dt.date.fromisoformat(t["due"]) - t0).days
+            if cond(n):
+                res.append((t, n))
+        return res
+
+    batches = []
+    if st.get("notify_evening", True) and in_window("evening_time", 3):
+        batches.append(("e", task_list(lambda n: n == 1)))
+    if st.get("notify_morning", True) and in_window("morning_time", 4):
+        over = bool(st.get("notify_overdue", True))
+        batches.append(("m", task_list(lambda n: n == 0 or (over and n < 0))))
+    for kind, lst in batches:
+        fresh = []
+        for t, n in lst:
+            key = f"{t['id']}:{t['due']}:{kind}:{t0.isoformat()}"
+            if key not in sent:
+                sent[key] = t0.isoformat()
+                fresh.append((t, n))
+        if not fresh:
+            continue
+        if len(fresh) > 4:  # daug – vienas suvestinės pranešimas
+            head = "Rytoj" if kind == "e" else "Šiandien"
+            out.append({"title": f"🏡 {head}: {len(fresh)} užduotys",
+                        "message": ", ".join(t["title"] for t, _ in fresh[:12]), "tag": f"ukis_sum_{kind}"})
+            continue
+        for t, n in fresh:
+            when = "Rytoj" if n == 1 else "Šiandien" if n == 0 else f"Vėluoja {-n} d."
+            out.append({"title": f"🏡 {when}", "message": t["title"], "tag": f"ukis_task_{t['id']}",
+                        "actions": task_actions(t, kind)})
+    # seni įrašai – lauk
+    lim = (t0 - dt.timedelta(days=10)).isoformat()
+    sent = {k: v for k, v in sent.items() if v >= lim}
+    meta_set("notified", sent)
+    return out
+
+
+def handle_action(action):
+    m = re.match(ACTION_PREFIX + r"(DONE|TOMORROW)_(\d+)$", action or "")
+    if not m:
+        return
+    kind, tid = m.group(1), int(m.group(2))
+    with LOCK:
+        t = DB.execute("SELECT * FROM tasks WHERE id=?", (tid,)).fetchone()
+        if not t:
+            return
+        if kind == "DONE":
+            if not t["done"]:
+                act_task_complete({"id": tid, "note": "Pažymėta iš pranešimo"})
+        else:
+            nd = (dt.date.today() + dt.timedelta(days=1)).isoformat()
+            r = task_repeat(t)
+            if r and r["type"] == "cal":
+                r["next"] = r.get("next") or t["due"]
+                DB.execute("UPDATE tasks SET due=?, repeat=? WHERE id=?", (nd, json.dumps(r), tid))
+            elif r:
+                r["next"] = nd
+                DB.execute("UPDATE tasks SET due=?, repeat=? WHERE id=?", (nd, json.dumps(r), tid))
+            else:
+                DB.execute("UPDATE tasks SET due=? WHERE id=?", (nd, tid))
+        bump()
+        DB.commit()
+    CHANGED.set()
+    log("Pranešimo veiksmas:", action)
+
+
+def reminder_loop():
+    while True:
+        try:
+            with LOCK:
+                todo = collect_notifications()
+                DB.commit()
+            for n in todo:
+                try:
+                    send_notification(n["message"], title=n["title"], actions=n.get("actions"), tag=n.get("tag"))
+                    NOTIFY_STATE["error"] = ""
+                    log("Išsiųsta:", n["title"], n["message"])
+                except Exception as e:  # noqa
+                    NOTIFY_STATE["error"] = str(e)
+                    log("Pranešimo klaida:", e)
+        except Exception as e:  # noqa
+            log("Priminimų klaida:", e)
+        time.sleep(30)
+
+
+class MiniWS:
+    """Paprastas WebSocket klientas (pranešimų mygtukų paspaudimams gauti)."""
+
+    def __init__(self, host, port, path):
+        self.sock = socket.create_connection((host, port), timeout=30)
+        self.sock.setsockopt(socket.SOL_SOCKET, socket.SO_KEEPALIVE, 1)
+        key = base64.b64encode(os.urandom(16)).decode()
+        self.sock.sendall((f"GET {path} HTTP/1.1\r\nHost: {host}\r\nUpgrade: websocket\r\nConnection: Upgrade\r\n"
+                           f"Sec-WebSocket-Key: {key}\r\nSec-WebSocket-Version: 13\r\n\r\n").encode())
+        head = b""
+        while b"\r\n\r\n" not in head:
+            chunk = self.sock.recv(1024)
+            if not chunk:
+                raise ConnectionError("Ryšys nutrūko")
+            head += chunk
+        if b" 101 " not in head.split(b"\r\n", 1)[0]:
+            raise ConnectionError(head.split(b"\r\n", 1)[0].decode("latin-1"))
+        self.buf = head.split(b"\r\n\r\n", 1)[1]
+        self.sock.settimeout(None)
+
+    def _read(self, n):
+        while len(self.buf) < n:
+            chunk = self.sock.recv(65536)
+            if not chunk:
+                raise ConnectionError("Ryšys nutrūko")
+            self.buf += chunk
+        out, self.buf = self.buf[:n], self.buf[n:]
+        return out
+
+    def _send_frame(self, opcode, payload):
+        mask = os.urandom(4)
+        n = len(payload)
+        head = bytes([0x80 | opcode])
+        if n < 126:
+            head += bytes([0x80 | n])
+        elif n < 65536:
+            head += bytes([0x80 | 126]) + struct.pack(">H", n)
+        else:
+            head += bytes([0x80 | 127]) + struct.pack(">Q", n)
+        self.sock.sendall(head + mask + bytes(b ^ mask[i % 4] for i, b in enumerate(payload)))
+
+    def send(self, obj):
+        self._send_frame(0x1, json.dumps(obj).encode())
+
+    def recv(self):
+        data = b""
+        while True:
+            b0, b1 = self._read(2)
+            op, n = b0 & 0x0F, b1 & 0x7F
+            if n == 126:
+                n = struct.unpack(">H", self._read(2))[0]
+            elif n == 127:
+                n = struct.unpack(">Q", self._read(8))[0]
+            mask = self._read(4) if b1 & 0x80 else None
+            payload = self._read(n)
+            if mask:
+                payload = bytes(b ^ mask[i % 4] for i, b in enumerate(payload))
+            if op == 0x9:
+                self._send_frame(0xA, payload)
+                continue
+            if op == 0x8:
+                raise ConnectionError("Home Assistant uždarė ryšį")
+            if op in (0x0, 0x1, 0x2):
+                data += payload
+                if b0 & 0x80:
+                    return json.loads(data.decode("utf-8"))
+
+
+def action_listener():
+    while True:
+        try:
+            ws = MiniWS(HA_HOST, HA_PORT, "/core/websocket")
+            ws.recv()
+            ws.send({"type": "auth", "access_token": SUPERVISOR_TOKEN})
+            if ws.recv().get("type") != "auth_ok":
+                raise ConnectionError("Nepavyko prisijungti prie Home Assistant")
+            ws.send({"id": 1, "type": "subscribe_events", "event_type": "mobile_app_notification_action"})
+            NOTIFY_STATE["ws"] = True
+            log("Laukiama pranešimų mygtukų paspaudimų")
+            while True:
+                m = ws.recv()
+                if m.get("type") == "event":
+                    handle_action(((m.get("event") or {}).get("data") or {}).get("action", ""))
+        except Exception as e:  # noqa
+            NOTIFY_STATE["ws"] = False
+            log("Ryšys su HA nutrūko:", e)
+            time.sleep(20)
+
+
+def act_notify_test(d):
+    svcs = d.get("services") or None
+    send_notification("Bandomasis pranešimas – priminimai veikia ✓", title="🏡 Ūkis", services=svcs,
+                      actions=[{"action": f"{ACTION_PREFIX}TEST_0", "title": "Gerai"}], tag="ukis_test")
+    return {"ok": True}
+
+
 ACTIONS = {
     "save": act_save, "delete": act_delete, "order_tasks": act_order_tasks, "order": act_order,
-    "file_add": act_file_add, "task_complete": act_task_complete, "task_undo": act_task_undo, "settings_save": act_settings_save, "import": act_import, "restore": act_restore,
+    "file_add": act_file_add, "task_complete": act_task_complete, "task_undo": act_task_undo, "notify_test": act_notify_test, "settings_save": act_settings_save, "import": act_import, "restore": act_restore,
 }
 
 MIME = {".html": "text/html; charset=utf-8", ".js": "application/javascript; charset=utf-8",
@@ -751,6 +1020,13 @@ class Handler(BaseHTTPRequestHandler):
             if path == "api/state":
                 with LOCK:
                     return self.send(200, full_state())
+            if path == "api/notify_status":
+                try:
+                    services, err = notify_services(), ""
+                except Exception as e:  # noqa
+                    services, err = [], str(e)
+                return self.send(200, {"ha": bool(SUPERVISOR_TOKEN), "services": services, "ws": NOTIFY_STATE["ws"],
+                                       "error": err or NOTIFY_STATE["error"], "last_sent": NOTIFY_STATE["last_sent"]})
             if path == "api/ha":
                 with LOCK:
                     tok = meta_get("ics_token")
@@ -837,6 +1113,8 @@ def main():
     init_db()
     if SUPERVISOR_TOKEN:
         threading.Thread(target=sensor_loop, daemon=True).start()
+        threading.Thread(target=reminder_loop, daemon=True).start()
+        threading.Thread(target=action_listener, daemon=True).start()
     srv = ThreadingHTTPServer(("0.0.0.0", PORT), Handler)
     print(f"Ūkis veikia per prievadą {PORT}. Duomenys: {DATA_DIR}", flush=True)
     srv.serve_forever()

@@ -392,6 +392,8 @@ routes.task = id => {
       <div class="qdates">${quick.map(([l, d]) => `<button class="chip ${t.due === d ? 'on' : ''}" data-qd="${d}">${l}</button>`).join('')}</div></div></div>
     <div class="li" id="td-rep"><span class="ic">🔁</span><div class="grow"><div class="s">Kartojimas</div><div class="t ${t.rep ? '' : 'muted'}">${t.rep ? esc(repText(t.rep)) : 'Nesikartoja'}</div>
       ${t.rep && t.rep.type === 'cal' && t.rep.next && t.due && t.rep.next !== t.due ? `<div class="s" style="color:var(--warn);font-weight:700">Šį kartą perkelta (pagal grafiką – ${esc(shortDate(t.rep.next))})</div>` : ''}</div><span class="muted">›</span></div>
+    ${t.due ? `<label class="li"><span class="ic">${t.notify === 0 ? '🔕' : '🔔'}</span><div class="grow"><div class="t">Priminti telefone</div><div class="s">${S.settings.notify_services?.length ? (t.notify === 0 ? 'Šiai užduočiai išjungta' : notifyWhen()) : 'Telefonas dar nepasirinktas – ⚙️ Nustatymai'}</div></div>
+      <span class="switch"><input type="checkbox" id="td-notify" ${t.notify === 0 ? '' : 'checked'}><i></i></span></label>` : ''}
     <div class="li" style="align-items:flex-start"><span class="ic">🏷️</span><div class="grow"><div class="s">Žymos</div>
       <div class="tagpick">${tagsSorted().map(g => `<button class="chip ${t.tagIds.includes(g.id) ? 'on' : ''}" data-tt="${g.id}">${esc(tagLabel(g))}</button>`).join('')}<button class="chip" id="td-newtag">＋</button></div></div></div>
   </div>
@@ -444,6 +446,7 @@ routes.task = id => {
     $('#sheet-bg').onclick = () => { closeSheet(); render(); };
   };
   $('#td-rep').onclick = () => repeatSheet(t);
+  if ($('#td-notify')) $('#td-notify').onchange = e => saveRow('tasks', { id: t.id, notify: e.target.checked ? 1 : 0 });
   if ($('#td-done-rep')) { $('#td-done-rep').onclick = () => toggleDone(t); $('#td-skip').onclick = () => toggleDone(t, true); }
   $$('[data-log]').forEach(el => el.onclick = () => { const l = I.task_log[el.dataset.log]; if (confirm(`Ištrinti įrašą „atlikta ${l.date}“ iš istorijos?`)) delRow('task_log', l.id); });
   $('#td-due').onchange = e => setDue(e.target.value);
@@ -487,6 +490,13 @@ routes.task = id => {
   $$('[data-com]').forEach(el => el.onclick = () => commentSheet(I.comments[el.dataset.com]));
 };
 
+const phoneName = sv => sv.replace(/^mobile_app_/, '').replace(/_/g, ' ');
+function notifyWhen() {
+  const st = S.settings, w = [];
+  if (st.notify_evening !== false) w.push('vakare prieš ' + (st.evening_time || '20:00'));
+  if (st.notify_morning !== false) w.push('ryte ' + (st.morning_time || '07:30'));
+  return w.length ? w.join(' ir ') : 'Priminimai išjungti nustatymuose';
+}
 function repeatSheet(t) {
   const r = t.rep || { type: 'cal', every: 1, unit: 'w' };
   const first = t.due || T();
@@ -645,6 +655,17 @@ routes.settings = () => {
     ${[[0, 'Tik tą dieną'], [1, 'Iki kitos dienos pabaigos'], [3, '3 dienas'], [7, 'Savaitę']].map(([v, l]) => `<option value="${v}" ${keep == v ? 'selected' : ''}>${l}</option>`).join('')}</select></label>
     <div class="muted small" style="margin-top:6px">Vėliau jos pasislepia, bet visada pasiekiamos sekcijos apačioje („Rodyti atliktas“).</div></div>
 
+  <h2>🔔 Priminimai telefone</h2>
+  <div class="card pad stack" id="st-nt">
+    <div class="muted small">Priminimai siunčiami tik užduotims su data. Pranešime yra mygtukas <b>✓ Atlikta</b>, o ryte – ir <b>Rytoj</b> (atidėti dienai).</div>
+    <div><div class="muted small" style="margin:0 2px 6px">Į kuriuos telefonus siųsti</div><div id="st-phones" class="muted small">Ieškoma telefonų…</div></div>
+    <label class="row"><span class="grow"><b>Vakare prieš</b><br><span class="muted small">kas bus rytoj</span></span><input type="time" id="st-et" value="${esc(S.settings.evening_time || '20:00')}" style="width:auto"><span class="switch"><input type="checkbox" id="st-ev" ${S.settings.notify_evening !== false ? 'checked' : ''}><i></i></span></label>
+    <label class="row"><span class="grow"><b>Ryte tą dieną</b><br><span class="muted small">kas šiandien</span></span><input type="time" id="st-mt" value="${esc(S.settings.morning_time || '07:30')}" style="width:auto"><span class="switch"><input type="checkbox" id="st-mo" ${S.settings.notify_morning !== false ? 'checked' : ''}><i></i></span></label>
+    <label class="row"><span class="grow"><b>Ryte priminti pavėluotas</b><br><span class="muted small">kasdien, kol nepažymėsite</span></span><span class="switch"><input type="checkbox" id="st-ov" ${S.settings.notify_overdue !== false ? 'checked' : ''}><i></i></span></label>
+    <button class="btn block" id="st-test">📨 Išbandyti pranešimą</button>
+    <div class="muted small" id="st-ntstat"></div>
+  </div>
+
   <h2>🏠 Home Assistant</h2>
   <div class="card pad stack" id="st-ha">
     <label class="field"><span>Kiek dienų į priekį rodyti HA kortelėje</span><select id="st-hadays">${[3, 7, 14, 30].map(v => `<option value="${v}" ${(S.settings.ha_days ?? 7) == v ? 'selected' : ''}>${v} d.</option>`).join('')}</select></label>
@@ -659,7 +680,7 @@ routes.settings = () => {
     <label class="li go"><span class="ic">♻️</span><div class="grow"><div class="t">Atkurti iš kopijos</div><div class="s">Dabartiniai duomenys bus pakeisti</div></div><input type="file" id="st-restore" accept=".zip" hidden></label>
     <label class="li go"><span class="ic">📥</span><div class="grow"><div class="t">Importuoti užduotis (.json)</div><div class="s">Tik papildo, nieko netrina</div></div><input type="file" id="st-import" accept=".json,application/json" hidden></label>
   </div>
-  <p class="muted small center" style="margin-top:18px">Ūkis 1.1.1 · Duomenys patenka į Home Assistant atsargines kopijas</p>`;
+  <p class="muted small center" style="margin-top:18px">Ūkis 1.2.0 · Duomenys patenka į Home Assistant atsargines kopijas</p>`;
   $('#st-sec-new').onclick = () => sectionSheet();
   $('#st-tag-new').onclick = () => tagSheet();
   $$('[data-sedit]').forEach(el => el.onclick = () => sectionMenu(I.sections[el.dataset.sedit]));
@@ -673,6 +694,30 @@ routes.settings = () => {
   $$('[data-tmv]').forEach(mover(tagsSorted, 'tags'));
   $('#st-keep').onchange = e => act('settings_save', { done_keep_days: +e.target.value });
   $('#st-hadays').onchange = e => act('settings_save', { ha_days: +e.target.value });
+  // priminimai
+  const ntSave = o => act('settings_save', o, true).then(() => toast('Išsaugota'));
+  $('#st-ev').onchange = e => ntSave({ notify_evening: e.target.checked });
+  $('#st-mo').onchange = e => ntSave({ notify_morning: e.target.checked });
+  $('#st-ov').onchange = e => ntSave({ notify_overdue: e.target.checked });
+  $('#st-et').onchange = e => e.target.value && ntSave({ evening_time: e.target.value });
+  $('#st-mt').onchange = e => e.target.value && ntSave({ morning_time: e.target.value });
+  api('api/notify_status').then(n => {
+    const sel = S.settings.notify_services || [];
+    const all = [...new Set([...n.services, ...sel])];
+    $('#st-phones').innerHTML = !n.ha ? 'Veikia ne Home Assistant viduje.' : all.length
+      ? `<div class="chips" style="flex-wrap:wrap">${all.map(sv => `<button type="button" class="chip ${sel.includes(sv) ? 'on' : ''}" data-ph="${esc(sv)}">📱 ${esc(phoneName(sv))}</button>`).join('')}</div>`
+      : 'Telefonų nerasta. Įsidiekite Home Assistant programėlę telefone ir prisijunkite.';
+    $$('[data-ph]').forEach(b => b.onclick = () => {
+      const v = b.dataset.ph, cur = S.settings.notify_services || [];
+      const next = cur.includes(v) ? cur.filter(x => x !== v) : [...cur, v];
+      S.settings.notify_services = next; b.classList.toggle('on', next.includes(v)); ntSave({ notify_services: next });
+    });
+    $('#st-ntstat').innerHTML = n.error ? `⚠️ ${esc(n.error)}` : (n.ws ? '✓ Mygtukai pranešimuose veikia' : '') + (n.last_sent ? ` · paskutinis pranešimas ${esc(stamp(n.last_sent))}` : '');
+  }).catch(() => { $('#st-phones').textContent = ''; });
+  $('#st-test').onclick = async () => {
+    if (!(S.settings.notify_services || []).length) return toast('Pirma pasirinkite telefoną');
+    await api('api/do/notify_test', {}); toast('Išsiųsta – pažiūrėkite telefoną');
+  };
   let HA = null;
   api('api/ha').then(h => {
     HA = h;

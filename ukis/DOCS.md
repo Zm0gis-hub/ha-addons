@@ -81,9 +81,17 @@ Užduotis galima suvesti ir iš `.json` failo (pvz. paprašius Claude paruošti 
 
 ---
 
-## 7. Kas bus toliau
+## 7. Priminimai telefone
 
-- **1.2** – priminimai į telefoną (vakare prieš ir ryte) su mygtuku „Atlikta“.
+**⚙️ → Priminimai telefone:**
+1. Pasirinkite telefoną (-us). Sąraše matomi visi telefonai, kuriuose įdiegta ir prijungta Home Assistant programėlė.
+2. Įjunkite **Vakare prieš** (kas bus rytoj) ir / ar **Ryte tą dieną** (kas šiandien) ir nustatykite laiką.
+3. **Ryte priminti pavėluotas** – kasdien ryte, kol užduotis nepažymėta.
+4. Spauskite **Išbandyti pranešimą**.
+
+Pranešime yra mygtukas **✓ Atlikta** – užduotis pažymima programoje (pasikartojanti persikelia į kitą datą). Ryto pranešime dar yra **Rytoj** – užduotis atidedama vienai dienai (pasikartojančios grafikas nesikeičia).
+
+Priminimai siunčiami tik užduotims su data. Konkrečiai užduočiai juos galima išjungti užduoties lange (**🔔 Priminti telefone**). Jei vienu metu užduočių daugiau nei 4, ateina vienas suvestinės pranešimas.
 
 ---
 
