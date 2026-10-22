@@ -55,7 +55,7 @@ function buildIndex() {
 
 // sinchronizacija tarp telefonų – tikrinam kas 4 s
 setInterval(async () => {
-  if (!S || document.hidden || busyEditing || !$('#sheet').hidden || /INPUT|TEXTAREA|SELECT/.test(document.activeElement?.tagName || '')) return;
+  if (!S || document.hidden || busyEditing || window.DRAGGING || !$('#sheet').hidden || /INPUT|TEXTAREA|SELECT/.test(document.activeElement?.tagName || '')) return;
   try {
     const v = await (await fetch('api/version')).json();
     if (v.version !== S.version) {
@@ -314,7 +314,7 @@ function itemRow(row, mode) {
   const notes = row.notes.length ? `<span class="note">${highlight(row.notes.join(', '))}</span>` : '';
   const badge = st.state === 'low' ? '<span class="badge low">baigiasi</span>' : (st.state === 'need' && row.p.always_have ? '<span class="badge need">reikia</span>' : '');
   const sec = IDX.s[row.p.section_id];
-  const emo = `<span class="semoji" title="${esc(sec ? sec.name : 'Be kategorijos')}">${sec ? esc(sec.emoji || '•') : '❓'}</span>`;
+  const emo = `<span class="semoji grip" title="${esc(sec ? sec.name : 'Be kategorijos')}">${sec ? esc(sec.emoji || '•') : '❓'}</span>`;
   const mid = `<div class="grow" data-info="${row.pid}"><div class="name">${esc(row.p.name)}${badge}</div>${chips || notes ? `<div class="sub">${chips}${notes}</div>` : ''}</div>`;
   if (mode === 'check') {
     const s = st.state || '';
@@ -332,7 +332,7 @@ function shopView(L) {
   }
   let h = '';
   if (!L.toBuy.length) h += `<div class="empty"><span class="big">🎉</span>Viskas nupirkta!</div>`;
-  if (L.toBuy.length) h += `<div class="card items" id="sortlist">${manualSort(L.toBuy).map(r => itemRow(r, 'shop')).join('')}</div><p class="muted small center" style="margin:6px 0 0">Ilgai palaikykite prekę, kad perkeltumėte</p>`;
+  if (L.toBuy.length) h += `<div class="card items" id="sortlist">${manualSort(L.toBuy).map(r => itemRow(r, 'shop')).join('')}</div><p class="muted small center" style="margin:6px 0 0">Tvarką keiskite tempdami už ženkliuko kairėje (arba ilgai palaikę prekę)</p>`;
   if (L.bought.length) h += `<details class="fold" ${UI.openBought ? 'open' : ''} data-fold="openBought"><summary>Nupirkta (${L.bought.length})</summary><div class="card items">${manualSort(L.bought).map(r => itemRow(r, 'shop')).join('')}</div></details>`;
   const haveAll = [...L.have, ...L.always];
   if (haveAll.length) h += `<details class="fold" data-fold="openHave" ${UI.openHave ? 'open' : ''}><summary>Turima namie (${haveAll.length})</summary><div class="card items">${haveAll.map(r => `<div class="item"><div class="grow" data-info="${r.pid}"><div class="name muted">${esc(r.p.name)}</div></div><div class="qty muted">${esc(fmtAmounts(r.amounts))}</div></div>`).join('')}</div></details>`;
@@ -389,7 +389,7 @@ function longPressSort(box, onDone) {
   const begin = el => {
     rows = $$('.item[data-row]', box); idx = rows.indexOf(el); target = idx; drag = el;
     centers = rows.map(r => { const b = r.getBoundingClientRect(); return b.top + b.height / 2; });
-    h = el.offsetHeight; startY = sy; el.classList.add('dragging'); navigator.vibrate && navigator.vibrate(20);
+    h = el.offsetHeight; startY = sy; window.DRAGGING = true; el.classList.add('dragging'); navigator.vibrate && navigator.vibrate(20);
   };
   const move = y => {
     const dy = y - startY, c = centers[idx] + dy;
@@ -403,7 +403,7 @@ function longPressSort(box, onDone) {
     if (!drag) return;
     rows.forEach(r => { r.style.transform = ''; r.style.transition = ''; }); drag.classList.remove('dragging');
     const ids = rows.map(r => +r.dataset.row); const [m] = ids.splice(idx, 1); ids.splice(target, 0, m);
-    const changed = target !== idx; drag = null; suppress = true; setTimeout(() => suppress = false, 400);
+    const changed = target !== idx; drag = null; window.DRAGGING = false; suppress = true; setTimeout(() => suppress = false, 400);
     if (changed) onDone(ids);
   };
   const press = (x, y, t) => {
@@ -411,7 +411,13 @@ function longPressSort(box, onDone) {
     const el = t.closest('.item[data-row]'); if (!el) return;
     sx = x; sy = y; clearTimeout(timer); timer = setTimeout(() => begin(el), 420);
   };
-  box.addEventListener('touchstart', e => press(e.touches[0].clientX, e.touches[0].clientY, e.target), { passive: true });
+  // rankenėlė: tempimas prasideda iš karto (patikima ir HA programėlėje)
+  const grab = (x, y, t) => {
+    const g = t.closest('.grip'); if (!g || !box.contains(g)) return false;
+    const el = g.closest('.item[data-row]'); if (!el) return false;
+    sx = x; sy = y; clearTimeout(timer); timer = null; begin(el); return true;
+  };
+  box.addEventListener('touchstart', e => { if (grab(e.touches[0].clientX, e.touches[0].clientY, e.target)) { e.preventDefault(); return; } press(e.touches[0].clientX, e.touches[0].clientY, e.target); }, { passive: false });
   box.addEventListener('touchmove', e => {
     const t = e.touches[0];
     if (!drag) { if (Math.abs(t.clientY - sy) > 8 || Math.abs(t.clientX - sx) > 8) { clearTimeout(timer); timer = null; } return; }
@@ -419,7 +425,7 @@ function longPressSort(box, onDone) {
   }, { passive: false });
   box.addEventListener('touchend', finish); box.addEventListener('touchcancel', finish);
   box.addEventListener('mousedown', e => {
-    press(e.clientX, e.clientY, e.target);
+    if (grab(e.clientX, e.clientY, e.target)) e.preventDefault(); else press(e.clientX, e.clientY, e.target);
     const mm = ev => { if (!drag) { if (Math.abs(ev.clientY - sy) > 6) clearTimeout(timer); return; } ev.preventDefault(); move(ev.clientY); };
     const mu = () => { document.removeEventListener('mousemove', mm); document.removeEventListener('mouseup', mu); finish(); };
     document.addEventListener('mousemove', mm); document.addEventListener('mouseup', mu);
@@ -1002,7 +1008,7 @@ routes.more = () => {
     <a class="menu-link" href="#stats"><span>📊</span><span>Statistika ir istorija</span></a>
     <a class="menu-link" href="#data"><span>💾</span><span>Importas ir eksportas</span></a>
   </div>
-  <p class="muted small center" style="margin-top:20px">Receptai v1.8.2 · ${S.recipes.length} receptai · ${S.products.length} produktai</p>`;
+  <p class="muted small center" style="margin-top:20px">Receptai v1.8.3 · ${S.recipes.length} receptai · ${S.products.length} produktai</p>`;
 };
 
 // --- Parduotuvės skyriai (tempimas aukštyn/žemyn)

@@ -153,6 +153,7 @@ function taskRow(t, o = {}) {
   return `<div class="tk ${t.done ? 'done' : ''} ${di ? 'd-' + di.cls : ''}" ${o.sortable ? 'data-sort' : ''} data-task="${t.id}">
     <button class="ck" data-ck="${t.id}" aria-label="Atlikta"></button>
     <div class="grow tk-b" data-open="${t.id}"><div class="tk-t">${esc(t.title)}</div>${t.notes && t.notes.trim() ? `<div class="tk-n">${esc(t.notes.replace(/\s+/g, ' ').trim())}</div>` : ''}${meta.length ? `<div class="tk-m">${meta.join('')}</div>` : ''}</div>
+    ${o.sortable ? '<span class="grip" aria-label="Tempti">⠿</span>' : ''}
   </div>`;
 }
 function bindTaskRows(root = view) {
@@ -420,7 +421,7 @@ routes.task = id => {
 
   <h2>☑ Sub-užduotys${subs.length ? ` <span class="muted small">${subs.filter(s => s.done).length}/${subs.length}</span>` : ''}</h2>
   <div class="card" id="subs">${subs.map(s => `<div class="sub ${s.done ? 'done' : ''}" data-sub="${s.id}"><button class="ck sm" data-sck="${s.id}"></button>
-      <input type="text" class="plain" value="${esc(s.title)}" data-sti="${s.id}"><button class="x-btn" data-sdel="${s.id}" aria-label="Ištrinti">×</button></div>`).join('')}
+      <input type="text" class="plain" value="${esc(s.title)}" data-sti="${s.id}"><button class="x-btn" data-sdel="${s.id}" aria-label="Ištrinti">×</button><span class="grip" aria-label="Tempti">⠿</span></div>`).join('')}
     <form id="sub-new" class="sub"><span class="ck sm ghost"></span><input type="text" class="plain" placeholder="＋ Pridėti sub-užduotį" enterkeyhint="done"></form>
   </div>
 
@@ -712,7 +713,7 @@ routes.settings = () => {
     <label class="li go"><span class="ic">♻️</span><div class="grow"><div class="t">Atkurti iš kopijos</div><div class="s">Dabartiniai duomenys bus pakeisti</div></div><input type="file" id="st-restore" accept=".zip" hidden></label>
     <label class="li go"><span class="ic">📥</span><div class="grow"><div class="t">Importuoti užduotis (.json)</div><div class="s">Tik papildo, nieko netrina</div></div><input type="file" id="st-import" accept=".json,application/json" hidden></label>
   </div>
-  <p class="muted small center" style="margin-top:18px">Ūkis 1.3.3 · Duomenys patenka į Home Assistant atsargines kopijas</p>`;
+  <p class="muted small center" style="margin-top:18px">Ūkis 1.3.4 · Duomenys patenka į Home Assistant atsargines kopijas</p>`;
   $('#st-sec-new').onclick = () => sectionSheet();
   $('#st-tag-new').onclick = () => tagSheet();
   $$('[data-sedit]').forEach(el => el.onclick = () => sectionMenu(I.sections[el.dataset.sedit]));
@@ -821,7 +822,13 @@ function longPressSort(box, sel, canDrag, onDone) {
     const el = t.closest(sel); if (!el || !box.contains(el) || !canDrag(el)) return;
     sx = x; sy = y; clearTimeout(timer); timer = setTimeout(() => begin(el), 420);
   };
-  box.addEventListener('touchstart', e => press(e.touches[0].clientX, e.touches[0].clientY, e.target), { passive: true });
+  // rankenėlė: tempimas prasideda iš karto (patikima ir HA programėlėje)
+  const grab = (x, y, t) => {
+    const g = t.closest('.grip'); if (!g || !box.contains(g)) return false;
+    const el = g.closest(sel); if (!el || !canDrag(el)) return false;
+    sx = x; sy = y; clearTimeout(timer); timer = null; begin(el); return true;
+  };
+  box.addEventListener('touchstart', e => { if (grab(e.touches[0].clientX, e.touches[0].clientY, e.target)) { e.preventDefault(); return; } press(e.touches[0].clientX, e.touches[0].clientY, e.target); }, { passive: false });
   box.addEventListener('touchmove', e => {
     const t = e.touches[0];
     if (!drag) { if (Math.abs(t.clientY - sy) > 8 || Math.abs(t.clientX - sx) > 8) { clearTimeout(timer); timer = null; } return; }
@@ -829,7 +836,7 @@ function longPressSort(box, sel, canDrag, onDone) {
   }, { passive: false });
   box.addEventListener('touchend', finish); box.addEventListener('touchcancel', finish);
   box.addEventListener('mousedown', e => {
-    press(e.clientX, e.clientY, e.target);
+    if (grab(e.clientX, e.clientY, e.target)) e.preventDefault(); else press(e.clientX, e.clientY, e.target);
     const mm = ev => { if (!drag) { if (Math.abs(ev.clientY - sy) > 6) clearTimeout(timer); return; } ev.preventDefault(); move(ev.clientY); };
     const mu = () => { document.removeEventListener('mousemove', mm); document.removeEventListener('mouseup', mu); finish(); };
     document.addEventListener('mousemove', mm); document.addEventListener('mouseup', mu);

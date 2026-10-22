@@ -66,3 +66,7 @@
 
 ## 1.8.2
 - 📋 mygtukas prie įvedimo lauko pašalintas; „Įklijuoti sąrašą“ perkeltas į ⋮ meniu.
+
+## 1.8.3
+- Pirkinių sąrašo tvarką galima keisti tempiant už kategorijos ženkliuko kairėje – tempimas prasideda iš karto ir veikia HA programėlėje telefone.
+- Tempiant sąrašas nebepersipiešia dėl sinchronizacijos.
