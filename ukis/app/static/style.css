@@ -558,3 +558,8 @@ textarea.plain, input.plain { border: 0 !important; box-shadow: none !important;
 .emo-row { display: flex; gap: 10px; align-items: center; }
 .emo-row input { width: 64px !important; flex: none; text-align: center; font-size: 28px; padding: 4px; min-height: 56px; }
 div.field > span { display: block; font-size: 13px; color: var(--muted); margin: 0 2px 4px; }
+/* 1.3.2: emoji + pavadinimas vienoje eilutėje */
+.name-row { display: flex; gap: 8px; align-items: stretch; }
+.name-row .emo { width: 64px !important; flex: none; text-align: center; font-size: 24px; padding: 4px; }
+.name-row .emo::placeholder { font-size: 12px; color: var(--muted); opacity: .8; }
+.name-row input[name=name] { flex: 1; min-width: 0; }

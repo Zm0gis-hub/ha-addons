@@ -1,5 +1,8 @@
 # Pakeitimai
 
+## 1.3.2
+- Sekcijos ir žymos lange emoji ir pavadinimas vienoje eilutėje; emoji renkamas iš telefono klaviatūros, siūlomų ženkliukų sąrašas pašalintas.
+
 ## 1.3.1
 - Sekcijų ir žymų ženkliukui galima įrašyti bet kurį emoji iš telefono klaviatūros (taip pat vėliavas ir kitus sudėtinius).
 

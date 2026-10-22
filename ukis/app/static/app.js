@@ -281,12 +281,10 @@ function sectionMenu(s) {
   });
 }
 
-const EMOJI_SUGGEST = ['🔨', '🛒', '💡', '📞', '🏡', '🌳', '🚗', '🧹', '🔧', '💰', '📄', '🎁', '🐶', '🏬', '⚡', '🧾'];
-function emojiField(v) {
-  return `<div class="field"><span>Ženkliukas (nebūtinas)</span>
-    <div class="emo-row"><input type="text" name="emoji" id="emo-in" value="${esc(v || '')}" autocomplete="off" placeholder="🙂" aria-label="Ženkliukas">
-      <div class="muted small">Paspauskite laukelį ir telefono klaviatūroje atsidarykite <b>🙂 emoji</b> skiltį – tinka bet kuris. Arba pasirinkite žemiau.</div></div></div>
-    <div class="emojis">${EMOJI_SUGGEST.map(e => `<button type="button" data-em="${e}">${e}</button>`).join('')}</div>`;
+// emoji ir pavadinimas vienoje eilutėje (emoji – iš telefono klaviatūros)
+function nameRow(v, ph) {
+  return `<div class="name-row"><input type="text" name="emoji" class="emo" value="${esc(v?.emoji || '')}" placeholder="emoji" autocomplete="off" aria-label="Emoji">
+    <input type="text" name="name" value="${esc(v?.name || '')}" placeholder="${esc(ph)}" aria-label="Pavadinimas"></div>`;
 }
 // paliekamas tik vienas (paskutinis įvestas) emoji
 function oneEmoji(str) {
@@ -298,16 +296,14 @@ function oneEmoji(str) {
 function bindEmoji(form) {
   const inp = form.elements.emoji;
   inp.addEventListener('input', () => { const one = oneEmoji(inp.value); if (one !== inp.value) inp.value = one; });
-  $$('[data-em]', form).forEach(b => b.onclick = () => { inp.value = inp.value === b.dataset.em ? '' : b.dataset.em; });
 }
 
 function sectionSheet(s) {
   formSheet({
-    title: s ? 'Sekcija' : 'Nauja sekcija', values: s || {},
-    fields: [{ k: 'name', label: 'Pavadinimas', ph: 'pvz. Darbai, Pirkiniai, Skambučiai' }],
-    extra: emojiField(s?.emoji),
+    title: s ? 'Sekcija' : 'Nauja sekcija', fields: [],
+    pre: nameRow(s, 'Pavadinimas, pvz. Darbai'),
     bind: f => { bindEmoji(f); if (!s) setTimeout(() => f.elements.name.focus(), 50); },
-    onSave: async (v, f) => { await saveRow('sections', { id: s?.id, name: v.name, emoji: oneEmoji(f.elements.emoji.value) }); },
+    onSave: async (v, f) => { await saveRow('sections', { id: s?.id, name: f.elements.name.value, emoji: oneEmoji(f.elements.emoji.value) }); },
   });
 }
 function sectionDelete(s) {
@@ -375,11 +371,10 @@ routes.find = () => {
 
 function tagSheet(g, after) {
   formSheet({
-    title: g ? 'Žyma' : 'Nauja žyma', values: g || {},
-    fields: [{ k: 'name', label: 'Pavadinimas', ph: 'pvz. Senukai, Ermitažas, Prie progos' }],
-    extra: emojiField(g?.emoji),
+    title: g ? 'Žyma' : 'Nauja žyma', fields: [],
+    pre: nameRow(g, 'Pavadinimas, pvz. Senukai'),
     bind: f => { bindEmoji(f); if (!g) setTimeout(() => f.elements.name.focus(), 50); },
-    onSave: async (v, f) => { const r = await saveRow('tags', { id: g?.id, name: v.name, emoji: oneEmoji(f.elements.emoji.value) }); after && after(r.id); },
+    onSave: async (v, f) => { const r = await saveRow('tags', { id: g?.id, name: f.elements.name.value, emoji: oneEmoji(f.elements.emoji.value) }); after && after(r.id); },
     onDelete: g ? async () => { await delRow('tags', g.id); } : null,
   });
 }
@@ -718,7 +713,7 @@ routes.settings = () => {
     <label class="li go"><span class="ic">♻️</span><div class="grow"><div class="t">Atkurti iš kopijos</div><div class="s">Dabartiniai duomenys bus pakeisti</div></div><input type="file" id="st-restore" accept=".zip" hidden></label>
     <label class="li go"><span class="ic">📥</span><div class="grow"><div class="t">Importuoti užduotis (.json)</div><div class="s">Tik papildo, nieko netrina</div></div><input type="file" id="st-import" accept=".json,application/json" hidden></label>
   </div>
-  <p class="muted small center" style="margin-top:18px">Ūkis 1.3.1 · Duomenys patenka į Home Assistant atsargines kopijas</p>`;
+  <p class="muted small center" style="margin-top:18px">Ūkis 1.3.2 · Duomenys patenka į Home Assistant atsargines kopijas</p>`;
   $('#st-sec-new').onclick = () => sectionSheet();
   $('#st-tag-new').onclick = () => tagSheet();
   $$('[data-sedit]').forEach(el => el.onclick = () => sectionMenu(I.sections[el.dataset.sedit]));
