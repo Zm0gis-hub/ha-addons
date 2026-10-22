@@ -1,5 +1,8 @@
 # Pakeitimai
 
+## 1.3.5
+- ⚙️ apačioje – „🧪 Tempimo testas“ (diagnostika, kodėl HA programėlėje neveikia tempimas).
+
 ## 1.3.4
 - Užduočių ir sub-užduočių eilutėse – rankenėlė ⠿: palietus tempimas prasideda iš karto (veikia HA programėlėje telefone). Ilgas paspaudimas taip pat lieka.
 

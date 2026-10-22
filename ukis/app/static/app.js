@@ -713,7 +713,8 @@ routes.settings = () => {
     <label class="li go"><span class="ic">♻️</span><div class="grow"><div class="t">Atkurti iš kopijos</div><div class="s">Dabartiniai duomenys bus pakeisti</div></div><input type="file" id="st-restore" accept=".zip" hidden></label>
     <label class="li go"><span class="ic">📥</span><div class="grow"><div class="t">Importuoti užduotis (.json)</div><div class="s">Tik papildo, nieko netrina</div></div><input type="file" id="st-import" accept=".json,application/json" hidden></label>
   </div>
-  <p class="muted small center" style="margin-top:18px">Ūkis 1.3.4 · Duomenys patenka į Home Assistant atsargines kopijas</p>`;
+  <button class="btn block" id="st-dbg" style="margin-top:18px">🧪 Tempimo testas</button>
+  <p class="muted small center" style="margin-top:18px">Ūkis 1.3.5 · Duomenys patenka į Home Assistant atsargines kopijas</p>`;
   $('#st-sec-new').onclick = () => sectionSheet();
   $('#st-tag-new').onclick = () => tagSheet();
   $$('[data-sedit]').forEach(el => el.onclick = () => sectionMenu(I.sections[el.dataset.sedit]));
@@ -763,6 +764,7 @@ routes.settings = () => {
     if (!confirm('Atkurti iš kopijos? Dabartiniai duomenys bus pakeisti.')) return;
     const uid = await uploadFile(f, 'Įkeliama kopija…'); await act('restore', { upload: uid }); toast('Atkurta');
   };
+  $('#st-dbg').onclick = dragTest;
   $('#st-import').onchange = async e => {
     const f = e.target.files[0]; if (!f) return;
     try { const r = await act('import', { data: await f.text() }); toast(`Importuota: ${r.imported.uzduotys} užd., ${r.imported.sekcijos} nauj. sekc.`); }
@@ -788,6 +790,39 @@ function copySheet(title, intro, text, after) {
       try { await navigator.clipboard.writeText(text); } catch (e) { ta.select(); document.execCommand('copy'); }
       toast('Nukopijuota');
     };
+  });
+}
+
+// ---- tempimo testas (diagnostikai HA programėlėje)
+function dragTest() {
+  sheet(`<h3>🧪 Tempimo testas</h3>
+    <p class="small">Uždėkite pirštą ant kiekvieno langelio ir patempkite aukštyn–žemyn. Tada padarykite ekrano kopiją ir atsiųskite.</p>
+    <div class="row" style="gap:8px"><div class="dpad" id="dp1">A<br><span class="small">paprastas</span></div><div class="dpad" id="dp2" style="touch-action:none">B<br><span class="small">touch-action</span></div><div class="dpad" id="dp3" style="touch-action:none">C<br><span class="small">pointer</span></div></div>
+    <pre id="dlog" class="dlog"></pre><div class="muted small" style="word-break:break-all">${esc(navigator.userAgent)}</div>`, () => {
+    const L = [], cnt = {};
+    const log = (pad, e, extra = '') => {
+      const k = pad + ':' + e.type; cnt[k] = (cnt[k] || 0) + 1;
+      if (e.type.endsWith('move') && cnt[k] > 3 && cnt[k] % 10) { draw(); return; }
+      const pt = e.touches ? (e.touches[0] || e.changedTouches[0]) : e;
+      L.push(`${pad} ${e.type}${e.cancelable === false ? ' (!c)' : ''} y=${pt ? Math.round(pt.clientY) : '-'}${extra}`);
+      if (L.length > 40) L.shift(); draw();
+    };
+    const draw = () => { $('#dlog').textContent = Object.entries(cnt).map(([k, v]) => `${k}=${v}`).join('  ') + '\n' + L.slice(-18).join('\n'); };
+    const sheetEl = $('#sheet');
+    for (const id of ['dp1', 'dp2']) {
+      const el = $('#' + id), pad = id === 'dp1' ? 'A' : 'B';
+      el.addEventListener('touchstart', e => { log(pad, e); if (pad === 'B') e.preventDefault(); }, { passive: false });
+      el.addEventListener('touchmove', e => { log(pad, e); e.preventDefault(); el.style.transform = `translateY(${Math.round(e.touches[0].clientY - el._y0)}px)`; }, { passive: false });
+      el.addEventListener('touchstart', e => { el._y0 = e.touches[0].clientY; }, { passive: true });
+      el.addEventListener('touchend', e => { log(pad, e); el.style.transform = ''; });
+      el.addEventListener('touchcancel', e => { log(pad, e); el.style.transform = ''; });
+    }
+    const c = $('#dp3');
+    c.addEventListener('pointerdown', e => { log('C', e, ' ' + e.pointerType); c._y0 = e.clientY; try { c.setPointerCapture(e.pointerId); } catch (x) { } e.preventDefault(); });
+    c.addEventListener('pointermove', e => { if (c._y0 == null) return; log('C', e); c.style.transform = `translateY(${Math.round(e.clientY - c._y0)}px)`; });
+    c.addEventListener('pointerup', e => { log('C', e); c._y0 = null; c.style.transform = ''; });
+    c.addEventListener('pointercancel', e => { log('C', e); c._y0 = null; c.style.transform = ''; });
+    void sheetEl;
   });
 }
 
