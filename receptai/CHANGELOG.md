@@ -73,3 +73,6 @@
 
 ## 1.8.4
 - Pirkinių sąraše mygtukas „↕️ Keisti tvarką“: prie prekių atsiranda ▲ ▼ (veikia ir HA programėlėje, kur tempimas pirštu neveikia).
+
+## 1.8.5
+- Pirkinių sąrašas grąžintas į 1.8.2 būseną (atšaukti 1.8.3 ir 1.8.4 tempimo ir ▲▼ pakeitimai).
