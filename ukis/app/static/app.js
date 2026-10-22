@@ -153,7 +153,7 @@ function taskRow(t, o = {}) {
   return `<div class="tk ${t.done ? 'done' : ''} ${di ? 'd-' + di.cls : ''}" ${o.sortable ? 'data-sort' : ''} data-task="${t.id}">
     <button class="ck" data-ck="${t.id}" aria-label="Atlikta"></button>
     <div class="grow tk-b" data-open="${t.id}"><div class="tk-t">${esc(t.title)}</div>${t.notes && t.notes.trim() ? `<div class="tk-n">${esc(t.notes.replace(/\s+/g, ' ').trim())}</div>` : ''}${meta.length ? `<div class="tk-m">${meta.join('')}</div>` : ''}</div>
-    ${o.sortable ? '<span class="grip" aria-label="Tempti">⠿</span>' : ''}
+    ${o.sortable && UI.sortMode ? `<span class="mv2"><button data-mv="${t.id}:-1" aria-label="Aukštyn">▲</button><button data-mv="${t.id}:1" aria-label="Žemyn">▼</button></span>` : ''}
   </div>`;
 }
 function bindTaskRows(root = view) {
@@ -173,10 +173,10 @@ function dueWord(d) { const n = diffDays(T(), d); return n === 0 ? 'šiandien' :
 // ============================================================ UŽDUOTYS (sąrašas su sekcijomis)
 let addingIn = null; // sekcija, kurioje atidarytas įvedimo laukelis
 routes.list = () => {
-  setTop('Ūkis', { actions: `<button class="icon-btn" data-go="#settings" aria-label="Nustatymai">⚙️</button>` });
+  setTop('Ūkis', { actions: `<button class="icon-btn ${UI.sortMode ? 'on' : ''}" id="sort-tg" aria-label="Keisti tvarką">↕️</button><button class="icon-btn" data-go="#settings" aria-label="Nustatymai">⚙️</button>` });
   const secs = sectionsSorted();
   if (!secs.some(s => s.id === UI.qaSec)) UI.qaSec = secs[0]?.id;
-  let h = `<form id="qa" class="qa" autocomplete="off"><input type="text" id="qa-in" placeholder="＋ Nauja užduotis…" enterkeyhint="done">
+  let h = UI.sortMode ? `<div class="sortbar"><span class="grow">↕️ <b>Tvarkos keitimas</b><br><span class="small">▲ ▼ perkelia užduotį; iš sekcijos krašto – į kaimyninę sekciją</span></span><button class="btn small primary" id="sort-done">Baigti</button></div><div id="tlist" class="sorting">` : `<form id="qa" class="qa" autocomplete="off"><input type="text" id="qa-in" placeholder="＋ Nauja užduotis…" enterkeyhint="done">
     <button type="button" class="qa-sec" id="qa-sec">${esc(secLabel(I.sections[UI.qaSec]))} ▾</button></form>
     <div id="tlist">`;
   for (const s of secs) {
@@ -188,6 +188,7 @@ routes.list = () => {
       <button class="icon-btn" data-secm="${s.id}" aria-label="Sekcijos meniu">⋯</button></div>`;
     if (col) continue;
     h += `<div class="tk-card">${vis.map(t => taskRow(t, { sortable: true })).join('')}`;
+    if (UI.sortMode) { h += `</div>`; continue; }
     h += addingIn === s.id
       ? `<form class="tk-new" data-newf="${s.id}"><span class="ck ghost"></span><input type="text" placeholder="Užduoties pavadinimas" enterkeyhint="done"></form>`
       : `<div class="tk-add" data-addin="${s.id}">＋ Pridėti užduotį</div>`;
@@ -203,7 +204,7 @@ routes.list = () => {
   bindTaskRows();
 
   const qa = $('#qa');
-  qa.onsubmit = async e => {
+  if (qa) qa.onsubmit = async e => {
     e.preventDefault();
     const inp = $('#qa-in'), title = inp.value.trim();
     if (!title) return;
@@ -212,7 +213,7 @@ routes.list = () => {
     render(); $('#qa-in').focus();
     toast(`Pridėta į „${I.sections[UI.qaSec]?.name}“`);
   };
-  $('#qa-sec').onclick = () => pickSection(UI.qaSec, sid => { UI.qaSec = sid; saveUI(); render(); });
+  if ($('#qa-sec')) $('#qa-sec').onclick = () => pickSection(UI.qaSec, sid => { UI.qaSec = sid; saveUI(); render(); });
 
   $$('[data-tg]').forEach(b => b.onclick = () => { const id = b.dataset.tg; UI.col[id] = !UI.col[id]; saveUI(); render(); });
   $$('[data-secm]').forEach(b => b.onclick = () => sectionMenu(I.sections[b.dataset.secm]));
@@ -232,8 +233,8 @@ routes.list = () => {
   }
   $('#add-sec').onclick = () => sectionSheet();
 
-  // ilgas paspaudimas ir tempimas – tvarka ir perkėlimas tarp sekcijų
-  longPressSort($('#tlist'), '[data-sort]', el => el.matches('.tk'), (order) => {
+  // tvarka: ilgas paspaudimas (naršyklėje) ir ▲▼ mygtukai (veikia ir HA programėlėje)
+  const commitOrder = order => {
     const items = [], seen = new Set();
     let sid = null;
     for (const el of order) {
@@ -249,11 +250,25 @@ routes.list = () => {
       (bySec[s.id] || []).forEach(tid => full.push([tid, s.id]));
       tasksOf(s.id).filter(t => !seen.has(t.id)).forEach(t => full.push([t.id, s.id]));
     }
-    // greitas atsakas
     const cnt = {};
     full.forEach(([tid, s]) => { cnt[s] = (cnt[s] ?? -1) + 1; Object.assign(I.tasks[tid], { section_id: s, pos: cnt[s] }); });
     render();
-    act('order_tasks', { items: full });
+    act('order_tasks', { items: full }, true);
+  };
+  longPressSort($('#tlist'), '[data-sort]', el => el.matches('.tk'), commitOrder);
+  $('#sort-tg').onclick = () => { UI.sortMode = !UI.sortMode; addingIn = null; saveUI(); render(); };
+  if ($('#sort-done')) $('#sort-done').onclick = () => { UI.sortMode = false; saveUI(); render(); };
+  $$('[data-mv]').forEach(b => b.onclick = e => {
+    e.stopPropagation();
+    const [tid, d] = b.dataset.mv.split(':').map(Number);
+    const order = $$('#tlist [data-sort]'), el = order.find(x => +x.dataset.task === tid), i = order.indexOf(el);
+    const j = i + d, other = order[j];
+    if (!other) return;
+    if (other.dataset.sec && d < 0 && j === 0) return; // jau pačiame viršuje
+    order.splice(i, 1); order.splice(j, 0, el);
+    if (other.dataset.sec && d > 0) UI.col[other.dataset.sec] = false;
+    commitOrder(order);
+    requestAnimationFrame(() => { const n = $(`#tlist [data-task="${tid}"]`); if (n) { n.classList.add('moved'); const r = n.getBoundingClientRect(); if (r.top < 80 || r.bottom > innerHeight - 90) n.scrollIntoView({ block: 'center' }); } });
   });
 };
 
@@ -419,9 +434,9 @@ routes.task = id => {
   <h2>📝 Aprašymas</h2>
   <div class="card"><textarea id="td-notes" class="plain" placeholder="Smulkesnė informacija, telefonai, matmenys…">${esc(t.notes || '')}</textarea></div>
 
-  <h2>☑ Sub-užduotys${subs.length ? ` <span class="muted small">${subs.filter(s => s.done).length}/${subs.length}</span>` : ''}</h2>
+  <h2>☑ Sub-užduotys${subs.length ? ` <span class="muted small">${subs.filter(s => s.done).length}/${subs.length}</span>` : ''}${subs.length > 1 ? `<button class="btn small ${UI.sortMode ? 'primary' : ''}" id="sub-sort">${UI.sortMode ? 'Baigti' : '↕️ Tvarka'}</button>` : ''}</h2>
   <div class="card" id="subs">${subs.map(s => `<div class="sub ${s.done ? 'done' : ''}" data-sub="${s.id}"><button class="ck sm" data-sck="${s.id}"></button>
-      <input type="text" class="plain" value="${esc(s.title)}" data-sti="${s.id}"><button class="x-btn" data-sdel="${s.id}" aria-label="Ištrinti">×</button><span class="grip" aria-label="Tempti">⠿</span></div>`).join('')}
+      <input type="text" class="plain" value="${esc(s.title)}" data-sti="${s.id}">${UI.sortMode ? `<span class="mv2"><button data-smv="${s.id}:-1">▲</button><button data-smv="${s.id}:1">▼</button></span>` : `<button class="x-btn" data-sdel="${s.id}" aria-label="Ištrinti">×</button>`}</div>`).join('')}
     <form id="sub-new" class="sub"><span class="ck sm ghost"></span><input type="text" class="plain" placeholder="＋ Pridėti sub-užduotį" enterkeyhint="done"></form>
   </div>
 
@@ -509,6 +524,12 @@ routes.task = id => {
     $('#sub-new input').focus();
   };
   longPressSort($('#subs'), '[data-sub]', () => true, order => act('order', { t: 'subtasks', ids: order.map(el => +el.dataset.sub) }));
+  $$('[data-smv]').forEach(b => b.onclick = () => {
+    const [sid, d] = b.dataset.smv.split(':').map(Number), ids = subs.map(x => x.id), i = ids.indexOf(sid), j = i + d;
+    if (j < 0 || j >= ids.length) return;
+    ids.splice(i, 1); ids.splice(j, 0, sid); act('order', { t: 'subtasks', ids });
+  });
+  if ($('#sub-sort')) $('#sub-sort').onclick = () => { UI.sortMode = !UI.sortMode; saveUI(); render(); };
   // failai
   $('#td-file').onchange = async e => {
     const fs = [...e.target.files]; if (!fs.length) return;
@@ -713,8 +734,7 @@ routes.settings = () => {
     <label class="li go"><span class="ic">♻️</span><div class="grow"><div class="t">Atkurti iš kopijos</div><div class="s">Dabartiniai duomenys bus pakeisti</div></div><input type="file" id="st-restore" accept=".zip" hidden></label>
     <label class="li go"><span class="ic">📥</span><div class="grow"><div class="t">Importuoti užduotis (.json)</div><div class="s">Tik papildo, nieko netrina</div></div><input type="file" id="st-import" accept=".json,application/json" hidden></label>
   </div>
-  <button class="btn block" id="st-dbg" style="margin-top:18px">🧪 Tempimo testas</button>
-  <p class="muted small center" style="margin-top:18px">Ūkis 1.3.5 · Duomenys patenka į Home Assistant atsargines kopijas</p>`;
+  <p class="muted small center" style="margin-top:18px">Ūkis 1.3.6 · Duomenys patenka į Home Assistant atsargines kopijas</p>`;
   $('#st-sec-new').onclick = () => sectionSheet();
   $('#st-tag-new').onclick = () => tagSheet();
   $$('[data-sedit]').forEach(el => el.onclick = () => sectionMenu(I.sections[el.dataset.sedit]));
@@ -764,7 +784,6 @@ routes.settings = () => {
     if (!confirm('Atkurti iš kopijos? Dabartiniai duomenys bus pakeisti.')) return;
     const uid = await uploadFile(f, 'Įkeliama kopija…'); await act('restore', { upload: uid }); toast('Atkurta');
   };
-  $('#st-dbg').onclick = dragTest;
   $('#st-import').onchange = async e => {
     const f = e.target.files[0]; if (!f) return;
     try { const r = await act('import', { data: await f.text() }); toast(`Importuota: ${r.imported.uzduotys} užd., ${r.imported.sekcijos} nauj. sekc.`); }
@@ -790,39 +809,6 @@ function copySheet(title, intro, text, after) {
       try { await navigator.clipboard.writeText(text); } catch (e) { ta.select(); document.execCommand('copy'); }
       toast('Nukopijuota');
     };
-  });
-}
-
-// ---- tempimo testas (diagnostikai HA programėlėje)
-function dragTest() {
-  sheet(`<h3>🧪 Tempimo testas</h3>
-    <p class="small">Uždėkite pirštą ant kiekvieno langelio ir patempkite aukštyn–žemyn. Tada padarykite ekrano kopiją ir atsiųskite.</p>
-    <div class="row" style="gap:8px"><div class="dpad" id="dp1">A<br><span class="small">paprastas</span></div><div class="dpad" id="dp2" style="touch-action:none">B<br><span class="small">touch-action</span></div><div class="dpad" id="dp3" style="touch-action:none">C<br><span class="small">pointer</span></div></div>
-    <pre id="dlog" class="dlog"></pre><div class="muted small" style="word-break:break-all">${esc(navigator.userAgent)}</div>`, () => {
-    const L = [], cnt = {};
-    const log = (pad, e, extra = '') => {
-      const k = pad + ':' + e.type; cnt[k] = (cnt[k] || 0) + 1;
-      if (e.type.endsWith('move') && cnt[k] > 3 && cnt[k] % 10) { draw(); return; }
-      const pt = e.touches ? (e.touches[0] || e.changedTouches[0]) : e;
-      L.push(`${pad} ${e.type}${e.cancelable === false ? ' (!c)' : ''} y=${pt ? Math.round(pt.clientY) : '-'}${extra}`);
-      if (L.length > 40) L.shift(); draw();
-    };
-    const draw = () => { $('#dlog').textContent = Object.entries(cnt).map(([k, v]) => `${k}=${v}`).join('  ') + '\n' + L.slice(-18).join('\n'); };
-    const sheetEl = $('#sheet');
-    for (const id of ['dp1', 'dp2']) {
-      const el = $('#' + id), pad = id === 'dp1' ? 'A' : 'B';
-      el.addEventListener('touchstart', e => { log(pad, e); if (pad === 'B') e.preventDefault(); }, { passive: false });
-      el.addEventListener('touchmove', e => { log(pad, e); e.preventDefault(); el.style.transform = `translateY(${Math.round(e.touches[0].clientY - el._y0)}px)`; }, { passive: false });
-      el.addEventListener('touchstart', e => { el._y0 = e.touches[0].clientY; }, { passive: true });
-      el.addEventListener('touchend', e => { log(pad, e); el.style.transform = ''; });
-      el.addEventListener('touchcancel', e => { log(pad, e); el.style.transform = ''; });
-    }
-    const c = $('#dp3');
-    c.addEventListener('pointerdown', e => { log('C', e, ' ' + e.pointerType); c._y0 = e.clientY; try { c.setPointerCapture(e.pointerId); } catch (x) { } e.preventDefault(); });
-    c.addEventListener('pointermove', e => { if (c._y0 == null) return; log('C', e); c.style.transform = `translateY(${Math.round(e.clientY - c._y0)}px)`; });
-    c.addEventListener('pointerup', e => { log('C', e); c._y0 = null; c.style.transform = ''; });
-    c.addEventListener('pointercancel', e => { log('C', e); c._y0 = null; c.style.transform = ''; });
-    void sheetEl;
   });
 }
 

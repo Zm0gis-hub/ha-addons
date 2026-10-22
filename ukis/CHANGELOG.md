@@ -1,5 +1,10 @@
 # Pakeitimai
 
+## 1.3.6
+- Tvarkos keitimas mygtukais: viršuje ↕️ – prie užduočių atsiranda ▲ ▼ (iš sekcijos krašto užduotis pereina į kaimyninę sekciją). Veikia ir HA programėlėje, kur tempimas pirštu neveikia.
+- Sub-užduotims – mygtukas „↕️ Tvarka“.
+- Pašalintas tempimo testas ir rankenėlės ⠿ (naršyklėje tempimas ilgu paspaudimu lieka).
+
 ## 1.3.5
 - ⚙️ apačioje – „🧪 Tempimo testas“ (diagnostika, kodėl HA programėlėje neveikia tempimas).
 

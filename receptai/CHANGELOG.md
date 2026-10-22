@@ -70,3 +70,6 @@
 ## 1.8.3
 - Pirkinių sąrašo tvarką galima keisti tempiant už kategorijos ženkliuko kairėje – tempimas prasideda iš karto ir veikia HA programėlėje telefone.
 - Tempiant sąrašas nebepersipiešia dėl sinchronizacijos.
+
+## 1.8.4
+- Pirkinių sąraše mygtukas „↕️ Keisti tvarką“: prie prekių atsiranda ▲ ▼ (veikia ir HA programėlėje, kur tempimas pirštu neveikia).

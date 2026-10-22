@@ -434,3 +434,7 @@ input:focus, select:focus, textarea:focus { box-shadow: 0 0 0 3px var(--accent-s
 
 /* 1.8.3: kategorijos ženkliukas – tempimo rankenėlė */
 #sortlist .grip { touch-action: none; cursor: grab; -webkit-user-select: none; user-select: none; padding: 10px 4px; margin: -10px -4px; }
+/* 1.8.4: tvarkos keitimas mygtukais (veikia HA programėlėje) */
+.mv2 { flex: none; display: flex; gap: 4px; align-self: center; margin-right: 6px; }
+.mv2 button { width: 42px; height: 38px; border: 0; border-radius: 12px; background: var(--chip); color: var(--ink); font-size: 15px; cursor: pointer; }
+.mv2 button:active { background: var(--accent); color: var(--accent-ink); }

@@ -307,7 +307,7 @@ routes.list = () => {
   bindListRows();
 };
 
-function itemRow(row, mode) {
+function itemRow(row, mode, sortable) {
   const st = row.st || {};
   const amt = fmtAmounts(row.amounts);
   const chips = [...new Set([...row.recipes, ...(row.labels || [])])].map(t => `<span class="rchip">${esc(trunc(t))}</span>`).join('');
@@ -323,7 +323,10 @@ function itemRow(row, mode) {
       <button class="low ${s === 'low' ? 'on' : ''}" data-st="low">Baigiasi</button>
       <button class="need ${s === 'need' ? 'on' : ''}" data-st="need">Reikia</button></div></div>`;
   }
-  return `<div class="item ${st.checked ? 'checked' : ''}" data-row="${row.pid}">${emo}${mid}<div class="qty" data-info="${row.pid}">${esc(amt)}</div><button class="box" data-check="${row.pid}" aria-label="Nupirkta">${st.checked ? '✓' : ''}</button></div>`;
+  const tail = sortable && UI.listSort
+    ? `<span class="mv2"><button data-lmv="${row.pid}:-1" aria-label="Aukštyn">▲</button><button data-lmv="${row.pid}:1" aria-label="Žemyn">▼</button></span>`
+    : `<button class="box" data-check="${row.pid}" aria-label="Nupirkta">${st.checked ? '✓' : ''}</button>`;
+  return `<div class="item ${st.checked ? 'checked' : ''}" data-row="${row.pid}">${emo}${mid}<div class="qty" data-info="${row.pid}">${esc(amt)}</div>${tail}</div>`;
 }
 
 function shopView(L) {
@@ -332,7 +335,7 @@ function shopView(L) {
   }
   let h = '';
   if (!L.toBuy.length) h += `<div class="empty"><span class="big">🎉</span>Viskas nupirkta!</div>`;
-  if (L.toBuy.length) h += `<div class="card items" id="sortlist">${manualSort(L.toBuy).map(r => itemRow(r, 'shop')).join('')}</div><p class="muted small center" style="margin:6px 0 0">Tvarką keiskite tempdami už ženkliuko kairėje (arba ilgai palaikę prekę)</p>`;
+  if (L.toBuy.length) h += `<div class="card items" id="sortlist">${manualSort(L.toBuy).map(r => itemRow(r, 'shop', true)).join('')}</div><div class="center" style="margin:8px 0 0"><button class="btn small ${UI.listSort ? 'primary' : ''}" id="ls-sort">${UI.listSort ? '✓ Baigti tvarkos keitimą' : '↕️ Keisti tvarką'}</button></div>`;
   if (L.bought.length) h += `<details class="fold" ${UI.openBought ? 'open' : ''} data-fold="openBought"><summary>Nupirkta (${L.bought.length})</summary><div class="card items">${manualSort(L.bought).map(r => itemRow(r, 'shop')).join('')}</div></details>`;
   const haveAll = [...L.have, ...L.always];
   if (haveAll.length) h += `<details class="fold" data-fold="openHave" ${UI.openHave ? 'open' : ''}><summary>Turima namie (${haveAll.length})</summary><div class="card items">${haveAll.map(r => `<div class="item"><div class="grow" data-info="${r.pid}"><div class="name muted">${esc(r.p.name)}</div></div><div class="qty muted">${esc(fmtAmounts(r.amounts))}</div></div>`).join('')}</div></details>`;
@@ -351,11 +354,22 @@ function checkView(L) {
 function bindListRows() {
   $$('[data-check]').forEach(el => el.onclick = e => { e.stopPropagation(); toggleCheck(+el.dataset.check, true); });
   const sl = $('#sortlist');
-  if (sl) longPressSort(sl, ids => {
+  const saveOrder = ids => {
     const L = computeList(); const all = manualSort([...L.toBuy, ...L.have, ...L.always, ...L.bought]).map(r => r.pid);
     const order = [...ids, ...all.filter(id => !ids.includes(id))];
     order.forEach((id, i) => { const st = IDX.ps[id] || (IDX.ps[id] = { product_id: id }); st.pos = i + 1; if (!S.pstate.includes(st)) S.pstate.push(st); });
     render(); act('list_order', { ids: order }, { keep: true }).then(render).catch(() => load());
+  };
+  if (sl) longPressSort(sl, saveOrder);
+  const lsb = $('#ls-sort');
+  if (lsb) lsb.onclick = () => { UI.listSort = !UI.listSort; saveUI(); render(); };
+  $$('[data-lmv]').forEach(b => b.onclick = e => {
+    e.stopPropagation();
+    const [pid, d] = b.dataset.lmv.split(':').map(Number);
+    const ids = $$('#sortlist .item[data-row]').map(r => +r.dataset.row), i = ids.indexOf(pid), j = i + d;
+    if (j < 0 || j >= ids.length) return;
+    ids.splice(i, 1); ids.splice(j, 0, pid); saveOrder(ids);
+    requestAnimationFrame(() => { const n = $(`#sortlist .item[data-row="${pid}"]`); if (n) { n.classList.remove('flash'); void n.offsetWidth; n.classList.add('flash'); const r = n.getBoundingClientRect(); if (r.top < 80 || r.bottom > innerHeight - 160) n.scrollIntoView({ block: 'center' }); } });
   });
   $$('.item[data-pid] [data-st]').forEach(b => b.onclick = async e => {
     e.stopPropagation();
@@ -1008,7 +1022,7 @@ routes.more = () => {
     <a class="menu-link" href="#stats"><span>📊</span><span>Statistika ir istorija</span></a>
     <a class="menu-link" href="#data"><span>💾</span><span>Importas ir eksportas</span></a>
   </div>
-  <p class="muted small center" style="margin-top:20px">Receptai v1.8.3 · ${S.recipes.length} receptai · ${S.products.length} produktai</p>`;
+  <p class="muted small center" style="margin-top:20px">Receptai v1.8.4 · ${S.recipes.length} receptai · ${S.products.length} produktai</p>`;
 };
 
 // --- Parduotuvės skyriai (tempimas aukštyn/žemyn)
