@@ -148,12 +148,11 @@ function taskRow(t, o = {}) {
   tags.forEach(g => meta.push(`<span class="tg">${esc(tagLabel(g))}</span>`));
   if (subs.length) meta.push(`<span class="ico ${sd === subs.length ? 'all' : ''}">☑ ${sd}/${subs.length}</span>`);
   if (t.rep) meta.push(`<span class="ico" title="${esc(repText(t.rep))}">🔁</span>`);
-  if (t.notes) meta.push('<span class="ico">📝</span>');
   if (nf) meta.push(`<span class="ico">📎 ${nf}</span>`);
   if (nc) meta.push(`<span class="ico">💬 ${nc}</span>`);
   return `<div class="tk ${t.done ? 'done' : ''} ${di ? 'd-' + di.cls : ''}" ${o.sortable ? 'data-sort' : ''} data-task="${t.id}">
     <button class="ck" data-ck="${t.id}" aria-label="Atlikta"></button>
-    <div class="grow tk-b" data-open="${t.id}"><div class="tk-t">${esc(t.title)}</div>${meta.length ? `<div class="tk-m">${meta.join('')}</div>` : ''}</div>
+    <div class="grow tk-b" data-open="${t.id}"><div class="tk-t">${esc(t.title)}</div>${t.notes && t.notes.trim() ? `<div class="tk-n">${esc(t.notes.replace(/\s+/g, ' ').trim())}</div>` : ''}${meta.length ? `<div class="tk-m">${meta.join('')}</div>` : ''}</div>
   </div>`;
 }
 function bindTaskRows(root = view) {
@@ -713,7 +712,7 @@ routes.settings = () => {
     <label class="li go"><span class="ic">♻️</span><div class="grow"><div class="t">Atkurti iš kopijos</div><div class="s">Dabartiniai duomenys bus pakeisti</div></div><input type="file" id="st-restore" accept=".zip" hidden></label>
     <label class="li go"><span class="ic">📥</span><div class="grow"><div class="t">Importuoti užduotis (.json)</div><div class="s">Tik papildo, nieko netrina</div></div><input type="file" id="st-import" accept=".json,application/json" hidden></label>
   </div>
-  <p class="muted small center" style="margin-top:18px">Ūkis 1.3.2 · Duomenys patenka į Home Assistant atsargines kopijas</p>`;
+  <p class="muted small center" style="margin-top:18px">Ūkis 1.3.3 · Duomenys patenka į Home Assistant atsargines kopijas</p>`;
   $('#st-sec-new').onclick = () => sectionSheet();
   $('#st-tag-new').onclick = () => tagSheet();
   $$('[data-sedit]').forEach(el => el.onclick = () => sectionMenu(I.sections[el.dataset.sedit]));
