@@ -46,6 +46,7 @@ async function load(noRender) {
   S.tasks.forEach(t => {
     try { t.tagIds = JSON.parse(t.tags || '[]').map(Number); } catch (e) { t.tagIds = []; }
     try { t.rep = t.repeat ? JSON.parse(t.repeat) : null; } catch (e) { t.rep = null; }
+    try { t.rem = JSON.parse(t.remind || '[]') || []; } catch (e) { t.rem = []; }
   });
   if (!noRender) render();
 }
@@ -141,7 +142,8 @@ function taskRow(t, o = {}) {
   const tags = t.tagIds.map(id => I.tags[id]).filter(Boolean);
   const meta = [];
   if (o.section) meta.push(`<span class="tk-sec">${esc(secLabel(I.sections[t.section_id]))}</span>`);
-  if (di) meta.push(`<span class="due ${di.cls}">📅 ${esc(di.txt)}</span>`);
+  if (di) meta.push(`<span class="due ${di.cls}">📅 ${esc(di.txt)}${t.time ? ' ' + esc(t.time) : ''}</span>`);
+  if (t.rem && t.rem.length && !t.done) meta.push('<span class="ico">🔔</span>');
   else if (t.due && t.done) meta.push(`<span class="due">📅 ${esc(shortDate(t.due))}</span>`);
   tags.forEach(g => meta.push(`<span class="tg">${esc(tagLabel(g))}</span>`));
   if (subs.length) meta.push(`<span class="ico ${sd === subs.length ? 'all' : ''}">☑ ${sd}/${subs.length}</span>`);
@@ -321,7 +323,7 @@ routes.soon = () => {
     ['later', 'Vėliau', d => d > nextSunday],
   ];
   const dated = S.tasks.filter(t => t.due && (!t.done || (doneVisible(t) && t.due >= addDays(t0, -1))))
-    .sort((a, b) => a.due.localeCompare(b.due) || a.done - b.done || a.pos - b.pos);
+    .sort((a, b) => a.due.localeCompare(b.due) || (a.time || '99').localeCompare(b.time || '99') || a.done - b.done || a.pos - b.pos);
   let h = '';
   for (const [cls, name, fn] of groups) {
     const list = dated.filter(t => fn(t.due));
@@ -388,12 +390,16 @@ routes.task = id => {
     <div class="li" id="td-sec"><span class="ic">📁</span><div class="grow"><div class="s">Sekcija</div><div class="t">${esc(secLabel(I.sections[t.section_id]))}</div></div><span class="muted">›</span></div>
     <div class="li td-date" style="align-items:flex-start"><span class="ic">📅</span><div class="grow"><div class="s">Data</div>
       <div class="row"><input type="date" id="td-due" value="${esc(t.due || '')}">${t.due ? '<button class="icon-btn" id="td-due-x" aria-label="Pašalinti datą">✕</button>' : ''}</div>
-      ${di ? `<div class="due ${di.cls}" style="margin-top:6px">${esc(di.txt)} · ${esc(longDate(t.due))}</div>` : ''}
+      ${t.due ? `<div class="row wrap tm-row"><label class="row allday"><span class="switch"><input type="checkbox" id="td-allday" ${t.time ? '' : 'checked'}><i></i></span><span>Visa diena</span></label>
+        ${t.time ? `<span class="row"><input type="time" id="td-t1" value="${esc(t.time)}"><span>–</span><input type="time" id="td-t2" value="${esc(t.end_time || '')}"></span>` : ''}</div>` : ''}
+      ${di ? `<div class="due ${di.cls}" style="margin-top:6px">${esc(di.txt)}${t.time ? ' ' + esc(t.time) + (t.end_time ? '–' + esc(t.end_time) : '') : ''} · ${esc(longDate(t.due))}</div>` : ''}
       <div class="qdates">${quick.map(([l, d]) => `<button class="chip ${t.due === d ? 'on' : ''}" data-qd="${d}">${l}</button>`).join('')}</div></div></div>
     <div class="li" id="td-rep"><span class="ic">🔁</span><div class="grow"><div class="s">Kartojimas</div><div class="t ${t.rep ? '' : 'muted'}">${t.rep ? esc(repText(t.rep)) : 'Nesikartoja'}</div>
       ${t.rep && t.rep.type === 'cal' && t.rep.next && t.due && t.rep.next !== t.due ? `<div class="s" style="color:var(--warn);font-weight:700">Šį kartą perkelta (pagal grafiką – ${esc(shortDate(t.rep.next))})</div>` : ''}</div><span class="muted">›</span></div>
-    ${t.due ? `<label class="li"><span class="ic">${t.notify === 0 ? '🔕' : '🔔'}</span><div class="grow"><div class="t">Priminti telefone</div><div class="s">${S.settings.notify_services?.length ? (t.notify === 0 ? 'Šiai užduočiai išjungta' : notifyWhen()) : 'Telefonas dar nepasirinktas – ⚙️ Nustatymai'}</div></div>
-      <span class="switch"><input type="checkbox" id="td-notify" ${t.notify === 0 ? '' : 'checked'}><i></i></span></label>` : ''}
+    ${t.due ? `<div class="li" style="align-items:flex-start"><span class="ic">🔔</span><div class="grow"><div class="s">Priminimai telefone</div>
+      <div id="rems">${t.rem.map((r, i) => remRow(t, r, i)).join('')}</div>
+      <button class="chip" id="rem-add" style="margin-top:8px">＋ Pridėti priminimą</button>
+      ${S.settings.notify_services?.length ? '' : '<div class="s" style="margin-top:6px">Telefonas dar nepasirinktas – ⚙️ Nustatymai → Priminimai telefone</div>'}</div></div>` : ''}
     <div class="li" style="align-items:flex-start"><span class="ic">🏷️</span><div class="grow"><div class="s">Žymos</div>
       <div class="tagpick">${tagsSorted().map(g => `<button class="chip ${t.tagIds.includes(g.id) ? 'on' : ''}" data-tt="${g.id}">${esc(tagLabel(g))}</button>`).join('')}<button class="chip" id="td-newtag">＋</button></div></div></div>
   </div>
@@ -446,7 +452,26 @@ routes.task = id => {
     $('#sheet-bg').onclick = () => { closeSheet(); render(); };
   };
   $('#td-rep').onclick = () => repeatSheet(t);
-  if ($('#td-notify')) $('#td-notify').onchange = e => saveRow('tasks', { id: t.id, notify: e.target.checked ? 1 : 0 });
+  // laikas ir priminimai
+  const conv = (list, timed) => list.map(r => timed
+    ? (r.u === 'd' && r.n === 0 ? { n: 30, u: 'min' } : { n: r.n, u: r.u })
+    : (r.u === 'd' || r.u === 'sav' ? { n: r.n, u: r.u, at: r.at || '13:00' } : { n: 0, u: 'd', at: '13:00' }));
+  if ($('#td-allday')) $('#td-allday').onchange = e => {
+    if (e.target.checked) return saveRow('tasks', { id: t.id, time: '', end_time: '', remind: conv(t.rem, false) });
+    const h = Math.min(22, new Date().getHours() + 1), p2 = n => String(n).padStart(2, '0');
+    saveRow('tasks', { id: t.id, time: p2(h) + ':00', end_time: p2(h + 1) + ':00', remind: conv(t.rem, true) });
+  };
+  if ($('#td-t1')) $('#td-t1').onchange = e => { if (!e.target.value) return; const o = { id: t.id, time: e.target.value };
+    if (t.end_time && t.end_time <= e.target.value) { const [hh, mm] = e.target.value.split(':').map(Number); o.end_time = String(Math.min(23, hh + 1)).padStart(2, '0') + ':' + String(mm).padStart(2, '0'); }
+    saveRow('tasks', o); };
+  if ($('#td-t2')) $('#td-t2').onchange = e => saveRow('tasks', { id: t.id, end_time: e.target.value || '' });
+  const remSave = () => {
+    const list = $$('#rems .rem').map(el => { const r = { n: Math.max(0, parseInt($('.rn', el).value) || 0), u: $('.ru', el).value }; const a = $('.ra', el); if (a) r.at = a.value || '13:00'; return r; });
+    saveRow('tasks', { id: t.id, remind: list });
+  };
+  $$('#rems .rn, #rems .ru, #rems .ra').forEach(el => el.onchange = remSave);
+  $$('#rems [data-rdel]').forEach(b => b.onclick = () => { b.closest('.rem').remove(); remSave(); });
+  if ($('#rem-add')) $('#rem-add').onclick = () => saveRow('tasks', { id: t.id, remind: [...t.rem, t.time ? { n: 30, u: 'min' } : { n: 0, u: 'd', at: '13:00' }] });
   if ($('#td-done-rep')) { $('#td-done-rep').onclick = () => toggleDone(t); $('#td-skip').onclick = () => toggleDone(t, true); }
   $$('[data-log]').forEach(el => el.onclick = () => { const l = I.task_log[el.dataset.log]; if (confirm(`Ištrinti įrašą „atlikta ${l.date}“ iš istorijos?`)) delRow('task_log', l.id); });
   $('#td-due').onchange = e => setDue(e.target.value);
@@ -491,11 +516,13 @@ routes.task = id => {
 };
 
 const phoneName = sv => sv.replace(/^mobile_app_/, '').replace(/_/g, ' ');
-function notifyWhen() {
-  const st = S.settings, w = [];
-  if (st.notify_evening !== false) w.push('vakare prieš ' + (st.evening_time || '20:00'));
-  if (st.notify_morning !== false) w.push('ryte ' + (st.morning_time || '07:30'));
-  return w.length ? w.join(' ir ') : 'Priminimai išjungti nustatymuose';
+function remRow(t, r, i) {
+  const units = t.time ? [['min', 'min.'], ['val', 'val.'], ['d', 'd.'], ['sav', 'sav.']] : [['d', 'd.'], ['sav', 'sav.']];
+  const when = t.time ? 'prieš' : (r.n === 0 ? 'tą dieną' : 'prieš,');
+  return `<div class="rem"><input type="text" inputmode="numeric" class="rn" value="${esc(r.n)}">
+    <select class="ru">${units.map(([v, l]) => `<option value="${v}" ${r.u === v ? 'selected' : ''}>${l}</option>`).join('')}</select>
+    <span class="muted">${when}</span>${t.time ? '' : `<input type="time" class="ra" value="${esc(r.at || '13:00')}">`}
+    <button class="x-btn" data-rdel="${i}" aria-label="Pašalinti">×</button></div>`;
 }
 function repeatSheet(t) {
   const r = t.rep || { type: 'cal', every: 1, unit: 'w' };
@@ -657,11 +684,9 @@ routes.settings = () => {
 
   <h2>🔔 Priminimai telefone</h2>
   <div class="card pad stack" id="st-nt">
-    <div class="muted small">Priminimai siunčiami tik užduotims su data. Pranešime yra mygtukas <b>✓ Atlikta</b>, o ryte – ir <b>Rytoj</b> (atidėti dienai).</div>
+    <div class="muted small">Kada priminti, nustatote kiekvienai užduočiai atskirai – užduoties lange <b>🔔 Priminimai telefone</b>. Pranešime yra mygtukas <b>✓ Atlikta</b>, o užduočiai tą dieną – ir <b>Rytoj</b> (atidėti dienai).</div>
     <div><div class="muted small" style="margin:0 2px 6px">Į kuriuos telefonus siųsti</div><div id="st-phones" class="muted small">Ieškoma telefonų…</div></div>
-    <label class="row"><span class="grow"><b>Vakare prieš</b><br><span class="muted small">kas bus rytoj</span></span><input type="time" id="st-et" value="${esc(S.settings.evening_time || '20:00')}" style="width:auto"><span class="switch"><input type="checkbox" id="st-ev" ${S.settings.notify_evening !== false ? 'checked' : ''}><i></i></span></label>
-    <label class="row"><span class="grow"><b>Ryte tą dieną</b><br><span class="muted small">kas šiandien</span></span><input type="time" id="st-mt" value="${esc(S.settings.morning_time || '07:30')}" style="width:auto"><span class="switch"><input type="checkbox" id="st-mo" ${S.settings.notify_morning !== false ? 'checked' : ''}><i></i></span></label>
-    <label class="row"><span class="grow"><b>Ryte priminti pavėluotas</b><br><span class="muted small">kasdien, kol nepažymėsite</span></span><span class="switch"><input type="checkbox" id="st-ov" ${S.settings.notify_overdue !== false ? 'checked' : ''}><i></i></span></label>
+    <label class="row"><span class="grow"><b>Priminti pavėluotas</b><br><span class="muted small">kasdien užduoties laiku (arba 13:00), kol nepažymėsite; tik užduotims su priminimais</span></span><span class="switch"><input type="checkbox" id="st-ov" ${S.settings.notify_overdue !== false ? 'checked' : ''}><i></i></span></label>
     <button class="btn block" id="st-test">📨 Išbandyti pranešimą</button>
     <div class="muted small" id="st-ntstat"></div>
   </div>
@@ -680,7 +705,7 @@ routes.settings = () => {
     <label class="li go"><span class="ic">♻️</span><div class="grow"><div class="t">Atkurti iš kopijos</div><div class="s">Dabartiniai duomenys bus pakeisti</div></div><input type="file" id="st-restore" accept=".zip" hidden></label>
     <label class="li go"><span class="ic">📥</span><div class="grow"><div class="t">Importuoti užduotis (.json)</div><div class="s">Tik papildo, nieko netrina</div></div><input type="file" id="st-import" accept=".json,application/json" hidden></label>
   </div>
-  <p class="muted small center" style="margin-top:18px">Ūkis 1.2.0 · Duomenys patenka į Home Assistant atsargines kopijas</p>`;
+  <p class="muted small center" style="margin-top:18px">Ūkis 1.3.0 · Duomenys patenka į Home Assistant atsargines kopijas</p>`;
   $('#st-sec-new').onclick = () => sectionSheet();
   $('#st-tag-new').onclick = () => tagSheet();
   $$('[data-sedit]').forEach(el => el.onclick = () => sectionMenu(I.sections[el.dataset.sedit]));
@@ -696,11 +721,7 @@ routes.settings = () => {
   $('#st-hadays').onchange = e => act('settings_save', { ha_days: +e.target.value });
   // priminimai
   const ntSave = o => act('settings_save', o, true).then(() => toast('Išsaugota'));
-  $('#st-ev').onchange = e => ntSave({ notify_evening: e.target.checked });
-  $('#st-mo').onchange = e => ntSave({ notify_morning: e.target.checked });
   $('#st-ov').onchange = e => ntSave({ notify_overdue: e.target.checked });
-  $('#st-et').onchange = e => e.target.value && ntSave({ evening_time: e.target.value });
-  $('#st-mt').onchange = e => e.target.value && ntSave({ morning_time: e.target.value });
   api('api/notify_status').then(n => {
     const sel = S.settings.notify_services || [];
     const all = [...new Set([...n.services, ...sel])];
@@ -746,7 +767,7 @@ title: 🏡 Ūkis
 content: |
   {% set items = state_attr('sensor.ukis_artimiausi', 'items') or [] %}
   {% for i in items %}
-  {{ '🔴' if i.dienos < 0 else '🟠' if i.dienos == 0 else '🟡' if i.dienos == 1 else '⚪' }} **{{ i.tekstas }}** · {{ i.emoji }} {{ i.pavadinimas }}
+  {{ '🔴' if i.dienos < 0 else '🟠' if i.dienos == 0 else '🟡' if i.dienos == 1 else '⚪' }} **{{ i.tekstas }}{{ ' ' ~ i.laikas if i.laikas }}** · {{ i.emoji }} {{ i.pavadinimas }}
 
   {% else %}
   ✓ Artimiausiu metu nieko nėra

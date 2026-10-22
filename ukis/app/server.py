@@ -59,7 +59,7 @@ AUTH_TOKEN = hashlib.sha256(("ukis:" + PIN).encode()).hexdigest() if PIN else ""
 # lentelė -> stulpeliai, kuriuos galima keisti per bendrą „save“ veiksmą
 TABLES = {
     "sections": ["name", "emoji", "pos", "collapsed"],
-    "tasks": ["section_id", "title", "notes", "due", "done", "done_at", "pos", "tags", "created", "repeat", "notify"],
+    "tasks": ["section_id", "title", "notes", "due", "done", "done_at", "pos", "tags", "created", "repeat", "notify", "time", "end_time", "remind"],
     "subtasks": ["task_id", "title", "done", "pos"],
     "comments": ["task_id", "text", "created"],
     "files": ["task_id", "filename", "orig_name", "mime", "size", "created"],
@@ -89,10 +89,6 @@ DEFAULT_SETTINGS = {
     "done_keep_days": 1,   # kiek dienų atliktos užduotys dar rodomos perbrauktos
     "ha_days": 7,          # kiek dienų į priekį rodyti HA kortelėje
     "notify_services": [],  # mobile_app_* paslaugos (telefonai)
-    "notify_evening": True,
-    "evening_time": "20:00",
-    "notify_morning": True,
-    "morning_time": "07:30",
     "notify_overdue": True,
 }
 DEFAULT_SECTIONS = [("Darbai", "🔨"), ("Pirkiniai", "🛒"), ("Kada nors", "💡")]
@@ -133,8 +129,9 @@ def init_db():
     with LOCK:
         DB.executescript(SCHEMA)
         have = {r["name"] for r in DB.execute("PRAGMA table_info(tasks)")}
-        if "notify" not in have:
-            DB.execute("ALTER TABLE tasks ADD COLUMN notify INTEGER DEFAULT 1")
+        for col, typ in (("notify", "INTEGER DEFAULT 1"), ("time", "TEXT"), ("end_time", "TEXT"), ("remind", "TEXT DEFAULT '[]'")):
+            if col not in have:
+                DB.execute(f"ALTER TABLE tasks ADD COLUMN {col} {typ}")
         if meta_get("version") is None:
             meta_set("version", 1)
         s = meta_get("settings") or {}
@@ -262,6 +259,10 @@ def act_save(d):
             v = clean_date(v)
         elif c == "repeat":
             v = json.dumps(clean_repeat(v), ensure_ascii=False) if v else ""
+        elif c in ("time", "end_time"):
+            v = hm(v, None) if v else None
+        elif c == "remind":
+            v = json.dumps(clean_remind(v), ensure_ascii=False)
         elif isinstance(v, (list, dict)):
             v = json.dumps(v, ensure_ascii=False)
         elif isinstance(v, str):
@@ -538,12 +539,13 @@ def upcoming_items(horizon):
     t0 = dt.date.today()
     secs = {r["id"]: r for r in rows("SELECT * FROM sections")}
     out = []
-    for t in rows("SELECT * FROM tasks WHERE done=0 AND due IS NOT NULL ORDER BY due, pos, id"):
+    for t in rows("SELECT * FROM tasks WHERE done=0 AND due IS NOT NULL ORDER BY due, time, pos, id"):
         n = (dt.date.fromisoformat(t["due"]) - t0).days
         if n > horizon:
             continue
         s = secs.get(t["section_id"]) or {}
         out.append({"id": t["id"], "pavadinimas": t["title"], "data": t["due"], "dienos": n, "tekstas": days_text(n),
+                    "laikas": t["time"] or "",
                     "sekcija": s.get("name", ""), "emoji": s.get("emoji", ""), "kartojasi": bool(task_repeat(t))})
     return out
 
@@ -590,11 +592,20 @@ def build_ics():
     lines = ["BEGIN:VCALENDAR", "VERSION:2.0", "PRODID:-//Ukis//LT", "CALSCALE:GREGORIAN", "X-WR-CALNAME:Ūkis"]
     stamp = dt.datetime.utcnow().strftime("%Y%m%dT%H%M%SZ")
 
+    def when_lines(t, day):
+        if not t["time"]:
+            return [f"DTSTART;VALUE=DATE:{day.strftime('%Y%m%d')}",
+                    f"DTEND;VALUE=DATE:{(day + dt.timedelta(days=1)).strftime('%Y%m%d')}"]
+        st_ = dt.datetime.combine(day, dt.time.fromisoformat(t["time"]))
+        en = dt.datetime.combine(day, dt.time.fromisoformat(t["end_time"])) if t["end_time"] else None
+        if not en or en <= st_:
+            en = st_ + dt.timedelta(hours=1)
+        return [f"DTSTART:{st_.strftime('%Y%m%dT%H%M%S')}", f"DTEND:{en.strftime('%Y%m%dT%H%M%S')}"]
+
     def ev(t, day, uid):
         s = secs.get(t["section_id"]) or {}
         lines.extend(["BEGIN:VEVENT", f"UID:{uid}@ukis", f"DTSTAMP:{stamp}",
-                      f"DTSTART;VALUE=DATE:{day.strftime('%Y%m%d')}",
-                      f"DTEND;VALUE=DATE:{(day + dt.timedelta(days=1)).strftime('%Y%m%d')}",
+                      *when_lines(t, day),
                       f"SUMMARY:{ics_escape(t['title'])}",
                       f"DESCRIPTION:{ics_escape((s.get('emoji', '') + ' ' + s.get('name', '')).strip() + (chr(10) + t['notes'] if t['notes'] else ''))}",
                       "TRANSP:TRANSPARENT", "END:VEVENT"])
@@ -703,11 +714,61 @@ def send_notification(message, title="🏡 Ūkis", actions=None, tag=None, servi
     NOTIFY_STATE["last_sent"] = now()
 
 
-def task_actions(t, kind):
-    acts = [{"action": f"{ACTION_PREFIX}DONE_{t['id']}", "title": "✓ Atlikta"}]
-    if kind == "m":
-        acts.append({"action": f"{ACTION_PREFIX}TOMORROW_{t['id']}", "title": "Rytoj"})
-    return acts
+UNIT_MIN = {"min": 1, "val": 60, "d": 1440, "sav": 10080}
+
+
+def clean_remind(v):
+    if isinstance(v, str):
+        v = json.loads(v or "[]")
+    out = []
+    for r in (v or [])[:10]:
+        n = int(num(r.get("n")) or 0)
+        u = r.get("u") if r.get("u") in UNIT_MIN else "min"
+        if n < 0 or n > 9999:
+            raise ValueError("Blogas priminimo laikas")
+        item = {"n": n, "u": u}
+        if r.get("at"):
+            item["at"] = hm(r.get("at"), "13:00")
+        out.append(item)
+    return out
+
+
+def task_reminders(t):
+    try:
+        return clean_remind(t["remind"] or "[]")
+    except Exception:
+        return []
+
+
+def fire_times(t):
+    """Kada siųsti kiekvieną užduoties priminimą (datetime sąrašas)."""
+    due = dt.date.fromisoformat(t["due"])
+    out = []
+    for r in task_reminders(t):
+        if t["time"]:  # užduotis su laiku – skaičiuojama nuo pradžios
+            start = dt.datetime.combine(due, dt.time.fromisoformat(t["time"]))
+            out.append(start - dt.timedelta(minutes=r["n"] * UNIT_MIN[r["u"]]))
+        else:  # visa diena – dienomis / savaitėmis, nurodytą valandą
+            days = r["n"] * (7 if r["u"] == "sav" else 1) if r["u"] in ("d", "sav") else 0
+            at = dt.time.fromisoformat(r.get("at") or "13:00")
+            out.append(dt.datetime.combine(due - dt.timedelta(days=days), at))
+    return out
+
+
+def when_text(t, t0):
+    n = (dt.date.fromisoformat(t["due"]) - t0).days
+    tm = f" {t['time']}" if t["time"] else ""
+    if n < 0:
+        return f"Vėluoja {-n} d."
+    if n == 0:
+        return "Šiandien" + tm
+    if n == 1:
+        return "Rytoj" + tm
+    d = dt.date.fromisoformat(t["due"])
+    return f"Po {n} d. ({MONTHS_S[d.month - 1]} {d.day}{tm})"
+
+
+MONTHS_S = ["saus.", "vas.", "kov.", "bal.", "geg.", "birž.", "liep.", "rugp.", "rugs.", "spal.", "lapkr.", "gruod."]
 
 
 def collect_notifications():
@@ -718,48 +779,40 @@ def collect_notifications():
     t0 = dt.date.today()
     nowdt = dt.datetime.now()
     sent = meta_get("notified") or {}
-    out = []
-
-    def in_window(key, hours):
-        start = dt.datetime.combine(t0, dt.time.fromisoformat(hm(st.get(key), DEFAULT_SETTINGS[key])))
-        return start <= nowdt <= start + dt.timedelta(hours=hours)
-
-    def task_list(cond):
-        res = []
-        for t in rows("SELECT * FROM tasks WHERE done=0 AND due IS NOT NULL AND COALESCE(notify,1)=1 ORDER BY due, pos, id"):
-            n = (dt.date.fromisoformat(t["due"]) - t0).days
-            if cond(n):
-                res.append((t, n))
-        return res
-
-    batches = []
-    if st.get("notify_evening", True) and in_window("evening_time", 3):
-        batches.append(("e", task_list(lambda n: n == 1)))
-    if st.get("notify_morning", True) and in_window("morning_time", 4):
-        over = bool(st.get("notify_overdue", True))
-        batches.append(("m", task_list(lambda n: n == 0 or (over and n < 0))))
-    for kind, lst in batches:
-        fresh = []
-        for t, n in lst:
-            key = f"{t['id']}:{t['due']}:{kind}:{t0.isoformat()}"
-            if key not in sent:
+    fresh = []
+    for t in rows("SELECT * FROM tasks WHERE done=0 AND due IS NOT NULL ORDER BY due, time, pos, id"):
+        rems = task_reminders(t)
+        if not rems:
+            continue
+        for i, ft in enumerate(fire_times(t)):
+            # siunčiama, jei laikas atėjo prieš ne daugiau kaip 3 val. (pvz. HA buvo perkrautas)
+            if ft <= nowdt <= ft + dt.timedelta(hours=3):
+                key = f"{t['id']}:{t['due']}:{t['time'] or ''}:{ft.isoformat()}"
+                if key not in sent:
+                    sent[key] = t0.isoformat()
+                    fresh.append(t)
+        due = dt.date.fromisoformat(t["due"])
+        if st.get("notify_overdue", True) and due < t0:
+            # pavėluota – kasdien tuo pačiu laiku (užduoties laikas arba 13:00)
+            at = dt.datetime.combine(t0, dt.time.fromisoformat(t["time"] or "13:00"))
+            key = f"{t['id']}:{t['due']}:late:{t0.isoformat()}"
+            if at <= nowdt <= at + dt.timedelta(hours=6) and key not in sent:
                 sent[key] = t0.isoformat()
-                fresh.append((t, n))
-        if not fresh:
-            continue
-        if len(fresh) > 4:  # daug – vienas suvestinės pranešimas
-            head = "Rytoj" if kind == "e" else "Šiandien"
-            out.append({"title": f"🏡 {head}: {len(fresh)} užduotys",
-                        "message": ", ".join(t["title"] for t, _ in fresh[:12]), "tag": f"ukis_sum_{kind}"})
-            continue
-        for t, n in fresh:
-            when = "Rytoj" if n == 1 else "Šiandien" if n == 0 else f"Vėluoja {-n} d."
-            out.append({"title": f"🏡 {when}", "message": t["title"], "tag": f"ukis_task_{t['id']}",
-                        "actions": task_actions(t, kind)})
-    # seni įrašai – lauk
+                fresh.append(t)
+    out = []
+    uniq = list({t["id"]: t for t in fresh}.values())
+    if len(uniq) > 4:
+        out.append({"title": f"🏡 Priminimai: {len(uniq)} užduotys",
+                    "message": ", ".join(t["title"] for t in uniq[:12]), "tag": "ukis_sum"})
+    else:
+        for t in uniq:
+            acts = [{"action": f"{ACTION_PREFIX}DONE_{t['id']}", "title": "✓ Atlikta"}]
+            if dt.date.fromisoformat(t["due"]) <= t0:
+                acts.append({"action": f"{ACTION_PREFIX}TOMORROW_{t['id']}", "title": "Rytoj"})
+            out.append({"title": f"🏡 {when_text(t, t0)}", "message": t["title"], "tag": f"ukis_task_{t['id']}",
+                        "actions": acts})
     lim = (t0 - dt.timedelta(days=10)).isoformat()
-    sent = {k: v for k, v in sent.items() if v >= lim}
-    meta_set("notified", sent)
+    meta_set("notified", {k: v for k, v in sent.items() if v >= lim})
     return out
 
 

@@ -1,5 +1,10 @@
 # Pakeitimai
 
+## 1.3.0
+- Užduotis gali turėti laiką „nuo–iki“ arba būti visos dienos (kaip Google kalendoriuje).
+- Kiekviena užduotis turi savus priminimus (kelis): pvz. 30 min. prieš, 1 d. prieš 20:00, 1 sav. prieš. Bendri vakaro / ryto laikai pašalinti.
+- Laikas rodomas sąraše, „Artimiausi“, HA kortelėje ir HA kalendoriuje.
+
 ## 1.2.0
 - Priminimai telefone per Home Assistant programėlę: vakare prieš ir / ar ryte tą dieną, pavėluotos – kas rytą.
 - Pranešime mygtukai „✓ Atlikta“ ir „Rytoj“ (atidėti dienai).

@@ -81,17 +81,19 @@ Užduotis galima suvesti ir iš `.json` failo (pvz. paprašius Claude paruošti 
 
 ---
 
-## 7. Priminimai telefone
+## 7. Laikas ir priminimai telefone
 
-**⚙️ → Priminimai telefone:**
-1. Pasirinkite telefoną (-us). Sąraše matomi visi telefonai, kuriuose įdiegta ir prijungta Home Assistant programėlė.
-2. Įjunkite **Vakare prieš** (kas bus rytoj) ir / ar **Ryte tą dieną** (kas šiandien) ir nustatykite laiką.
-3. **Ryte priminti pavėluotas** – kasdien ryte, kol užduotis nepažymėta.
-4. Spauskite **Išbandyti pranešimą**.
+**Laikas.** Užduoties lange, kai nurodyta data, yra jungiklis **Visa diena**. Išjungus jį, galima nurodyti laiką „nuo–iki“ (kaip Google kalendoriuje).
 
-Pranešime yra mygtukas **✓ Atlikta** – užduotis pažymima programoje (pasikartojanti persikelia į kitą datą). Ryto pranešime dar yra **Rytoj** – užduotis atidedama vienai dienai (pasikartojančios grafikas nesikeičia).
+**Priminimai** nustatomi kiekvienai užduočiai atskirai: **🔔 Priminimai telefone → ＋ Pridėti priminimą**. Jų gali būti keli.
+- Užduočiai su laiku – pagal nutylėjimą **30 min. prieš**. Vienetai: min., val., d., sav.
+- Visos dienos užduočiai – pagal nutylėjimą **tą dieną 13:00**. Galima nurodyti, pvz., **1 d. prieš, 20:00** (šiukšlės) arba **1 sav. prieš** (filtrai, druska).
 
-Priminimai siunčiami tik užduotims su data. Konkrečiai užduočiai juos galima išjungti užduoties lange (**🔔 Priminti telefone**). Jei vienu metu užduočių daugiau nei 4, ateina vienas suvestinės pranešimas.
+Užduotys be priminimų į telefoną nesiunčiamos.
+
+**⚙️ → Priminimai telefone:** pasirinkite telefoną (-us), kuriuose įdiegta Home Assistant programėlė, ir spauskite **Išbandyti pranešimą**. Ten pat – **Priminti pavėluotas** (kasdien užduoties laiku arba 13:00, kol nepažymėsite).
+
+Pranešime yra mygtukas **✓ Atlikta** (pasikartojanti užduotis persikelia į kitą datą), o užduočiai, kurios data šiandien ar jau praėjo, – ir **Rytoj** (atideda vienai dienai). Jei vienu metu susidaro daugiau nei 4 priminimai, ateina vienas suvestinės pranešimas.
 
 ---
 
