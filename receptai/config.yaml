@@ -1,0 +1,28 @@
+name: "Receptai"
+version: "1.8.2"
+slug: "receptai"
+description: "Receptai, savaitės meniu ir bendras pirkinių sąrašas šeimai"
+arch:
+  - aarch64
+  - amd64
+  - armv7
+init: true
+startup: application
+boot: auto
+ingress: true
+ingress_port: 8099
+panel_icon: "mdi:silverware-fork-knife"
+panel_title: "Receptai"
+panel_admin: false
+homeassistant_api: true
+ports:
+  8099/tcp: 8765
+ports_description:
+  8099/tcp: "Tiesioginė prieiga telefonams (atskira ikonėlė)"
+options:
+  pin: ""
+  ekrano_telefonai: []
+schema:
+  pin: "str?"
+  ekrano_telefonai:
+    - "str?"

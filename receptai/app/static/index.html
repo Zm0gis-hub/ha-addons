@@ -1,0 +1,39 @@
+<!doctype html>
+<html lang="lt">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, interactive-widget=resizes-content">
+<meta name="theme-color" content="#efede9" media="(prefers-color-scheme: light)">
+<meta name="theme-color" content="#191715" media="(prefers-color-scheme: dark)">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<title>Receptai</title>
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" href="icon-192.png">
+<link rel="apple-touch-icon" href="icon-192.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Nunito:wght@400;500;600;700;800&display=swap">
+<link rel="stylesheet" href="style.css?v=11">
+</head>
+<body>
+<header id="top">
+  <button id="back" class="icon-btn" aria-label="Atgal" hidden>‹</button>
+  <h1 id="title">Receptai</h1>
+  <div id="top-actions"></div>
+</header>
+<main id="view"></main>
+<nav id="tabs">
+  <a href="#list" data-tab="list"><span>🛒</span>Sąrašas</a>
+  <a href="#menu" data-tab="menu"><span>📅</span>Meniu</a>
+  <a href="#recipes" data-tab="recipes"><span>📖</span>Receptai</a>
+  <a href="#more" data-tab="more"><span>⚙️</span>Daugiau</a>
+</nav>
+<div id="sheet-bg" hidden></div>
+<div id="sheet" hidden></div>
+<div id="toast" hidden></div>
+<div id="undo" hidden></div>
+<div id="timers" hidden></div>
+<script src="app.js?v=14"></script>
+</body>
+</html>
