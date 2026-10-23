@@ -62,12 +62,18 @@ TABLES = {
     "tasks": ["section_id", "title", "notes", "due", "done", "done_at", "pos", "tags", "created", "repeat", "notify", "time", "end_time", "remind"],
     "subtasks": ["task_id", "title", "done", "pos"],
     "comments": ["task_id", "text", "created"],
-    "files": ["task_id", "filename", "orig_name", "mime", "size", "created"],
+    "files": ["task_id", "filename", "orig_name", "mime", "size", "created", "round_id"],
     "tags": ["name", "emoji", "pos"],
     "task_log": ["task_id", "date", "due", "note"],
+    # gręžinys
+    "well_meters": ["name", "kind", "owner", "active", "pos", "start"],
+    "well_rounds": ["date", "price", "note"],
+    "well_readings": ["round_id", "meter_id", "value"],
+    "well_costs": ["date", "type", "amount", "note", "split"],
 }
-NUMERIC = {"pos", "collapsed", "section_id", "done", "task_id", "size", "notify"}
-POS_GROUP = {"sections": None, "tags": None, "tasks": "section_id", "subtasks": "task_id"}
+NUMERIC = {"pos", "collapsed", "section_id", "done", "task_id", "size", "notify", "active", "price", "round_id",
+           "meter_id", "value", "amount"}
+POS_GROUP = {"sections": None, "tags": None, "tasks": "section_id", "subtasks": "task_id", "well_meters": None}
 
 SCHEMA = """
 CREATE TABLE IF NOT EXISTS meta (key TEXT PRIMARY KEY, value TEXT);
@@ -83,6 +89,12 @@ CREATE TABLE IF NOT EXISTS files (id INTEGER PRIMARY KEY, task_id INTEGER, filen
   size INTEGER, created TEXT);
 CREATE TABLE IF NOT EXISTS tags (id INTEGER PRIMARY KEY, name TEXT, emoji TEXT DEFAULT '', pos INTEGER DEFAULT 0);
 CREATE TABLE IF NOT EXISTS task_log (id INTEGER PRIMARY KEY, task_id INTEGER, date TEXT, due TEXT, note TEXT DEFAULT '');
+CREATE TABLE IF NOT EXISTS well_meters (id INTEGER PRIMARY KEY, name TEXT, kind TEXT DEFAULT 'water', owner TEXT DEFAULT 'as',
+  active INTEGER DEFAULT 1, pos INTEGER DEFAULT 0, start TEXT);
+CREATE TABLE IF NOT EXISTS well_rounds (id INTEGER PRIMARY KEY, date TEXT, price REAL, note TEXT DEFAULT '');
+CREATE TABLE IF NOT EXISTS well_readings (id INTEGER PRIMARY KEY, round_id INTEGER, meter_id INTEGER, value REAL);
+CREATE TABLE IF NOT EXISTS well_costs (id INTEGER PRIMARY KEY, date TEXT, type TEXT DEFAULT 'kita', amount REAL,
+  note TEXT DEFAULT '', split TEXT DEFAULT '');
 """
 
 DEFAULT_SETTINGS = {
@@ -90,6 +102,9 @@ DEFAULT_SETTINGS = {
     "ha_days": 7,          # kiek dienų į priekį rodyti HA kortelėje
     "notify_services": [],  # mobile_app_* paslaugos (telefonai)
     "notify_overdue": True,
+    "well_price": 0.2142,   # sutarta siurblio elektros kaina, EUR/kWh
+    "well_neighbor": "Kaimynas",
+    "well_split": {"druska": "m3", "aptarnavimas": "half", "remontas": "half", "dalys": "half", "kita": "half"},
 }
 DEFAULT_SECTIONS = [("Darbai", "🔨"), ("Pirkiniai", "🛒"), ("Kada nors", "💡")]
 DEFAULT_TAGS = [("Senukai", "🏬"), ("Ermitažas", "🏬")]
@@ -125,6 +140,43 @@ def meta_set(key, value):
     DB.execute("INSERT OR REPLACE INTO meta(key, value) VALUES(?,?)", (key, json.dumps(value, ensure_ascii=False)))
 
 
+def first_wd_of_month(y, m, wd):
+    """Pirmoji nurodyta savaitės diena (0 = pirmadienis … 5 = šeštadienis) mėnesyje."""
+    d = dt.date(y, m, 1)
+    return d + dt.timedelta(days=(wd - d.weekday()) % 7)
+
+
+def seed_well():
+    """Pradinė gręžinio sekcija, užduotys ir skaitikliai (tik vieną kartą)."""
+    if not DB.execute("SELECT COUNT(*) FROM well_meters").fetchone()[0]:
+        for i, (n, k, o, a) in enumerate((("Namo vanduo", "water", "as", 1), ("Kaimyno vanduo", "water", "kaimynas", 0),
+                                           ("Siurblio elektra", "power", "", 1))):
+            DB.execute("INSERT INTO well_meters(name, kind, owner, active, pos) VALUES(?,?,?,?,?)", (n, k, o, a, i))
+    r = DB.execute("SELECT id FROM sections WHERE lower(name)=lower(?)", ("Gręžinys",)).fetchone()
+    sid = r["id"] if r else DB.execute("INSERT INTO sections(name, emoji, pos) VALUES(?,?,?)",
+                                       ("Gręžinys", "💧", next_pos("sections"))).lastrowid
+    t0 = dt.date.today()
+    y, m = divmod(t0.month - 1 + 2, 12)
+    first = first_wd_of_month(t0.year + y, m + 1, 5)  # pirmas šeštadienis po 2 mėn.
+    rep = json.dumps({"type": "cal", "every": 2, "unit": "m", "next": first.isoformat(), "wd": 5})
+    ids = {}
+    for key, title, due, rp, notes in (
+            ("well_salt_buy", "Nupirkti druskos", None, "", "Pažymėjus atlikta – galima iškart įrašyti kainą."),
+            ("well_read_task", "Supilti druską ir nurašyti skaitiklius", first.isoformat(), rep,
+             "Pažymėjus atlikta atsidaro skaitiklių rodmenų įvedimas."),
+            (None, "Filtro pravalymas", None, "", ""),
+            (None, "Gręžinio aptarnavimas (užsakyti įmonę)", None, "", "Po vizito įrašykite išlaidą Gręžinio skiltyje.")):
+        tid = DB.execute("""INSERT INTO tasks(section_id, title, notes, due, pos, tags, created, repeat, remind)
+                            VALUES(?,?,?,?,?,?,?,?,?)""",
+                         (sid, title, notes, due, next_pos("tasks", sid), "[]", now(), rp,
+                          json.dumps([{"n": 0, "u": "d", "at": "10:00"}]) if due else "[]")).lastrowid
+        if key:
+            ids[key] = tid
+    for k, v in ids.items():
+        meta_set(k, v)
+    meta_set("well_section", sid)
+
+
 def init_db():
     with LOCK:
         DB.executescript(SCHEMA)
@@ -132,6 +184,9 @@ def init_db():
         for col, typ in (("notify", "INTEGER DEFAULT 1"), ("time", "TEXT"), ("end_time", "TEXT"), ("remind", "TEXT DEFAULT '[]'")):
             if col not in have:
                 DB.execute(f"ALTER TABLE tasks ADD COLUMN {col} {typ}")
+        have_f = {r["name"] for r in DB.execute("PRAGMA table_info(files)")}
+        if "round_id" not in have_f:
+            DB.execute("ALTER TABLE files ADD COLUMN round_id INTEGER")
         if meta_get("version") is None:
             meta_set("version", 1)
         s = meta_get("settings") or {}
@@ -144,6 +199,9 @@ def init_db():
             for i, (n, e) in enumerate(DEFAULT_TAGS):
                 DB.execute("INSERT INTO tags(name, emoji, pos) VALUES(?,?,?)", (n, e, i))
             meta_set("seeded", True)
+        if meta_get("well_seeded") is None:
+            seed_well()
+            meta_set("well_seeded", True)
         if not meta_get("ics_token"):
             meta_set("ics_token", secrets.token_hex(12))
         DB.commit()
@@ -182,7 +240,9 @@ def clean_date(v):
 
 
 def full_state():
-    out = {"version": version(), "today": today(), "settings": meta_get("settings") or DEFAULT_SETTINGS}
+    out = {"version": version(), "today": today(), "settings": meta_get("settings") or DEFAULT_SETTINGS,
+           "well": {k: meta_get(k) for k in ("well_section", "well_read_task", "well_salt_buy")},
+           "well_paid": meta_get("well_paid") or {}}
     for t in TABLES:
         out[t] = rows(f"SELECT * FROM {t} ORDER BY id")
     return out
@@ -335,12 +395,12 @@ def act_order(d):
 
 
 def act_file_add(d):
-    tid = num(d.get("task_id"))
-    if not tid:
+    tid, rnd = num(d.get("task_id")), num(d.get("round_id"))
+    if not tid and not rnd:
         raise ValueError("Nenurodyta užduotis")
     fn, size = take_upload(d.get("upload"), d.get("orig_name"))
-    cur = DB.execute("INSERT INTO files(task_id, filename, orig_name, mime, size, created) VALUES(?,?,?,?,?,?)",
-                     (tid, fn, d.get("orig_name") or "", d.get("mime") or "", size, now()))
+    cur = DB.execute("INSERT INTO files(task_id, filename, orig_name, mime, size, created, round_id) VALUES(?,?,?,?,?,?,?)",
+                     (tid, fn, d.get("orig_name") or "", d.get("mime") or "", size, now(), rnd))
     return {"id": cur.lastrowid}
 
 
@@ -351,6 +411,13 @@ def act_settings_save(d):
             v = d[k]
             if isinstance(dflt, bool):
                 v = bool(v) and v not in ("0", "false")
+            elif isinstance(dflt, float):
+                v = num(v)
+                if v is None or v < 0 or v > 10:
+                    raise ValueError("Bloga kaina")
+                v = float(v)
+            elif isinstance(dflt, dict):
+                v = {kk: ("m3" if str((v or {}).get(kk)) == "m3" else "half") for kk in dflt}
             elif isinstance(dflt, int):
                 v = num(v)
                 v = dflt if v is None else int(v)
@@ -416,6 +483,54 @@ def act_import(d):
     return {"imported": cnt}
 
 
+# ---------------------------------------------------------------- gręžinys
+
+def act_well_round(d):
+    """Skaitiklių nurašymas: data, kaina ir visų skaitiklių rodmenys vienu kartu."""
+    date = clean_date(d.get("date")) or today()
+    price = num(d.get("price"))
+    if price is None:
+        price = (meta_get("settings") or {}).get("well_price", DEFAULT_SETTINGS["well_price"])
+    rid = num(d.get("id"))
+    if rid:
+        DB.execute("UPDATE well_rounds SET date=?, price=?, note=? WHERE id=?", (date, price, d.get("note", ""), rid))
+    else:
+        rid = DB.execute("INSERT INTO well_rounds(date, price, note) VALUES(?,?,?)",
+                         (date, price, d.get("note", ""))).lastrowid
+    vals = d.get("values") or {}
+    if not any(num(v) is not None for v in vals.values()):
+        raise ValueError("Įrašykite bent vieno skaitiklio rodmenį")
+    DB.execute("DELETE FROM well_readings WHERE round_id=?", (rid,))
+    for mid, v in vals.items():
+        v = num(v)
+        if v is None:
+            continue
+        if v < 0:
+            raise ValueError("Rodmuo negali būti neigiamas")
+        DB.execute("INSERT INTO well_readings(round_id, meter_id, value) VALUES(?,?,?)", (rid, int(mid), float(v)))
+    return {"id": rid}
+
+
+def act_well_round_delete(d):
+    rid = num(d.get("id"))
+    for r in rows("SELECT filename FROM files WHERE round_id=?", (rid,)):
+        remove_file(r["filename"])
+    DB.execute("DELETE FROM files WHERE round_id=?", (rid,))
+    DB.execute("DELETE FROM well_readings WHERE round_id=?", (rid,))
+    DB.execute("DELETE FROM well_rounds WHERE id=?", (rid,))
+
+
+def act_well_paid(d):
+    """Metų atsiskaitymo žyma: {year, paid (bool), amount}."""
+    y = str(int(num(d.get("year")) or 0))
+    paid = meta_get("well_paid") or {}
+    if d.get("paid"):
+        paid[y] = {"date": today(), "amount": num(d.get("amount")) or 0}
+    else:
+        paid.pop(y, None)
+    meta_set("well_paid", paid)
+
+
 # ---------------------------------------------------------------- kartojimai
 
 def clean_repeat(v):
@@ -428,10 +543,17 @@ def clean_repeat(v):
         raise ValueError("Blogas kartojimo intervalas")
     unit = v.get("unit") if v.get("unit") in ("d", "w", "m", "y") else "w"
     typ = "after" if v.get("type") == "after" else "cal"
-    return {"type": typ, "every": every, "unit": unit, "next": clean_date(v.get("next"))}
+    out = {"type": typ, "every": every, "unit": unit, "next": clean_date(v.get("next"))}
+    wd = num(v.get("wd"))
+    if unit == "m" and wd is not None and 0 <= int(wd) <= 6:
+        out["wd"] = int(wd)  # mėnesio pirmoji ši savaitės diena
+    return out
 
 
-def add_iv(d, every, unit):
+def add_iv(d, every, unit, wd=None):
+    if unit == "m" and wd is not None:
+        y, m = divmod(d.month - 1 + every, 12)
+        return first_wd_of_month(d.year + y, m + 1, wd)
     if unit == "d":
         return d + dt.timedelta(days=every)
     if unit == "w":
@@ -454,12 +576,12 @@ def next_occurrence(t, r, done_day, skip=False):
     """Kita data po atlikimo / praleidimo."""
     if r["type"] == "after":
         if skip and t["due"]:
-            return add_iv(dt.date.fromisoformat(t["due"]), r["every"], r["unit"])
-        return add_iv(done_day, r["every"], r["unit"])
+            return add_iv(dt.date.fromisoformat(t["due"]), r["every"], r["unit"], r.get("wd"))
+        return add_iv(done_day, r["every"], r["unit"], r.get("wd"))
     base = dt.date.fromisoformat(r.get("next") or t["due"] or done_day.isoformat())
-    nxt = add_iv(base, r["every"], r["unit"])
+    nxt = add_iv(base, r["every"], r["unit"], r.get("wd"))
     while nxt <= dt.date.today() and nxt <= done_day:
-        nxt = add_iv(nxt, r["every"], r["unit"])
+        nxt = add_iv(nxt, r["every"], r["unit"], r.get("wd"))
     return nxt
 
 
@@ -617,7 +739,7 @@ def build_ics():
         if r and r["type"] == "cal":
             d = dt.date.fromisoformat(r.get("next") or t["due"])
             for _ in range(400):
-                d = add_iv(d, r["every"], r["unit"])
+                d = add_iv(d, r["every"], r["unit"], r.get("wd"))
                 if d > until:
                     break
                 if d != due:
@@ -963,6 +1085,7 @@ def act_notify_test(d):
 ACTIONS = {
     "save": act_save, "delete": act_delete, "order_tasks": act_order_tasks, "order": act_order,
     "file_add": act_file_add, "task_complete": act_task_complete, "task_undo": act_task_undo, "notify_test": act_notify_test, "settings_save": act_settings_save, "import": act_import, "restore": act_restore,
+    "well_round": act_well_round, "well_round_delete": act_well_round_delete, "well_paid": act_well_paid,
 }
 
 MIME = {".html": "text/html; charset=utf-8", ".js": "application/javascript; charset=utf-8",

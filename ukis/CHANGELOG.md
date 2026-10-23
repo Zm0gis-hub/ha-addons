@@ -1,5 +1,12 @@
 # Pakeitimai
 
+## 1.4.0
+- Naujas skirtukas „💧 Gręžinys“: skaitiklių nurašymai (vanduo m³, siurblio elektra kWh) su nuotraukomis, sunaudojimas tarp nurašymų, siurblio elektros kaina.
+- Išlaidų žurnalas (druska, aptarnavimas, remontas, dalys, kita) ir metinė suvestinė su kaimynu: elektra dalinama pagal m³, kitos išlaidos – pagal pasirinkimą (pagal m³ arba per pusę). Tekstas žinutei ir žyma „Atsiskaityta“.
+- Skaitiklius galima pridėti (pvz. laistymo), priskirti savininkui ir išjungti; sutarta kaina išsaugoma kiekvienam nurašymui.
+- Sukuriama sekcija „Gręžinys“ su darbais; pažymėjus „Supilti druską ir nurašyti skaitiklius“ atsidaro rodmenų įvedimas, „Nupirkti druskos“ – išlaidos įvedimas.
+- Kartojimas „pirmą mėnesio šeštadienį“ (ar kitą savaitės dieną) – kas N mėnesių.
+
 ## 1.3.6
 - Tvarkos keitimas mygtukais: viršuje ↕️ – prie užduočių atsiranda ▲ ▼ (iš sekcijos krašto užduotis pereina į kaimyninę sekciją). Veikia ir HA programėlėje, kur tempimas pirštu neveikia.
 - Sub-užduotims – mygtukas „↕️ Tvarka“.

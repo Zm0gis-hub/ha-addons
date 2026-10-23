@@ -102,11 +102,12 @@ function doneVisible(t) {
   return diffDays(t.done_at.slice(0, 10), T()) <= (S.settings.done_keep_days ?? 1);
 }
 
+const WD_ACC = ['pirmadienį', 'antradienį', 'trečiadienį', 'ketvirtadienį', 'penktadienį', 'šeštadienį', 'sekmadienį'];
 const UNITS = { d: ['dieną', 'd.'], w: ['savaitę', 'sav.'], m: ['mėnesį', 'mėn.'], y: ['metus', 'm.'] };
 function repText(r) {
   if (!r) return '';
   const u = UNITS[r.unit] || UNITS.w;
-  return (r.every == 1 ? 'Kas ' + u[0] : `Kas ${r.every} ${u[1]}`) + (r.type === 'after' ? ' nuo atlikimo' : '');
+  return (r.every == 1 ? 'Kas ' + u[0] : `Kas ${r.every} ${u[1]}`) + (r.unit === 'm' && r.wd != null ? `, pirmą ${WD_ACC[r.wd]}` : '') + (r.type === 'after' ? ' nuo atlikimo' : '');
 }
 const logsOf = tid => S.task_log.filter(l => l.task_id === tid).sort((a, b) => (b.date || '').localeCompare(a.date || '') || b.id - a.id);
 
@@ -127,8 +128,8 @@ function render() {
   const h = (location.hash || '#list').slice(1).split('/');
   route = { name: h[0] || 'list', arg: h[1] };
   const fn = routes[route.name] || routes.list;
-  const tab = { soon: 'soon', find: 'find', list: 'list' }[route.name] || UI.lastTab || 'list';
-  if (['list', 'soon', 'find'].includes(route.name)) { UI.lastTab = route.name; saveUI(); }
+  const tab = { soon: 'soon', find: 'find', list: 'list', well: 'well', wellset: 'well' }[route.name] || UI.lastTab || 'list';
+  if (['list', 'soon', 'find', 'well'].includes(route.name)) { UI.lastTab = route.name; saveUI(); }
   $$('#tabs a').forEach(a => a.classList.toggle('on', a.dataset.tab === tab));
   fn(route.arg);
   $$('[data-go]').forEach(el => el.onclick = e => { e.stopPropagation(); go(el.dataset.go); });
@@ -167,6 +168,8 @@ async function toggleDone(t, skip) {
   const undo = { label: 'Atšaukti', fn: () => act('task_undo', r.undo) };
   if (r.next) toast(`${skip ? '⏭' : '✓'} ${t.title} · kitas kartas ${dueWord(r.next)}`, undo, 5000);
   else toast('✓ ' + t.title, undo);
+  if (!skip && S.well && t.id === S.well.well_read_task) roundSheet();
+  else if (!skip && S.well && t.id === S.well.well_salt_buy) costSheet(null, 'druska');
 }
 function dueWord(d) { const n = diffDays(T(), d); return n === 0 ? 'šiandien' : n === 1 ? 'rytoj' : shortDate(d); }
 
@@ -561,6 +564,7 @@ function repeatSheet(t) {
     <div class="muted small" id="rp-hint" style="margin:-4px 4px 12px"></div>
     <div class="row"><span style="font-weight:700">Kas</span><input type="text" inputmode="numeric" name="every" value="${esc(r.every)}" style="width:80px;text-align:center;font-weight:800">
       <select name="unit">${Object.entries({ d: 'dienas', w: 'savaites', m: 'mėnesius', y: 'metus' }).map(([k, l]) => `<option value="${k}" ${r.unit === k ? 'selected' : ''}>${l}</option>`).join('')}</select></div>
+    <label class="field" id="rp-wdl" style="margin-top:10px"><span>Kurią mėnesio dieną</span><select name="wd"><option value="">Tą pačią datą</option>${WD_ACC.map((w, i) => `<option value="${i}" ${r.wd === i ? 'selected' : ''}>Pirmą ${w}</option>`).join('')}</select></label>
     <div class="chips" style="margin-top:10px">${[['1', 'd', 'Kasdien'], ['1', 'w', 'Kas savaitę'], ['2', 'w', 'Kas 2 sav.'], ['1', 'm', 'Kas mėnesį'], ['1', 'y', 'Kas metus']].map(([e, u, l]) => `<button type="button" class="chip" data-pre="${e}:${u}">${l}</button>`).join('')}</div>
     <label class="field" style="margin-top:12px"><span id="rp-dl">Kita data</span><input type="date" name="next" value="${esc(first)}"></label>
     <div class="card pad small" id="rp-prev" style="margin-top:12px"></div>
@@ -569,29 +573,34 @@ function repeatSheet(t) {
   </form>`, () => {
     const f = $('#rp'); let type = r.type === 'after' ? 'after' : 'cal';
     const prev = () => {
+      $('#rp-wdl').hidden = f.elements.unit.value !== 'm';
       $('#rp-hint').textContent = type === 'cal' ? 'Fiksuotas grafikas, pvz. šiukšlių išvežimas – nesvarbu, kada pažymėsite.' : 'Kitas kartas skaičiuojamas nuo tos dienos, kai pažymėsite atlikta (pvz. filtro keitimas).';
       const ev = Math.max(1, parseInt(f.elements.every.value) || 1), u = f.elements.unit.value, d0 = f.elements.next.value;
       if (!d0) { $('#rp-prev').innerHTML = ''; return; }
       if (type === 'after') { $('#rp-prev').innerHTML = `Pirmą kartą: <b>${esc(longDate(d0))}</b>, vėliau – ${esc(repText({ type, every: ev, unit: u }).toLowerCase())}.`; return; }
       const ds_ = [d0]; let d = d0;
-      for (let i = 0; i < 4; i++) { d = u === 'd' ? addDays(d, ev) : u === 'w' ? addDays(d, 7 * ev) : addMonthsS(d, u === 'm' ? ev : 12 * ev); ds_.push(d); }
+      const wd = u === 'm' && f.elements.wd.value !== '' ? +f.elements.wd.value : null;
+      for (let i = 0; i < 4; i++) { d = u === 'd' ? addDays(d, ev) : u === 'w' ? addDays(d, 7 * ev) : addMonthsS(d, u === 'm' ? ev : 12 * ev, wd); ds_.push(d); }
       $('#rp-prev').innerHTML = 'Artimiausios datos:<br>' + ds_.map(x => `<b>${esc(DAYS_S[pd(x).getDay()])} ${esc(shortDate(x))}</b>`).join(' · ');
     };
     $$('#rp-type button').forEach(b => b.onclick = () => { type = b.dataset.v; $$('#rp-type button').forEach(x => x.classList.toggle('on', x === b)); prev(); });
     $$('[data-pre]').forEach(b => b.onclick = () => { const [e, u] = b.dataset.pre.split(':'); f.elements.every.value = e; f.elements.unit.value = u; prev(); });
-    ['every', 'unit', 'next'].forEach(k => f.elements[k].addEventListener('input', prev));
+    ['every', 'unit', 'next', 'wd'].forEach(k => f.elements[k].addEventListener('input', prev));
     prev();
     f.onsubmit = async e => {
       e.preventDefault();
       const next = f.elements.next.value; if (!next) { toast('Nurodykite datą'); return; }
       const every = Math.max(1, parseInt(f.elements.every.value) || 1);
-      await saveRow('tasks', { id: t.id, due: next, done: 0, repeat: { type, every, unit: f.elements.unit.value, next } });
+      const unit = f.elements.unit.value, rp = { type, every, unit, next };
+      if (unit === 'm' && f.elements.wd.value !== '') rp.wd = +f.elements.wd.value;
+      await saveRow('tasks', { id: t.id, due: next, done: 0, repeat: rp });
       closeSheet();
     };
     if ($('#rp-off')) $('#rp-off').onclick = async () => { closeSheet(); await saveRow('tasks', { id: t.id, repeat: '' }); };
   });
 }
-const addMonthsS = (s, n) => { const d = pd(s), day = d.getDate(); d.setDate(1); d.setMonth(d.getMonth() + n); d.setDate(Math.min(day, new Date(d.getFullYear(), d.getMonth() + 1, 0).getDate())); return ds(d); };
+const firstWd = (y, m, wd) => { const d = new Date(y, m, 1); d.setDate(1 + ((wd - ((d.getDay() + 6) % 7)) + 7) % 7); return ds(d); };
+const addMonthsS = (s, n, wd) => { if (wd != null) { const d = pd(s); return firstWd(d.getFullYear(), d.getMonth() + n, wd); } const d = pd(s), day = d.getDate(); d.setDate(1); d.setMonth(d.getMonth() + n); d.setDate(Math.min(day, new Date(d.getFullYear(), d.getMonth() + 1, 0).getDate())); return ds(d); };
 
 function autosize(el, min = 0) { el.style.height = 'auto'; el.style.height = Math.max(min, el.scrollHeight + 2) + 'px'; }
 
@@ -693,6 +702,241 @@ async function uploadFile(file, label) {
   } finally { progress(null); }
 }
 
+// ============================================================ GRĘŽINYS
+const W_TYPES = { druska: ['🧂', 'Druska'], aptarnavimas: ['🛠️', 'Aptarnavimas'], remontas: ['🔧', 'Remontas'], dalys: ['⚙️', 'Dalys, filtrai'], kita: ['📦', 'Kita'] };
+const fmt = (n, d = 2) => (Math.round((+n || 0) * 10 ** d) / 10 ** d).toFixed(d).replace('.', ',');
+const eur = n => fmt(n, 2) + ' €';
+const numIn = v => { const x = parseFloat(String(v ?? '').replace(/\s/g, '').replace(',', '.')); return isNaN(x) ? null : x; };
+const mUnit = m => m.kind === 'power' ? 'kWh' : 'm³';
+const mDec = m => m.kind === 'power' ? 1 : 3;
+const nbName = () => S.settings.well_neighbor || 'Kaimynas';
+const ownerName = o => o === 'kaimynas' ? nbName() : 'Aš';
+const metersSorted = () => [...S.well_meters].sort((a, b) => a.pos - b.pos || a.id - b.id);
+const splitOf = c => c.split || (S.settings.well_split || {})[c.type] || 'half';
+
+// visi skaičiavimai: laikotarpiai tarp nurašymų
+function wellCalc() {
+  const meters = metersSorted();
+  const rounds = [...S.well_rounds].sort((a, b) => a.date.localeCompare(b.date) || a.id - b.id);
+  const rd = {}; S.well_readings.forEach(r => { (rd[r.round_id] = rd[r.round_id] || {})[r.meter_id] = r.value; });
+  const last = {};
+  const periods = rounds.map(r => {
+    const vals = rd[r.id] || {}, p = { round: r, vals, delta: {}, from: null, m3: { as: 0, kaimynas: 0 }, kwh: 0, warn: [] };
+    for (const m of meters) {
+      if (vals[m.id] == null) continue;
+      if (last[m.id]) {
+        const dlt = vals[m.id] - last[m.id].v;
+        p.delta[m.id] = dlt;
+        if (dlt < 0) p.warn.push(m.name);
+        if (!p.from || last[m.id].date < p.from) p.from = last[m.id].date;
+        if (m.kind === 'power') p.kwh += Math.max(0, dlt);
+        else p.m3[m.owner === 'kaimynas' ? 'kaimynas' : 'as'] += Math.max(0, dlt);
+      }
+      last[m.id] = { v: vals[m.id], date: r.date };
+    }
+    const tot = p.m3.as + p.m3.kaimynas;
+    p.price = r.price ?? S.settings.well_price;
+    p.el = p.kwh * p.price;
+    p.shareK = tot > 0 ? p.m3.kaimynas / tot : 0;
+    p.elK = p.el * p.shareK;
+    return p;
+  });
+  return { meters, rounds, periods, last };
+}
+function wellYear(C, y) {
+  const ps = C.periods.filter(p => p.round.date.startsWith(y) && p.from);
+  const o = { kwh: 0, el: 0, elK: 0, m3: { as: 0, kaimynas: 0 }, costs: [], byType: {}, total: 0, totalK: 0 };
+  ps.forEach(p => { o.kwh += p.kwh; o.el += p.el; o.elK += p.elK; o.m3.as += p.m3.as; o.m3.kaimynas += p.m3.kaimynas; });
+  const tot = o.m3.as + o.m3.kaimynas, shareK = tot > 0 ? o.m3.kaimynas / tot : 0;
+  o.shareK = shareK;
+  o.costs = S.well_costs.filter(c => (c.date || '').startsWith(y)).sort((a, b) => b.date.localeCompare(a.date) || b.id - a.id);
+  o.costs.forEach(c => {
+    const k = splitOf(c) === 'm3' ? shareK : 0.5, t = (o.byType[c.type] = o.byType[c.type] || { sum: 0, k: 0, split: splitOf(c) });
+    t.sum += +c.amount || 0; t.k += (+c.amount || 0) * k;
+  });
+  o.total = o.el + Object.values(o.byType).reduce((s, t) => s + t.sum, 0);
+  o.totalK = o.elK + Object.values(o.byType).reduce((s, t) => s + t.k, 0);
+  o.periods = ps;
+  return o;
+}
+
+routes.well = () => {
+  setTop('💧 Gręžinys', { actions: `<button class="icon-btn" data-go="#wellset" aria-label="Nustatymai">⚙️</button>` });
+  const C = wellCalc();
+  const years = [...new Set([T().slice(0, 4), ...S.well_rounds.map(r => r.date.slice(0, 4)), ...S.well_costs.map(c => (c.date || '').slice(0, 4))])].filter(Boolean).sort().reverse();
+  if (!UI.wYear || !years.includes(UI.wYear)) UI.wYear = years[0];
+  const y = UI.wYear, Y = wellYear(C, y), paid = (S.well_paid || {})[y];
+  const sid = S.well?.well_section, secTasks = sid && I.sections[sid] ? tasksOf(sid).filter(t => doneVisible(t)) : [];
+  const hasK = C.meters.some(m => m.kind === 'water' && m.owner === 'kaimynas' && m.active);
+  let h = `${years.length > 1 ? `<div class="chips">${years.map(x => `<button class="chip ${x === y ? 'on' : ''}" data-wy="${x}">${x}</button>`).join('')}</div>` : ''}
+  <div class="stats" style="margin-top:4px">
+    <div class="card stat"><div class="k">⚡ Siurblys ${esc(y)}</div><div class="v">${fmt(Y.kwh, 1)} kWh</div><div class="s">${eur(Y.el)}</div></div>
+    <div class="card stat"><div class="k">💧 Vanduo ${esc(y)}</div><div class="v">${fmt(Y.m3.as + Y.m3.kaimynas, 1)} m³</div><div class="s">Aš ${fmt(Y.m3.as, 1)}${hasK || Y.m3.kaimynas ? ` · ${esc(nbName())} ${fmt(Y.m3.kaimynas, 1)}` : ''}</div></div>
+    <div class="card stat"><div class="k">🧾 Viso išlaidų</div><div class="v">${eur(Y.total)}</div><div class="s">su elektra</div></div>
+    <div class="card stat" id="w-sum"><div class="k">🤝 ${esc(nbName())} moka</div><div class="v" style="color:var(--accent)">${eur(Y.totalK)}</div><div class="s">${paid ? `✓ atsiskaityta ${esc(shortDate(paid.date))}` : 'suvestinė ›'}</div></div>
+  </div>
+  <div class="row" style="margin-top:12px"><button class="btn primary grow" id="w-read">📝 Nurašyti skaitiklius</button><button class="btn grow" id="w-cost">＋ Išlaida</button></div>`;
+
+  if (sid && I.sections[sid]) h += `<h2>✅ Darbai <button class="btn small" data-go="#list">Visi ›</button></h2>
+    <div class="tk-card">${secTasks.map(t => taskRow(t)).join('') || '<div class="empty" style="padding:14px">Darbų nėra</div>'}</div>`;
+
+  // nurašymai
+  const list = [...C.periods].reverse();
+  h += `<h2>📟 Nurašymai</h2>`;
+  if (!list.length) h += `<div class="card pad muted">Dar nėra nė vieno nurašymo. Spauskite <b>📝 Nurašyti skaitiklius</b> ir įrašykite dabartinius rodmenis – nuo jų bus skaičiuojamas sunaudojimas.</div>`;
+  else {
+    const maxM3 = Math.max(0.001, ...list.map(p => p.m3.as + p.m3.kaimynas));
+    h += `<div class="card list">${list.slice(0, UI.wAll ? 999 : 8).map(p => {
+      const nf = S.files.filter(f => f.round_id === p.round.id).length;
+      const lines = C.meters.filter(m => p.vals[m.id] != null).map(m => `<div class="w-ln"><span class="grow">${esc(m.name)}</span><b>${fmt(p.vals[m.id], mDec(m))}</b>${p.delta[m.id] != null ? `<span class="w-d ${p.delta[m.id] < 0 ? 'neg' : ''}">${p.delta[m.id] >= 0 ? '+' : ''}${fmt(p.delta[m.id], mDec(m))} ${mUnit(m)}</span>` : `<span class="w-d muted">pradžia</span>`}</div>`).join('');
+      const tot = p.m3.as + p.m3.kaimynas;
+      return `<div class="li w-round" data-wr="${p.round.id}" style="align-items:flex-start"><span class="ic">📟</span><div class="grow">
+        <div class="t">${esc(longDate(p.round.date))}${nf ? ` <span class="muted small">📷 ${nf}</span>` : ''}</div>
+        ${p.from ? `<div class="s">${esc(shortDate(p.from))} – ${esc(shortDate(p.round.date))} · ${diffDays(p.from, p.round.date)} d. · ⚡ ${fmt(p.kwh, 1)} kWh = <b>${eur(p.el)}</b></div>
+          <div class="w-bar"><i style="width:${Math.round(p.m3.as / maxM3 * 100)}%"></i><i class="k" style="width:${Math.round(p.m3.kaimynas / maxM3 * 100)}%"></i><span>${fmt(tot, 2)} m³</span></div>` : '<div class="s">Pradiniai rodmenys</div>'}
+        <div class="w-lines">${lines}</div>${p.warn.length ? `<div class="s" style="color:var(--danger)">⚠️ Mažesnis rodmuo nei anksčiau: ${esc(p.warn.join(', '))}</div>` : ''}${p.round.note ? `<div class="s">📝 ${esc(p.round.note)}</div>` : ''}</div></div>`;
+    }).join('')}${list.length > 8 && !UI.wAll ? `<div class="tk-more" id="w-all">Rodyti visus (${list.length})</div>` : ''}</div>`;
+  }
+
+  // išlaidos
+  h += `<h2>🧾 Išlaidos ${esc(y)}</h2>`;
+  h += Y.costs.length ? `<div class="card list">${Y.costs.map(c => { const [e, n] = W_TYPES[c.type] || W_TYPES.kita; return `<div class="li" data-wc="${c.id}"><span class="ic">${e}</span><div class="grow"><div class="t">${esc(n)}${c.note ? ` · <span style="font-weight:500">${esc(c.note)}</span>` : ''}</div><div class="s">${esc(shortDate(c.date))} · ${splitOf(c) === 'm3' ? 'dalinama pagal m³' : 'dalinama per pusę'}</div></div><span class="r"><b>${eur(c.amount)}</b></span></div>`; }).join('')}</div>`
+    : `<div class="card pad muted small">Šiais metais išlaidų dar neįrašyta (druska, aptarnavimas, remontas…).</div>`;
+
+  // suvestinė
+  h += `<h2>🤝 Suvestinė ${esc(y)}</h2><div class="card pad" id="w-summary">${wellSummaryHtml(Y)}
+    <div class="row" style="margin-top:12px"><button class="btn grow" id="w-text">📋 Tekstas žinutei</button><button class="btn grow ${paid ? '' : 'primary'}" id="w-paid">${paid ? '↩ Atšaukti „atsiskaityta“' : '✓ Atsiskaityta'}</button></div>
+    ${paid ? `<div class="muted small" style="margin-top:8px">✓ Atsiskaityta ${esc(longDate(paid.date))}: ${eur(paid.amount)}</div>` : ''}</div>`;
+  view.innerHTML = h;
+  bindTaskRows();
+  $$('[data-wy]').forEach(b => b.onclick = () => { UI.wYear = b.dataset.wy; saveUI(); render(); });
+  $('#w-read').onclick = () => roundSheet();
+  $('#w-cost').onclick = () => costSheet();
+  $('#w-sum').onclick = () => $('#w-summary').scrollIntoView({ behavior: 'smooth', block: 'center' });
+  $$('[data-wr]').forEach(el => el.onclick = () => roundSheet(I.well_rounds[el.dataset.wr]));
+  $$('[data-wc]').forEach(el => el.onclick = () => costSheet(I.well_costs[el.dataset.wc]));
+  if ($('#w-all')) $('#w-all').onclick = () => { UI.wAll = true; render(); };
+  $('#w-paid').onclick = () => act('well_paid', { year: y, paid: !paid, amount: Math.round(Y.totalK * 100) / 100 });
+  $('#w-text').onclick = () => copySheet('Tekstas žinutei', 'Galite nusiųsti kaimynui žinute:', wellText(Y, y));
+};
+
+function wellSummaryHtml(Y) {
+  const nb = esc(nbName()), sh = Math.round(Y.shareK * 1000) / 10;
+  const row = (l, sum, k, note) => `<tr><td>${l}${note ? `<div class="muted small">${note}</div>` : ''}</td><td>${eur(sum)}</td><td><b>${eur(k)}</b></td></tr>`;
+  let r = row('⚡ Siurblio elektra', Y.el, Y.elK, `${fmt(Y.kwh, 1)} kWh · pagal m³ kiekviename laikotarpyje`);
+  for (const [tp, t] of Object.entries(Y.byType)) { const [e, n] = W_TYPES[tp] || W_TYPES.kita; r += row(`${e} ${esc(n)}`, t.sum, t.k, t.split === 'm3' ? `pagal m³ (${nb} ${fmt(sh, 1)} %)` : 'per pusę'); }
+  return `<table class="w-tbl"><thead><tr><td></td><td>Viso</td><td>${nb}</td></tr></thead><tbody>${r}</tbody>
+    <tfoot><tr><td>Iš viso</td><td>${eur(Y.total)}</td><td>${eur(Y.totalK)}</td></tr></tfoot></table>
+    <div class="muted small" style="margin-top:8px">Vanduo: aš ${fmt(Y.m3.as, 2)} m³, ${nb} ${fmt(Y.m3.kaimynas, 2)} m³ (${fmt(sh, 1)} %).</div>`;
+}
+function wellText(Y, y) {
+  const L = [`Gręžinys ${y} m.`, `Elektra (siurblys): ${fmt(Y.kwh, 1)} kWh = ${eur(Y.el)}, tavo dalis ${eur(Y.elK)}`];
+  for (const [tp, t] of Object.entries(Y.byType)) L.push(`${(W_TYPES[tp] || W_TYPES.kita)[1]}: ${eur(t.sum)}, tavo dalis ${eur(t.k)} (${t.split === 'm3' ? 'pagal m³' : 'per pusę'})`);
+  L.push(`Vanduo: mano ${fmt(Y.m3.as, 2)} m³, tavo ${fmt(Y.m3.kaimynas, 2)} m³`, `Iš viso tau: ${eur(Y.totalK)}`);
+  return L.join('\n');
+}
+
+// ---- nurašymo langas
+function roundSheet(r) {
+  const C = wellCalc();
+  const meters = C.meters.filter(m => m.active || (r && S.well_readings.some(x => x.round_id === r.id && x.meter_id === m.id)));
+  const cur = {}; if (r) S.well_readings.filter(x => x.round_id === r.id).forEach(x => cur[x.meter_id] = x.value);
+  // ankstesnis rodmuo iki šios datos
+  const prevOf = (mid, date) => { let best = null; C.periods.forEach(p => { if (p.vals[mid] != null && p.round.date <= date && (!r || p.round.id !== r.id)) best = { v: p.vals[mid], date: p.round.date }; }); return best; };
+  const date0 = r ? r.date : T();
+  const files = r ? S.files.filter(f => f.round_id === r.id) : [];
+  sheet(`<h3>📟 ${r ? 'Nurašymas' : 'Nurašyti skaitiklius'}</h3><form id="wr" autocomplete="off">
+    <label class="field"><span>Data</span><input type="date" name="date" value="${esc(date0)}"></label>
+    <div class="stack" style="margin-top:10px">${meters.map(m => { const pv = prevOf(m.id, date0); return `<label class="field"><span>${m.kind === 'power' ? '⚡' : '💧'} ${esc(m.name)}${m.kind === 'water' ? ` <span class="muted">(${esc(ownerName(m.owner))})</span>` : ''}</span>
+      <div class="row"><input type="text" inputmode="decimal" data-mv="${m.id}" value="${cur[m.id] != null ? esc(fmt(cur[m.id], mDec(m))) : ''}" placeholder="${pv ? esc(fmt(pv.v, mDec(m))) : '0'}" style="font-size:19px;font-weight:700;font-variant-numeric:tabular-nums"><span class="muted" style="min-width:34px">${mUnit(m)}</span></div>
+      <span class="muted small" data-mh="${m.id}">${pv ? `Praeitą kartą ${esc(shortDate(pv.date))}: ${fmt(pv.v, mDec(m))}` : 'Pirmas rodmuo'}</span></label>`; }).join('')}</div>
+    <details style="margin-top:10px"><summary class="muted small">Elektros kaina ir pastaba</summary>
+      <label class="field" style="margin-top:8px"><span>Kaina, €/kWh</span><input type="text" inputmode="decimal" name="price" value="${esc(fmt(r ? r.price : S.settings.well_price, 4))}"></label>
+      <label class="field"><span>Pastaba</span><input type="text" name="note" value="${esc(r?.note || '')}"></label></details>
+    ${r ? `<div class="thumbs" style="margin-top:12px">${files.map(thumbHtml).join('')}</div>` : ''}
+    <label class="btn block" style="margin-top:12px">📷 ${r ? 'Pridėti nuotrauką' : 'Pridėti skaitiklių nuotraukas'}<input type="file" id="wr-file" multiple accept="image/*" hidden></label>
+    <div class="muted small" id="wr-fn"></div>
+    <button class="btn primary block" style="margin-top:14px;min-height:50px">💾 Išsaugoti</button>
+    ${r ? '<button type="button" class="btn danger block" id="wr-del" style="margin-top:10px">Ištrinti nurašymą</button>' : ''}</form>`, () => {
+    const f = $('#wr'); let pending = [];
+    const vv = () => { const o = {}; $$('[data-mv]', f).forEach(i => { const x = numIn(i.value); if (x != null) o[i.dataset.mv] = x; }); return o; };
+    const hint = () => $$('[data-mv]', f).forEach(i => {
+      const m = I.well_meters[i.dataset.mv], pv = prevOf(m.id, f.elements.date.value), x = numIn(i.value), el = $(`[data-mh="${m.id}"]`, f);
+      if (!pv) return;
+      el.innerHTML = `Praeitą kartą ${esc(shortDate(pv.date))}: ${fmt(pv.v, mDec(m))}` + (x != null ? ` · <b style="color:${x < pv.v ? 'var(--danger)' : 'var(--ok)'}">${x >= pv.v ? '+' : ''}${fmt(x - pv.v, mDec(m))} ${mUnit(m)}</b>` : '');
+    });
+    $$('[data-mv]', f).forEach(i => i.oninput = hint); f.elements.date.onchange = hint; hint();
+    $('#wr-file').onchange = e => { pending = [...e.target.files]; $('#wr-fn').textContent = pending.length ? `Pasirinkta nuotraukų: ${pending.length}` : ''; };
+    $$('[data-file]', f).forEach(el => el.onclick = () => fileViewer(I.files[el.dataset.file]));
+    f.onsubmit = async e => {
+      e.preventDefault();
+      const values = vv(); if (!Object.keys(values).length) return toast('Įrašykite rodmenis');
+      const low = Object.entries(values).filter(([mid, x]) => { const pv = prevOf(+mid, f.elements.date.value); return pv && x < pv.v; }).map(([mid]) => I.well_meters[mid].name);
+      if (low.length && !confirm(`Rodmuo mažesnis nei praeitą kartą: ${low.join(', ')}.\nAr tikrai teisingai įrašyta?`)) return;
+      const res = await api('api/do/well_round', { id: r?.id, date: f.elements.date.value, price: numIn(f.elements.price.value), note: f.elements.note.value, values });
+      for (const fl of pending) { const uid = await uploadFile(fl, 'Įkeliama: ' + fl.name); await api('api/do/file_add', { upload: uid, orig_name: fl.name, mime: fl.type, round_id: res.id }); }
+      closeSheet(); await load(); toast('Išsaugota');
+    };
+    if ($('#wr-del')) $('#wr-del').onclick = async () => { if (!confirm('Ištrinti šį nurašymą?')) return; closeSheet(); await act('well_round_delete', { id: r.id }); };
+  });
+}
+
+function costSheet(c, preType) {
+  const v = c || { date: T(), type: preType || 'druska', amount: '', note: '' };
+  formSheet({
+    title: c ? 'Išlaida' : 'Nauja išlaida', values: { ...v, amount: c ? fmt(c.amount, 2) : '' },
+    fields: [
+      { k: 'type', label: 'Tipas', type: 'select', opts: Object.entries(W_TYPES).map(([k, [e, n]]) => [k, `${e} ${n}`]) },
+      { k: 'amount', label: 'Suma, €', ph: 'pvz. 12,50' },
+      { k: 'date', label: 'Data', type: 'date' },
+      { k: 'note', label: 'Pastaba', ph: 'pvz. 2 maišai po 25 kg' },
+      { k: 'split', label: 'Kaip dalinti', type: 'select', opts: [['', 'Pagal tipą (nustatymuose)'], ['m3', 'Pagal sunaudotus m³'], ['half', 'Per pusę']] },
+    ],
+    bind: f => { f.elements.amount.setAttribute('inputmode', 'decimal'); if (!c) setTimeout(() => f.elements.amount.focus(), 80); },
+    onSave: async val => {
+      const a = numIn(val.amount); if (a == null || a < 0) { toast('Įrašykite sumą'); return false; }
+      await saveRow('well_costs', { id: c?.id, type: val.type, amount: a, date: val.date || T(), note: val.note, split: val.split });
+    },
+    onDelete: c ? async () => { await delRow('well_costs', c.id); } : null,
+  });
+}
+
+// ---- gręžinio nustatymai
+routes.wellset = () => {
+  setTop('Gręžinio nustatymai', { back: '#well' });
+  const sp = S.settings.well_split || {};
+  view.innerHTML = `<h2>📟 Skaitikliai <button class="btn small" id="ws-new">＋ Skaitiklis</button></h2>
+  <div class="card list">${metersSorted().map(m => `<div class="li" data-wm="${m.id}"><span class="ic">${m.kind === 'power' ? '⚡' : '💧'}</span><div class="grow"><div class="t">${esc(m.name)}${m.active ? '' : ' <span class="muted small">· nenaudojamas</span>'}</div>
+    <div class="s">${m.kind === 'power' ? 'Siurblio elektra, kWh' : 'Vanduo, m³ · ' + esc(ownerName(m.owner))}</div></div><span class="muted">›</span></div>`).join('')}</div>
+  <div class="muted small" style="margin:6px 4px 0">Vandens skaitiklių m³ sumuojami pagal savininką – pvz. namo ir laistymo skaitikliai abu „Aš“.</div>
+  <h2>⚡ Elektros kaina</h2>
+  <div class="card pad"><label class="field"><span>Sutarta kaina, €/kWh</span><input type="text" inputmode="decimal" id="ws-price" value="${esc(fmt(S.settings.well_price, 4))}"></label>
+    <div class="muted small" style="margin-top:6px">Naudojama naujiems nurašymams. Senų nurašymų kaina nesikeičia (ją galima pakeisti atidarius nurašymą).</div></div>
+  <h2>🤝 Dalinimas</h2>
+  <div class="card pad stack"><label class="field"><span>Kaimyno vardas</span><input type="text" id="ws-nb" value="${esc(nbName())}"></label>
+    ${Object.entries(W_TYPES).map(([k, [e, n]]) => `<label class="row"><span class="grow">${e} ${esc(n)}</span><select data-wsp="${k}" style="width:auto;flex:none;min-width:140px"><option value="m3" ${sp[k] === 'm3' ? 'selected' : ''}>pagal m³</option><option value="half" ${sp[k] !== 'm3' ? 'selected' : ''}>per pusę</option></select></label>`).join('')}
+    <div class="muted small">Siurblio elektra visada dalinama pagal m³ kiekviename laikotarpyje.</div></div>`;
+  $('#ws-new').onclick = () => meterSheet();
+  $$('[data-wm]').forEach(el => el.onclick = () => meterSheet(I.well_meters[el.dataset.wm]));
+  $('#ws-price').onchange = e => { const x = numIn(e.target.value); if (x == null) return toast('Bloga kaina'); act('settings_save', { well_price: x }).then(() => toast('Išsaugota')); };
+  $('#ws-nb').onchange = e => act('settings_save', { well_neighbor: e.target.value.trim() || 'Kaimynas' });
+  $$('[data-wsp]').forEach(s => s.onchange = () => { const o = {}; $$('[data-wsp]').forEach(x => o[x.dataset.wsp] = x.value); act('settings_save', { well_split: o }); });
+};
+function meterSheet(m) {
+  const used = m && S.well_readings.some(r => r.meter_id === m.id);
+  formSheet({
+    title: m ? 'Skaitiklis' : 'Naujas skaitiklis', values: m || { kind: 'water', owner: 'as', active: 1 },
+    fields: [
+      { k: 'name', label: 'Pavadinimas', ph: 'pvz. Laistymas' },
+      { k: 'kind', label: 'Tipas', type: 'select', opts: [['water', '💧 Vanduo, m³'], ['power', '⚡ Elektra, kWh']] },
+      { k: 'owner', label: 'Kieno vanduo', type: 'select', opts: [['as', 'Aš'], ['kaimynas', nbName()]] },
+      { k: 'active', label: 'Būsena', type: 'select', opts: [['1', 'Naudojamas'], ['0', 'Nenaudojamas (nerodomas nurašant)']] },
+    ],
+    onSave: async v => { if (!v.name.trim()) { toast('Įrašykite pavadinimą'); return false; } await saveRow('well_meters', { id: m?.id, ...v, active: +v.active, owner: v.kind === 'power' ? '' : v.owner }); },
+    onDelete: m && !used ? async () => { await delRow('well_meters', m.id); } : null,
+  });
+}
+
 // ============================================================ NUSTATYMAI
 routes.settings = () => {
   setTop('Nustatymai', { back: true });
@@ -734,7 +978,7 @@ routes.settings = () => {
     <label class="li go"><span class="ic">♻️</span><div class="grow"><div class="t">Atkurti iš kopijos</div><div class="s">Dabartiniai duomenys bus pakeisti</div></div><input type="file" id="st-restore" accept=".zip" hidden></label>
     <label class="li go"><span class="ic">📥</span><div class="grow"><div class="t">Importuoti užduotis (.json)</div><div class="s">Tik papildo, nieko netrina</div></div><input type="file" id="st-import" accept=".json,application/json" hidden></label>
   </div>
-  <p class="muted small center" style="margin-top:18px">Ūkis 1.3.6 · Duomenys patenka į Home Assistant atsargines kopijas</p>`;
+  <p class="muted small center" style="margin-top:18px">Ūkis 1.4.0 · Duomenys patenka į Home Assistant atsargines kopijas</p>`;
   $('#st-sec-new').onclick = () => sectionSheet();
   $('#st-tag-new').onclick = () => tagSheet();
   $$('[data-sedit]').forEach(el => el.onclick = () => sectionMenu(I.sections[el.dataset.sedit]));
