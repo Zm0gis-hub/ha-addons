@@ -1,5 +1,9 @@
 # Pakeitimai
 
+## 1.9.1
+- Pirkinių sąrašo antraštėje – blankus prekių skaičius.
+- Nauja statistika: kompaktiški skaičiai, gaminimas per 6 mėn. (stulpeliai), dažniausiai gaminami su juosta ir „paskutinį kartą prieš…“, seniai gaminti, istorija pagal mėnesius.
+
 ## 1.0.0
 - Pirmoji versija: receptai su originalu ir nuotraukomis, porcijų perskaičiavimas, savaitės meniu, namų patikra, pirkinių sąrašas pagal parduotuvės skyrius su receptų progresu, gaminimo režimas su laikmačiais, statistika, importas ir eksportas.
 

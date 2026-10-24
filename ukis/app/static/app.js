@@ -978,7 +978,7 @@ routes.settings = () => {
     <label class="li go"><span class="ic">♻️</span><div class="grow"><div class="t">Atkurti iš kopijos</div><div class="s">Dabartiniai duomenys bus pakeisti</div></div><input type="file" id="st-restore" accept=".zip" hidden></label>
     <label class="li go"><span class="ic">📥</span><div class="grow"><div class="t">Importuoti užduotis (.json)</div><div class="s">Tik papildo, nieko netrina</div></div><input type="file" id="st-import" accept=".json,application/json" hidden></label>
   </div>
-  <p class="muted small center" style="margin-top:18px">Ūkis 1.4.0 · Duomenys patenka į Home Assistant atsargines kopijas</p>`;
+  <p class="muted small center" style="margin-top:18px">Ūkis 1.4.1 · Duomenys patenka į Home Assistant atsargines kopijas</p>`;
   $('#st-sec-new').onclick = () => sectionSheet();
   $('#st-tag-new').onclick = () => tagSheet();
   $$('[data-sedit]').forEach(el => el.onclick = () => sectionMenu(I.sections[el.dataset.sedit]));
@@ -1150,6 +1150,26 @@ function sheet(html, bind) {
 }
 function closeSheet() { $('#sheet').hidden = true; $('#sheet-bg').hidden = true; $('#sheet').innerHTML = ''; }
 $('#sheet-bg').onclick = closeSheet;
+
+// ============================================================ klaviatūra neuždengia laukelio
+(() => {
+  const vv = window.visualViewport;
+  const setH = () => document.documentElement.style.setProperty('--vvh', Math.round(vv ? vv.height : innerHeight) + 'px');
+  const isField = el => el && /^(INPUT|TEXTAREA|SELECT)$/.test(el.tagName) && !['checkbox', 'radio', 'file', 'button', 'submit', 'date', 'time'].includes(el.type);
+  const keepVisible = () => {
+    const el = document.activeElement; if (!isField(el)) return;
+    const r = el.getBoundingClientRect(), top = (vv ? vv.offsetTop : 0) + 64, bottom = (vv ? vv.offsetTop + vv.height : innerHeight) - 16;
+    if (r.bottom > bottom || r.top < top) el.scrollIntoView({ block: 'center', behavior: 'smooth' });
+  };
+  setH();
+  (vv || window).addEventListener('resize', () => { setH(); keepVisible(); });
+  document.addEventListener('focusin', e => {
+    if (!isField(e.target)) return;
+    document.body.classList.add('typing');
+    [250, 600, 1000].forEach(ms => setTimeout(keepVisible, ms)); // klaviatūra atsidaro ne iš karto
+  });
+  document.addEventListener('focusout', () => setTimeout(() => { if (!isField(document.activeElement)) document.body.classList.remove('typing'); }, 150));
+})();
 
 // ============================================================ paleidimas
 load().catch(e => { view.innerHTML = `<div class="empty"><span class="big">⚠️</span>Nepavyko prisijungti prie serverio.<br><button class="btn" onclick="location.reload()">Bandyti dar kartą</button></div>`; });

@@ -1,5 +1,8 @@
 # Pakeitimai
 
+## 1.4.1
+- Įvedant tekstą klaviatūra nebeuždengia laukelio: puslapis ar apatinis langas pats paslenka, apatinė juosta rašant paslepiama.
+
 ## 1.4.0
 - Naujas skirtukas „💧 Gręžinys“: skaitiklių nurašymai (vanduo m³, siurblio elektra kWh) su nuotraukomis, sunaudojimas tarp nurašymų, siurblio elektros kaina.
 - Išlaidų žurnalas (druska, aptarnavimas, remontas, dalys, kita) ir metinė suvestinė su kaimynu: elektra dalinama pagal m³, kitos išlaidos – pagal pasirinkimą (pagal m³ arba per pusę). Tekstas žinutei ir žyma „Atsiskaityta“.

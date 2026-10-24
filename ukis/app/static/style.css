@@ -598,3 +598,9 @@ div.field > span { display: block; font-size: 13px; color: var(--muted); margin:
 .w-tbl td:nth-child(n+2) { text-align: right; white-space: nowrap; }
 .w-tbl thead td { border-top: 0; font-size: 12px; color: var(--muted); font-weight: 700; text-transform: uppercase; letter-spacing: .04em; }
 .w-tbl tfoot td { font-weight: 800; border-top: 2px solid var(--line); }
+
+/* ---- klaviatūra: laukelis neuždengiamas */
+#sheet { max-height: min(90vh, calc(var(--vvh, 100vh) - 24px)); }
+body.typing nav#tabs { display: none; }
+body.typing #sheet { padding-bottom: 40vh; }
+body.typing main#view { padding-bottom: 45vh; }

@@ -273,6 +273,7 @@ routes.list = () => {
   const mode = UI.listMode || 'shop';
   const L = computeList();
   setTop('Pirkinių sąrašas', { actions: `<button class="icon-btn" id="list-menu" aria-label="Daugiau">⋮</button>` });
+  if (L.toBuy.length) $('#title').insertAdjacentHTML('beforeend', ` <span class="title-cnt">${L.toBuy.length}</span>`);
   $('#list-menu').onclick = listMenu;
 
   let html = '';
@@ -1243,21 +1244,51 @@ function productSheet(p, used) {
 }
 
 // --- Statistika
+const MONTHS_S = ['saus.', 'vas.', 'kov.', 'bal.', 'geg.', 'birž.', 'liep.', 'rugp.', 'rugs.', 'spal.', 'lapkr.', 'gruod.'];
+const MONTHS_N = ['Sausis', 'Vasaris', 'Kovas', 'Balandis', 'Gegužė', 'Birželis', 'Liepa', 'Rugpjūtis', 'Rugsėjis', 'Spalis', 'Lapkritis', 'Gruodis'];
+function agoText(day) {
+  const n = Math.round((parseDate(S.today) - parseDate(day)) / 86400000);
+  if (n <= 0) return 'šiandien';
+  if (n === 1) return 'vakar';
+  if (n < 45) return `prieš ${n} d.`;
+  if (n < 365) return `prieš ${Math.round(n / 30)} mėn.`;
+  return `prieš ${(n / 365).toFixed(1).replace('.', ',')} m.`;
+}
 routes.stats = () => {
   setTop('Statistika', { back: '#more' });
   const hist = S.history;
-  const top = [...S.recipes].filter(r => r.cooked_count).sort((a, b) => b.cooked_count - a.cooked_count).slice(0, 10);
+  const top = [...S.recipes].filter(r => r.cooked_count).sort((a, b) => b.cooked_count - a.cooked_count || (b.last_cooked || '').localeCompare(a.last_cooked || '')).slice(0, 10);
   const longAgo = [...S.recipes].filter(r => r.last_cooked).sort((a, b) => a.last_cooked.localeCompare(b.last_cooked)).slice(0, 8);
   const never = S.recipes.filter(r => !r.cooked_count);
-  const d30 = new Date(parseDate(S.today)); d30.setDate(d30.getDate() - 30);
+  const d30 = parseDate(S.today); d30.setDate(d30.getDate() - 30);
   const last30 = hist.filter(h => h.day >= dateStr(d30)).length;
-  view.innerHTML = `<div class="stat-grid">
-      <div class="card pad center"><div class="stat-big">${S.recipes.length}</div><div class="muted small">receptų</div></div>
-      <div class="card pad center"><div class="stat-big">${last30}</div><div class="muted small">gaminta per 30 d.</div></div>
-      <div class="card pad center"><div class="stat-big">${never.length}</div><div class="muted small">dar negaminta</div></div></div>
-    <h2>Dažniausiai gaminami</h2><div class="card" style="overflow:hidden">${top.map(r => `<a class="menu-link" href="#recipe/${r.id}"><span>${r.cooked_count}×</span><span>${esc(r.title)}</span></a>`).join('') || '<div class="empty">Dar nėra istorijos</div>'}</div>
-    <h2>Seniai gaminta</h2><div class="card" style="overflow:hidden">${longAgo.map(r => `<a class="menu-link" href="#recipe/${r.id}"><span class="small muted">${r.last_cooked}</span><span>${esc(r.title)}</span></a>`).join('') || '<div class="empty">—</div>'}</div>
-    <h2>Istorija</h2><div class="card" style="overflow:hidden">${hist.slice(0, 60).map(h => `<div class="list-row"><span class="muted small" style="width:86px">${h.day}</span><span class="grow">${esc(IDX.r[h.recipe_id]?.title || '?')}</span><button class="x-btn" data-hdel="${h.id}">×</button></div>`).join('') || '<div class="empty">Kai pažymėsite, kad receptas pagamintas, jis atsiras čia.</div>'}</div>`;
+  // 6 mėnesių stulpeliai
+  const t = parseDate(S.today), months = [];
+  for (let i = 5; i >= 0; i--) { const d = new Date(t.getFullYear(), t.getMonth() - i, 1); months.push({ key: dateStr(d).slice(0, 7), m: d.getMonth(), n: 0 }); }
+  hist.forEach(h => { const x = months.find(m => m.key === h.day.slice(0, 7)); if (x) x.n++; });
+  const maxM = Math.max(1, ...months.map(m => m.n)), maxTop = Math.max(1, ...top.map(r => r.cooked_count));
+  // istorija pagal mėnesius
+  let hh = '', cur = '';
+  const HN = UI.statAll ? 300 : 25;
+  hist.slice(0, HN).forEach(h => {
+    const k = h.day.slice(0, 7), d = parseDate(h.day);
+    if (k !== cur) { cur = k; hh += `<div class="st-mh">${MONTHS_N[d.getMonth()]} ${d.getFullYear() !== t.getFullYear() ? d.getFullYear() : ''}</div>`; }
+    hh += `<div class="st-row"><span class="st-day">${d.getDate()} d.<br><span>${DAYS_SHORT[d.getDay()]}</span></span><a class="grow st-t" href="#recipe/${h.recipe_id}">${esc(IDX.r[h.recipe_id]?.title || '?')}</a><button class="x-btn" data-hdel="${h.id}" aria-label="Ištrinti">×</button></div>`;
+  });
+  view.innerHTML = `<div class="st-kpi">
+      <div class="card"><b>${S.recipes.length}</b><span>receptų</span></div>
+      <div class="card"><b>${last30}</b><span>per 30 d.</span></div>
+      <div class="card"><b>${never.length}</b><span>dar negaminta</span></div></div>
+    <h2>Gaminimas per mėnesį</h2>
+    <div class="card st-chart">${months.map(m => `<div class="st-col"><span class="st-n">${m.n || ''}</span><i style="height:${Math.round(m.n / maxM * 100)}%"></i><span class="st-m">${MONTHS_S[m.m]}</span></div>`).join('')}</div>
+    <h2>Dažniausiai gaminami</h2>
+    <div class="card st-list">${top.map((r, i) => `<a class="st-row" href="#recipe/${r.id}"><span class="st-rank">${i + 1}</span><span class="grow"><span class="st-t">${esc(r.title)}</span>
+      <span class="st-bar"><i style="width:${Math.round(r.cooked_count / maxTop * 100)}%"></i></span><span class="st-sub">paskutinį kartą ${agoText(r.last_cooked)}</span></span><span class="st-cnt">${r.cooked_count}×</span></a>`).join('') || '<div class="empty">Dar nėra istorijos</div>'}</div>
+    <h2>Seniai gaminta</h2>
+    <div class="card st-list">${longAgo.map(r => `<a class="st-row" href="#recipe/${r.id}"><span class="grow st-t">${esc(r.title)}</span><span class="st-ago">${agoText(r.last_cooked)}</span></a>`).join('') || '<div class="empty">—</div>'}</div>
+    <h2>Istorija</h2>
+    <div class="card st-list">${hh || '<div class="empty">Kai pažymėsite, kad receptas pagamintas, jis atsiras čia.</div>'}${hist.length > HN ? `<button class="st-more" id="st-more">Rodyti visą istoriją (${hist.length})</button>` : ''}</div>`;
+  $('#st-more') && ($('#st-more').onclick = () => { UI.statAll = true; render(); });
   $$('[data-hdel]').forEach(b => b.onclick = async () => { if (confirm('Ištrinti įrašą iš istorijos?')) await act('history_delete', { id: +b.dataset.hdel }); });
 };
 
