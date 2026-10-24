@@ -1,5 +1,9 @@
 # Pakeitimai
 
+## 1.4.2
+- Tempiant eilutę prie ekrano krašto sąrašas slenka lėtai ir tolygiai: kuo arčiau krašto, tuo greičiau, bet ne žaibiškai.
+- Sąrašas slenka ir laikant pirštą vietoje, o tempiama eilutė visą laiką lieka po pirštu.
+
 ## 1.4.1
 - Įvedant tekstą klaviatūra nebeuždengia laukelio: puslapis ar apatinis langas pats paslenka, apatinė juosta rašant paslepiama.
 

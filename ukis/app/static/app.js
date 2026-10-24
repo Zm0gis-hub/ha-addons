@@ -1057,25 +1057,60 @@ function copySheet(title, intro, text, after) {
 }
 
 // ============================================================ tempimas (ilgas paspaudimas)
+// Automatinis slinkimas tempiant prie ekrano krašto: lėtai pradeda, greitėja tik arčiau krašto.
+// Slenka ir laikant pirštą vietoje; tempiamas elementas lieka po pirštu.
+function dragScroller(box, onScroll, topZone = 90, bottomZone = 150) {
+  const MIN = 0.06, MAX = 0.5; // px per ms: krašto pradžioje ~60 px/s, pačiame krašte ~500 px/s
+  let sc = null, y = null, raf = 0, last = 0, carry = 0;
+  const parent = () => {
+    for (let p = box.parentElement; p && p !== document.body; p = p.parentElement) {
+      const o = getComputedStyle(p).overflowY;
+      if ((o === 'auto' || o === 'scroll') && p.scrollHeight > p.clientHeight) return p;
+    }
+    return null;
+  };
+  const pos = () => sc ? sc.scrollTop : window.scrollY;
+  const speed = d => MIN + (MAX - MIN) * Math.min(1, d) ** 2;
+  const step = now => {
+    if (y == null) { raf = 0; return; }
+    const dt = Math.min(50, last ? now - last : 16); last = now;
+    const r = sc ? sc.getBoundingClientRect() : { top: 0, bottom: innerHeight };
+    const tz = Math.min(topZone, (r.bottom - r.top) / 4), bz = Math.min(bottomZone, (r.bottom - r.top) / 4);
+    let v = 0;
+    if (y < r.top + tz) v = -speed((r.top + tz - y) / tz);
+    else if (y > r.bottom - bz) v = speed((y - r.bottom + bz) / bz);
+    carry += v * dt; const px = Math.trunc(carry); carry -= px;
+    if (px) { const b = pos(); if (sc) sc.scrollTop += px; else window.scrollBy(0, px); if (pos() !== b) onScroll(); }
+    raf = requestAnimationFrame(step);
+  };
+  return {
+    start() { sc = parent(); return pos(); },
+    pos,
+    at(ny) { y = ny; if (!raf) raf = requestAnimationFrame(step); },
+    stop() { y = null; cancelAnimationFrame(raf); raf = 0; last = 0; carry = 0; },
+  };
+}
+
 let DRAGGING = false;
 function longPressSort(box, sel, canDrag, onDone) {
   if (!box) return;
-  let timer = null, drag = null, idx = 0, target = 0, startY = 0, sx = 0, sy = 0, items = [], centers = [], h = 0, suppress = false;
+  let timer = null, drag = null, idx = 0, target = 0, startY = 0, sx = 0, sy = 0, items = [], centers = [], h = 0, suppress = false, lastY = 0, s0 = 0;
+  const auto = dragScroller(box, () => drag && move(lastY));
   const begin = el => {
-    items = $$(sel, box); idx = items.indexOf(el); target = idx; drag = el; DRAGGING = true;
-    centers = items.map(r => { const b = r.getBoundingClientRect(); return b.top + b.height / 2; });
+    items = $$(sel, box); idx = items.indexOf(el); target = idx; drag = el; DRAGGING = true; s0 = auto.start();
+    centers = items.map(r => { const b = r.getBoundingClientRect(); return b.top + s0 + b.height / 2; });
     h = el.offsetHeight; startY = sy; el.classList.add('dragging'); navigator.vibrate && navigator.vibrate(20);
   };
   const move = y => {
-    const dy = y - startY, c = centers[idx] + dy;
+    lastY = y; const dy = y - startY + auto.pos() - s0, c = centers[idx] + dy;
     drag.style.transform = `translateY(${dy}px)`;
     target = items.reduce((n, r, j) => n + (j !== idx && centers[j] < c ? 1 : 0), 0);
     if (items[0] && items[0].dataset.sec) target = Math.max(1, target); // ne virš pirmos sekcijos
     items.forEach((r, j) => { if (j === idx) return; let sh = 0; if (j > idx && j <= target) sh = -h; if (j < idx && j >= target) sh = h; r.style.transform = sh ? `translateY(${sh}px)` : ''; r.style.transition = 'transform .12s'; });
-    if (y < 90) window.scrollBy(0, -10); else if (y > innerHeight - 150) window.scrollBy(0, 10);
+    auto.at(y);
   };
   const finish = () => {
-    clearTimeout(timer); timer = null;
+    clearTimeout(timer); timer = null; auto.stop();
     if (!drag) return;
     items.forEach(r => { r.style.transform = ''; r.style.transition = ''; }); drag.classList.remove('dragging');
     const order = [...items]; const [m] = order.splice(idx, 1); order.splice(target, 0, m);

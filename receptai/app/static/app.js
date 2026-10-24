@@ -386,23 +386,58 @@ function showUndo(pid, checked) {
   clearTimeout(showUndo._t); showUndo._t = setTimeout(() => u.hidden = true, 5000);
 }
 
+// Automatinis slinkimas tempiant prie ekrano krašto: lėtai pradeda, greitėja tik arčiau krašto.
+// Slenka ir laikant pirštą vietoje; tempiamas elementas lieka po pirštu.
+function dragScroller(box, onScroll, topZone = 90, bottomZone = 150) {
+  const MIN = 0.06, MAX = 0.5; // px per ms: krašto pradžioje ~60 px/s, pačiame krašte ~500 px/s
+  let sc = null, y = null, raf = 0, last = 0, carry = 0;
+  const parent = () => {
+    for (let p = box.parentElement; p && p !== document.body; p = p.parentElement) {
+      const o = getComputedStyle(p).overflowY;
+      if ((o === 'auto' || o === 'scroll') && p.scrollHeight > p.clientHeight) return p;
+    }
+    return null;
+  };
+  const pos = () => sc ? sc.scrollTop : window.scrollY;
+  const speed = d => MIN + (MAX - MIN) * Math.min(1, d) ** 2;
+  const step = now => {
+    if (y == null) { raf = 0; return; }
+    const dt = Math.min(50, last ? now - last : 16); last = now;
+    const r = sc ? sc.getBoundingClientRect() : { top: 0, bottom: innerHeight };
+    const tz = Math.min(topZone, (r.bottom - r.top) / 4), bz = Math.min(bottomZone, (r.bottom - r.top) / 4);
+    let v = 0;
+    if (y < r.top + tz) v = -speed((r.top + tz - y) / tz);
+    else if (y > r.bottom - bz) v = speed((y - r.bottom + bz) / bz);
+    carry += v * dt; const px = Math.trunc(carry); carry -= px;
+    if (px) { const b = pos(); if (sc) sc.scrollTop += px; else window.scrollBy(0, px); if (pos() !== b) onScroll(); }
+    raf = requestAnimationFrame(step);
+  };
+  return {
+    start() { sc = parent(); return pos(); },
+    pos,
+    at(ny) { y = ny; if (!raf) raf = requestAnimationFrame(step); },
+    stop() { y = null; cancelAnimationFrame(raf); raf = 0; last = 0; carry = 0; },
+  };
+}
+
 // Ilgas paspaudimas + tempimas (pirkinių sąrašo tvarkai)
 function longPressSort(box, onDone) {
-  let timer = null, drag = null, idx = 0, target = 0, startY = 0, sx = 0, sy = 0, rows = [], centers = [], h = 0, suppress = false;
+  let timer = null, drag = null, idx = 0, target = 0, startY = 0, sx = 0, sy = 0, rows = [], centers = [], h = 0, suppress = false, lastY = 0, s0 = 0;
+  const auto = dragScroller(box, () => drag && move(lastY));
   const begin = el => {
-    rows = $$('.item[data-row]', box); idx = rows.indexOf(el); target = idx; drag = el;
-    centers = rows.map(r => { const b = r.getBoundingClientRect(); return b.top + b.height / 2; });
+    rows = $$('.item[data-row]', box); idx = rows.indexOf(el); target = idx; drag = el; s0 = auto.start();
+    centers = rows.map(r => { const b = r.getBoundingClientRect(); return b.top + s0 + b.height / 2; });
     h = el.offsetHeight; startY = sy; el.classList.add('dragging'); navigator.vibrate && navigator.vibrate(20);
   };
   const move = y => {
-    const dy = y - startY, c = centers[idx] + dy;
+    lastY = y; const dy = y - startY + auto.pos() - s0, c = centers[idx] + dy;
     drag.style.transform = `translateY(${dy}px)`;
     target = rows.reduce((n, r, j) => n + (j !== idx && centers[j] < c ? 1 : 0), 0);
     rows.forEach((r, j) => { if (j === idx) return; let sh = 0; if (j > idx && j <= target) sh = -h; if (j < idx && j >= target) sh = h; r.style.transform = sh ? `translateY(${sh}px)` : ''; r.style.transition = 'transform .12s'; });
-    if (y < 90) window.scrollBy(0, -10); else if (y > innerHeight - 150) window.scrollBy(0, 10);
+    auto.at(y);
   };
   const finish = () => {
-    clearTimeout(timer); timer = null;
+    clearTimeout(timer); timer = null; auto.stop();
     if (!drag) return;
     rows.forEach(r => { r.style.transform = ''; r.style.transition = ''; }); drag.classList.remove('dragging');
     const ids = rows.map(r => +r.dataset.row); const [m] = ids.splice(idx, 1); ids.splice(target, 0, m);
@@ -1121,18 +1156,20 @@ function sectionSheet(s) {
 }
 
 function makeSortable(list, onDone) {
-  let drag = null, startY = 0, rows = [], h = 0, target = 0;
+  let drag = null, startY = 0, rows = [], h = 0, target = 0, lastY = 0, s0 = 0;
+  const auto = dragScroller(list, () => drag && move(lastY), 90, 110);
   const start = (y, el) => {
-    drag = el; rows = $$('.list-row', list); h = drag.offsetHeight; startY = y; target = rows.indexOf(drag);
+    s0 = auto.start(); drag = el; rows = $$('.list-row', list); h = drag.offsetHeight; startY = y; target = rows.indexOf(drag);
     drag.classList.add('dragging'); navigator.vibrate && navigator.vibrate(15);
   };
   const move = y => {
-    const dy = y - startY; drag.style.transform = `translateY(${dy}px)`;
+    lastY = y; const dy = y - startY + auto.pos() - s0; drag.style.transform = `translateY(${dy}px)`;
     const idx = rows.indexOf(drag); target = Math.max(0, Math.min(rows.length - 1, idx + Math.round(dy / h)));
     rows.forEach((r, i) => { if (r === drag) return; let sh = 0; if (idx < target && i > idx && i <= target) sh = -h; if (idx > target && i < idx && i >= target) sh = h; r.style.transform = sh ? `translateY(${sh}px)` : ''; r.style.transition = 'transform .12s'; });
-    if (y < 90) window.scrollBy(0, -10); else if (y > innerHeight - 110) window.scrollBy(0, 10);
+    auto.at(y);
   };
   const end = () => {
+    auto.stop();
     if (!drag) return;
     const idx = rows.indexOf(drag);
     rows.forEach(r => { r.style.transform = ''; r.style.transition = ''; });

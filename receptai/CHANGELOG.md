@@ -1,5 +1,9 @@
 # Pakeitimai
 
+## 1.9.2
+- Tempiant eilutę prie ekrano krašto sąrašas slenka lėtai ir tolygiai: kuo arčiau krašto, tuo greičiau, bet ne žaibiškai.
+- Sąrašas slenka ir laikant pirštą vietoje, o tempiama eilutė visą laiką lieka po pirštu.
+
 ## 1.9.1
 - Pirkinių sąrašo antraštėje – blankus prekių skaičius.
 - Nauja statistika: kompaktiški skaičiai, gaminimas per 6 mėn. (stulpeliai), dažniausiai gaminami su juosta ir „paskutinį kartą prieš…“, seniai gaminti, istorija pagal mėnesius.
