@@ -100,6 +100,8 @@ const UNIT_RX = [
   [/^(v\.?\s?š\.?|šaukšt\p{L}*|saukst\p{L}*)$/iu, 'šaukštas'], [/^(stiklin\p{L}*)$/iu, 'stiklinė'],
   [/^(skiltel\p{L}*)$/iu, 'skiltelė'], [/^(pakel\p{L}*|pak\.)$/iu, 'pakelis'], [/^(žiupsn\p{L}*|ziupsn\p{L}*)$/iu, 'žiupsnelis'],
   [/^(riek\p{L}*)$/iu, 'riekė'], [/^(gabal\p{L}*)$/iu, 'gabalas'],
+  [/^(cups?|c\.)$/iu, 'stiklinė'], [/^(tbsp|tablespoons?|tbs\.?)$/iu, 'šaukštas'], [/^(tsp|teaspoons?)$/iu, 'šaukštelis'],
+  [/^(grams?)$/iu, 'g'], [/^(pcs|pieces?|cloves?)$/iu, 'vnt'],
 ];
 function parseLine(line) {
   let s = line.trim().replace(/^[-•*·]\s*/, '');
@@ -789,7 +791,7 @@ routes.edit = id => {
   const d = draft;
   setTop(isNew ? 'Naujas receptas' : 'Redaguoti', { back: true });
   const existing = r ? r.photos : [];
-  view.innerHTML = `<form id="ef" class="stack" autocomplete="off">
+  view.innerHTML = `${isNew ? `<div class="row" style="gap:8px;margin-bottom:12px"><button type="button" class="btn grow" id="imp-url">🔗 Iš nuorodos</button><button type="button" class="btn grow" id="imp-text">📝 Iš teksto</button></div>` : ''}<form id="ef" class="stack" autocomplete="off">
     <label class="field"><span>Pavadinimas</span><input type="text" name="title" value="${esc(d.title)}" required></label>
     <div class="row"><label class="field" style="width:110px"><span>Porcijos</span><input type="number" min="1" step="1" name="servings" value="${esc(d.servings)}"></label>
       <label class="field grow"><span>Žymos (per kablelį)</span><input type="text" name="tags" value="${esc(d.tags.join(', '))}" placeholder="pvz. vakarienė, greita"></label></div>
@@ -870,9 +872,97 @@ routes.edit = id => {
       location.replace('#recipe/' + res.id);
     } catch (err) { btn.disabled = false; btn.textContent = '💾 Išsaugoti'; }
   };
+  $('#imp-url') && ($('#imp-url').onclick = importUrlSheet);
+  $('#imp-text') && ($('#imp-text').onclick = () => importTextSheet(''));
   const del = $('#r-del');
   if (del) del.onclick = async () => { if (confirm('Tikrai ištrinti receptą „' + r.title + '“? To atšaukti negalima.')) { await api('api/do/recipe_delete', { id: r.id }); draft = null; await load(true); go('#recipes'); } };
 };
+
+// ------------------------------------------------------------ importas iš nuorodos / teksto
+function importUrlSheet() {
+  sheet(`<h3>🔗 Receptas iš nuorodos</h3>
+    <p class="muted small" style="margin:0 2px 8px">Įklijuokite recepto puslapio nuorodą. Daugumai receptų svetainių programa pati paims pavadinimą, ingredientus, žingsnius ir nuotrauką. Instagram – tik bandymas.</p>
+    <input type="url" id="iu" placeholder="https://..." autocomplete="off">
+    <button class="btn primary block" id="iu-go" style="margin-top:10px">Paimti receptą</button>
+    <p class="muted small" id="iu-msg" style="margin:10px 2px 0"></p>`, () => {
+    $('#iu').focus();
+    $('#iu-go').onclick = async () => {
+      const url = $('#iu').value.trim(); if (!url) return;
+      const b = $('#iu-go'); b.disabled = true; b.textContent = 'Atsisiunčiama…'; $('#iu-msg').textContent = '';
+      let r; try { r = await api('api/import_url', { url }); } catch (e) { r = { error: 'Nėra ryšio su serveriu' }; }
+      b.disabled = false; b.textContent = 'Paimti receptą';
+      if (r.error) {
+        $('#iu-msg').innerHTML = `⚠️ ${esc(r.error)}<br><button class="btn small" id="iu-text" style="margin-top:8px">📝 Įklijuoti tekstą</button>`;
+        $('#iu-text').onclick = () => importTextSheet('', url);
+        return;
+      }
+      closeSheet();
+      if (r.kind === 'recipe') {
+        fillDraft({ title: r.title, servings: r.servings, ingredients: r.ingredients, steps: r.steps, notes: r.notes, source: r.source, image: r.image,
+          original: [r.title, '', ...(r.ingredients || []), '', ...(r.steps || [])].join('\n') });
+        toast('Receptas paimtas – peržiūrėkite ir išsaugokite', 3500);
+      } else importTextSheet(r.text, r.source, r.image);
+    };
+  });
+}
+
+function importTextSheet(text, source = '', image = null) {
+  sheet(`<h3>📝 Receptas iš teksto</h3>
+    <p class="muted small" style="margin:0 2px 8px">Įklijuokite recepto tekstą (pvz. Instagram aprašymą, nukopijuotą per Google Lens). Ingredientai ir žingsniai bus atskirti automatiškai – vėliau galėsite pataisyti.</p>
+    <textarea id="it" style="min-height:45vh">${esc(text)}</textarea>
+    <button class="btn primary block" id="it-go" style="margin-top:10px">Atpažinti</button>`, () => {
+    $('#it-go').onclick = () => {
+      const raw = $('#it').value; if (!raw.trim()) return;
+      const p = parseRecipeText(raw);
+      closeSheet();
+      fillDraft({ ...p, source, image, original: raw });
+      toast(`Atpažinta: ${p.ingredients.length} ingred., ${p.steps.length} žingsn. – patikrinkite`, 3500);
+    };
+  });
+}
+
+// Taisyklėmis paremtas recepto teksto atpažinimas (be DI)
+function parseRecipeText(raw) {
+  const ING_H = /^(ingredient\p{L}*|reikės|reikia|sudėtis|produktai|ko reikia|ingredients?|you(?:'|’)ll need)\b/iu;
+  const STEP_H = /^(gamin\p{L}*|paruoš\p{L}*|eiga|instrukcij\p{L}*|būdas|kaip gaminti|steps?|method|directions|instructions|preparation)\b/iu;
+  const lines = raw.split(/\r?\n/).map(l => l.replace(/\s+/g, ' ').trim());
+  let title = '', servings = null, mode = '', ings = [], steps = [], notes = [];
+  for (let l of lines) {
+    if (!l) continue;
+    if (/^(#\S+\s*)+$/.test(l)) continue;                       // tik grotažymės
+    l = l.replace(/(\s#[\p{L}\p{N}_]+)+$/u, '').trim();          // grotažymės gale
+    const sv = l.match(/(\d+)\s*(porc\p{L}*|asm\p{L}*|serving\p{L}*|serves)/iu) || l.match(/(?:serves|porcijos?)\s*:?\s*(\d+)/iu);
+    if (sv && !servings) servings = +sv[1];
+    if (sv && l.length < 30) continue;                           // „Porcijos: 4“ – atskira eilutė
+    const head = l.replace(/^[\p{Extended_Pictographic}\s*•\-–:]+/u, '').replace(/[:：]\s*$/, '');
+    if (ING_H.test(head) && head.length < 40) { mode = 'ing'; continue; }
+    if (STEP_H.test(head) && head.length < 40) { mode = 'step'; continue; }
+    const bare = l.replace(/^[\p{Extended_Pictographic}\s]+/u, '').replace(/^[-•*·▪️✔️✅☑️]+\s*/u, '').trim();
+    if (!bare) continue;
+    const numbered = /^\d+\s*[.)]\s+/.test(bare);
+    const p = parseLine(bare);
+    const looksIng = !numbered && bare.length < 70 && !/[.!?]$/.test(bare) && (p?.qty != null || /^[-•*·]/.test(l) || mode === 'ing');
+    if (!title && !looksIng && mode === '' && bare.length < 80 && !numbered) { title = bare.replace(/[\p{Extended_Pictographic}\uFE0F]/gu, '').replace(/[.!]+$/, '').trim(); continue; }
+    if (mode === 'step' || numbered || (!looksIng && bare.length >= 40)) { steps.push(bare.replace(/^\d+\s*[.)]\s*/, '')); continue; }
+    if (looksIng) { ings.push(bare); continue; }
+    notes.push(bare);
+  }
+  return { title, servings, ingredients: ings, steps, notes: notes.join('\n') };
+}
+
+function fillDraft(p) {
+  if (!draft || draft._for !== 'new') draft = { title: '', servings: 4, tags: [], notes: '', rating: 0, favorite: 0, steps: [], source: '', ingredients: [], original_text: '', _for: 'new', new_photos: [] };
+  const d = draft;
+  if (p.title) d.title = p.title;
+  if (p.servings) d.servings = p.servings;
+  d.ingredients = (p.ingredients || []).map(x => { const q = parseLine(x) || { name: x, qty: null, unit: '', note: '' }; const ex = findProduct(q.name); return { qty: q.qty, unit: q.unit, product_name: ex ? ex.name : q.name, note: q.note }; });
+  d.steps = p.steps || [];
+  if (p.notes) d.notes = p.notes;
+  if (p.source) d.source = p.source;
+  d.original_text = p.original || '';
+  if (p.image) d.new_photos = [...(d.new_photos || []).filter(x => x.kind !== 'dish'), { kind: 'dish', data: p.image }];
+  if (location.hash !== '#edit/new') location.hash = '#edit/new'; else render();
+}
 
 function resizeImage(file, max) {
   return new Promise((res, rej) => {
@@ -1002,7 +1092,7 @@ routes.more = () => {
     <a class="menu-link" href="#stats"><span>📊</span><span>Statistika ir istorija</span></a>
     <a class="menu-link" href="#data"><span>💾</span><span>Importas ir eksportas</span></a>
   </div>
-  <p class="muted small center" style="margin-top:20px">Receptai v1.8.5 · ${S.recipes.length} receptai · ${S.products.length} produktai</p>`;
+  <p class="muted small center" style="margin-top:20px">Receptai v1.9.0 · ${S.recipes.length} receptai · ${S.products.length} produktai</p>`;
 };
 
 // --- Parduotuvės skyriai (tempimas aukštyn/žemyn)

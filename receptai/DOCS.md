@@ -40,7 +40,13 @@ Prievadai: Receptai 8765, Rodukas 8766, Ūkis 8767.
 
 ---
 
-## 4. Receptų importas iš nuotraukų
+## 4. Receptas iš nuorodos ar teksto
+
+**Receptai → ＋ Naujas** viršuje:
+- **🔗 Iš nuorodos** – įklijuokite recepto puslapio adresą. Daugumai receptų svetainių programa pati paima pavadinimą, porcijas, ingredientus, žingsnius ir nuotrauką. Instagram – tik bandymas (Instagram dažnai neleidžia).
+- **📝 Iš teksto** – įklijuokite recepto tekstą (pvz. Instagram aprašymą, nukopijuotą per Google Lens). Ingredientai ir žingsniai atskiriami automatiškai, vėliau galima pataisyti.
+
+## 4a. Receptų importas iš nuotraukų
 
 Nufotografuokite receptus ir nusiųskite juos Claude pokalbyje su prašymu „paversk receptais importui“. Gausite `.json` failą. Programoje: **Daugiau → Importas ir eksportas → Pasirinkti failą**.
 

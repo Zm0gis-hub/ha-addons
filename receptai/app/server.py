@@ -20,6 +20,7 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from urllib.parse import urlparse, unquote
 import time
 import urllib.request
+import html as htmlmod
 
 DATA_DIR = os.environ.get("DATA_DIR", "/data")
 STATIC_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "static")
@@ -704,6 +705,156 @@ def act_list_clear(d):
     DB.execute("DELETE FROM pstate")
 
 
+# ---------------------------------------------------------------- receptas iš nuorodos
+UA = ("Mozilla/5.0 (Linux; Android 14) AppleWebKit/537.36 (KHTML, like Gecko) "
+      "Chrome/126.0 Mobile Safari/537.36")
+
+
+def fetch(url, limit=4 * 1024 * 1024, accept="text/html,*/*"):
+    req = urllib.request.Request(url, headers={"User-Agent": UA, "Accept": accept,
+                                               "Accept-Language": "lt,en;q=0.8"})
+    with urllib.request.urlopen(req, timeout=15) as r:
+        data = r.read(limit + 1)
+        if len(data) > limit:
+            raise ValueError("Puslapis per didelis")
+        ctype = r.headers.get("Content-Type", "")
+        m = re.search(r"charset=([\w-]+)", ctype)
+        return data, ctype, (m.group(1) if m else "utf-8"), r.geturl()
+
+
+def clean_text(t):
+    t = htmlmod.unescape(re.sub(r"<[^>]+>", " ", str(t or "")))
+    return re.sub(r"[ \t\u00a0]+", " ", t).strip()
+
+
+def _find_recipe(o):
+    if isinstance(o, list):
+        for x in o:
+            r = _find_recipe(x)
+            if r:
+                return r
+    elif isinstance(o, dict):
+        t = o.get("@type")
+        if t == "Recipe" or (isinstance(t, list) and "Recipe" in t):
+            return o
+        for k in ("@graph", "mainEntity", "itemListElement"):
+            if k in o:
+                r = _find_recipe(o[k])
+                if r:
+                    return r
+    return None
+
+
+def _steps(ins):
+    out = []
+    if isinstance(ins, str):
+        out += [x for x in re.split(r"\n+|(?<=\.)\s+(?=\d+\.)", clean_text(ins.replace("<br", "\n<br"))) if x.strip()]
+    elif isinstance(ins, list):
+        for x in ins:
+            out += _steps(x)
+    elif isinstance(ins, dict):
+        if ins.get("itemListElement"):
+            out += _steps(ins["itemListElement"])
+        elif ins.get("text") or ins.get("name"):
+            out.append(clean_text(ins.get("text") or ins.get("name")))
+    return [re.sub(r"^\d+[.)]\s*", "", x).strip() for x in out if x and x.strip()]
+
+
+def _image(img):
+    if isinstance(img, list) and img:
+        return _image(img[0])
+    if isinstance(img, dict):
+        return img.get("url") or img.get("contentUrl")
+    return img if isinstance(img, str) else None
+
+
+def _meta(html, prop):
+    m = re.search(r'<meta[^>]+(?:property|name)=["\']%s["\'][^>]*content=["\']([^"\']*)' % re.escape(prop), html, re.I) \
+        or re.search(r'<meta[^>]+content=["\']([^"\']*)["\'][^>]*(?:property|name)=["\']%s["\']' % re.escape(prop), html, re.I)
+    return htmlmod.unescape(m.group(1)).strip() if m else ""
+
+
+def image_data_url(url, base):
+    if not url:
+        return None
+    try:
+        from urllib.parse import urljoin
+        data, ctype, _, _ = fetch(urljoin(base, url), limit=6 * 1024 * 1024, accept="image/*")
+        if not ctype.startswith("image/") or len(data) < 2000:
+            return None
+        return "data:%s;base64,%s" % (ctype.split(";")[0], base64.b64encode(data).decode())
+    except Exception:
+        return None
+
+
+def instagram_caption(url):
+    """Bandymas: Instagram dažnai rodo tik prisijungimo langą, todėl tai ne visada pavyksta."""
+    m = re.search(r"instagram\.com/(?:[\w.]+/)?(p|reel|reels|tv)/([\w-]+)", url)
+    if not m:
+        return None
+    code = m.group(2)
+    for u in ("https://www.instagram.com/p/%s/embed/captioned/" % code, url):
+        try:
+            data, _, cs, final = fetch(u)
+            html = data.decode(cs, "replace")
+            cap = re.search(r'<div class="Caption"[^>]*>(.*?)</div>', html, re.S)
+            text = ""
+            if cap:
+                t = re.sub(r"<br\s*/?>", "\n", cap.group(1))
+                t = re.sub(r'<a class="CaptionUsername"[^>]*>.*?</a>', "", t, flags=re.S)
+                t = re.sub(r'<div class="CaptionComments".*', "", t, flags=re.S)
+                text = htmlmod.unescape(re.sub(r"<[^>]+>", "", t)).strip()
+            if not text:
+                d = _meta(html, "og:description") or _meta(html, "description")
+                d = re.sub(r'^.*?:\s*["“]', "", d, count=1).rstrip('"”. ')
+                text = d if len(d) > 40 else ""
+            if text:
+                img = re.search(r'<img class="EmbeddedMediaImage"[^>]*src="([^"]+)"', html)
+                return {"text": text, "image": htmlmod.unescape(img.group(1)) if img else _meta(html, "og:image"), "base": final}
+        except Exception:
+            continue
+    return None
+
+
+def import_from_url(url):
+    url = (url or "").strip()
+    if not re.match(r"^https?://", url):
+        raise ValueError("Įklijuokite pilną nuorodą (prasideda https://)")
+    if "instagram.com" in url:
+        ig = instagram_caption(url)
+        if not ig:
+            raise ValueError("Instagram neleido paimti įrašo teksto. Nukopijuokite aprašymą (pvz. per Google Lens) ir naudokite „Iš teksto“.")
+        return {"kind": "text", "text": ig["text"], "source": url, "image": image_data_url(ig["image"], ig["base"])}
+    data, _, cs, final = fetch(url)
+    html = data.decode(cs, "replace")
+    rec = None
+    for blk in re.findall(r'<script[^>]+application/ld\+json[^>]*>(.*?)</script>', html, re.S | re.I):
+        try:
+            rec = _find_recipe(json.loads(blk.strip()))
+        except ValueError:
+            try:
+                rec = _find_recipe(json.loads(re.sub(r"[\x00-\x1f]", " ", blk.strip())))
+            except ValueError:
+                rec = None
+        if rec:
+            break
+    if rec:
+        y = rec.get("recipeYield")
+        y = y[0] if isinstance(y, list) and y else y
+        m = re.search(r"\d+", str(y or ""))
+        return {"kind": "recipe", "source": final,
+                "title": clean_text(rec.get("name")) or _meta(html, "og:title"),
+                "servings": int(m.group()) if m else None,
+                "ingredients": [clean_text(x) for x in (rec.get("recipeIngredient") or rec.get("ingredients") or []) if clean_text(x)],
+                "steps": _steps(rec.get("recipeInstructions")),
+                "notes": clean_text(rec.get("description"))[:500],
+                "image": image_data_url(_image(rec.get("image")) or _meta(html, "og:image"), final)}
+    title = _meta(html, "og:title") or clean_text((re.search(r"<title>(.*?)</title>", html, re.S | re.I) or [None, ""])[1])
+    desc = _meta(html, "og:description") or _meta(html, "description")
+    raise ValueError("Šiame puslapyje nepavyko rasti recepto struktūros%s. Nukopijuokite recepto tekstą ir naudokite „Iš teksto“."
+                     % (f" („{title[:60]}“)" if title else ""))
+
+
 def act_import(d):
     data = d.get("data")
     if isinstance(data, str):
@@ -905,6 +1056,14 @@ class Handler(BaseHTTPRequestHandler):
                 return self.send(403, {"error": "Neteisingas PIN"})
             if not self.authed():
                 return self.send(401, {"error": "Reikia PIN"})
+            if path == "api/import_url":
+                d = self.read_json()
+                try:
+                    return self.send(200, import_from_url(d.get("url")))
+                except ValueError as e:
+                    return self.send(200, {"error": str(e)})
+                except Exception as e:  # noqa
+                    return self.send(200, {"error": "Nepavyko atidaryti nuorodos (%s)" % e})
             if path == "api/screen":
                 d = self.read_json()
                 uid = self.headers.get("X-Remote-User-Id", "")

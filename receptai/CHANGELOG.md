@@ -76,3 +76,9 @@
 
 ## 1.8.5
 - Pirkinių sąrašas grąžintas į 1.8.2 būseną (atšaukti 1.8.3 ir 1.8.4 tempimo ir ▲▼ pakeitimai).
+
+## 1.9.0
+- Naujas receptas „🔗 Iš nuorodos“: iš receptų svetainių automatiškai paimamas pavadinimas, porcijos, ingredientai, žingsniai ir patiekalo nuotrauka.
+- Instagram nuorodos – bandymas paimti įrašo aprašymą (ne visada pavyksta, Instagram tai riboja).
+- Naujas receptas „📝 Iš teksto“: įklijuotas recepto tekstas automatiškai išskaidomas į pavadinimą, porcijas, ingredientus ir žingsnius.
+- Ingredientuose atpažįstami ir angliški vienetai (cup, tbsp, tsp).
