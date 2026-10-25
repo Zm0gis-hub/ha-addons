@@ -294,7 +294,7 @@ routes.list = () => {
 
   $$('[data-mode]').forEach(b => b.onclick = () => { UI.listMode = b.dataset.mode; saveUI(); render(); });
   $$('[data-prog]').forEach(b => b.onclick = () => progressSheet(L.progress.find(x => x.m.id == b.dataset.prog)));
-  autocomplete($('#addin'), { prefixQty: true, shield: true });
+  autocomplete($('#addin'), { prefixQty: true, shield: true, onPick: () => $('#addform').requestSubmit() }); // paspaustas pasiūlymas iškart įdedamas į sąrašą
   $('#ins-x') && ($('#ins-x').onclick = () => { insAfter = null; render(); });
   const ain = $('#addin');
   ain.addEventListener('focus', () => document.body.classList.add('typing'));
@@ -578,8 +578,12 @@ function autocomplete(input, opts = {}) {
     if (!list.length) { hide(); return; }
     box.innerHTML = `<div class="ac-head">Siūlomos prekės</div>` + list.map(([, p]) => `<button type="button" data-v="${esc(p.name)}">${esc(p.name)}</button>`).join('');
     box.hidden = false; if (opts.shield) shield.hidden = false;
-    $$('button', box).forEach(b => b.onpointerdown = e => { e.preventDefault(); input.value = pre + b.dataset.v; hide(); input.focus(); opts.onPick && opts.onPick(b.dataset.v); });
+    box._pre = pre;
   };
+  // Pasirinkimas iškart paspaudus (pointerdown), kad įvedimo laukas nespėtų prarasti fokuso ir sąrašas – dingti
+  const pick = b => { input.value = box._pre + b.dataset.v; hide(); input.focus(); opts.onPick && opts.onPick(b.dataset.v); };
+  box.addEventListener('pointerdown', e => { e.preventDefault(); const b = e.target.closest('button[data-v]'); if (b) pick(b); });
+  box.addEventListener('click', e => { const b = e.target.closest('button[data-v]'); if (b && !box.hidden) pick(b); }); // klaviatūrai / be pointer įvykių
   // permatomas sluoksnis po pasiūlymais – netyčinis paspaudimas nepataiko į sąrašą
   const shield = document.createElement('div'); shield.className = 'ac-shield'; shield.hidden = true;
   if (opts.shield) { document.body.appendChild(shield); shield.addEventListener('pointerdown', e => { e.preventDefault(); hide(); }); }

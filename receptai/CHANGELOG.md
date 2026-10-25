@@ -1,5 +1,10 @@
 # Pakeitimai
 
+## 1.9.3
+- Pirkinių sąrašo pasiūlymas prigludęs prie įvedimo lauko – nebėra tarpo, į kurį pataikius sąrašas dingdavo.
+- Pasiūlymą lengva paspausti telefonu: didesnis paspaudimo plotas, o paspaustas pasiūlymas iškart įdedamas į sąrašą.
+- Pranešimas „Pridėta…“ rašant rodomas viršuje ir nebeuždengia pasiūlymų.
+
 ## 1.9.2
 - Tempiant eilutę prie ekrano krašto sąrašas slenka lėtai ir tolygiai: kuo arčiau krašto, tuo greičiau, bet ne žaibiškai.
 - Sąrašas slenka ir laikant pirštą vietoje, o tempiama eilutė visą laiką lieka po pirštu.
