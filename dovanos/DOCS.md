@@ -53,10 +53,10 @@ Sąsaja viena: kompiuteryje meniu kairėje ir kortelės keliais stulpeliais, tel
 
 ---
 
-## 4. Importas iš Google Sheets
+## 4. Importas iš Google Sheets ar Excel
 
-1. Google Sheets atidarykite dovanų lapą: **Failas → Atsisiųsti → Kableliais atskirtos reikšmės (.csv)**. Jei lapų keli – kiekvieną atsisiųskite atskirai.
-2. Dovanose: **⚙️ Nustatymai → Pasirinkti CSV failą**.
+1. Google Sheets: **Failas → Atsisiųsti → Microsoft Excel (.xlsx)**. Viename faile bus visi lapai. *(Tinka ir **.csv**, bet tada atsisiunčiamas tik atidarytas lapas.)*
+2. Dovanose: **⚙️ Nustatymai → Pasirinkti .xlsx ar .csv failą**.
 3. Atsiras peržiūra: kokios progos, kiek dovanų, kokie gavėjai. Nuimkite varneles nuo to, ko nereikia, ir spauskite **Importuoti**.
 
 Programa atpažįsta tokį išdėstymą: skyriaus eilutė („Kalėdos“, „Gimtadieniai“, „Šventinės dienos“ ir metai), po jos – gavėjų (ar švenčių) pavadinimai, po jais – dovanos su varnele ir kaina. Gimtadienių antraštėse data `MM-DD` tampa žmogaus gimtadieniu. Pažymėtos varnele dovanos tampa „Įteikta“ (būsimoms progoms – „Nupirkta“), nepažymėtos ir prasidedančios „Gal …“ – idėjomis.

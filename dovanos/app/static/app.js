@@ -775,8 +775,8 @@ VIEWS.settings = () => {
       ${HOLIDAYS.map(k => `<label class="check"><input type="checkbox" data-h="${k}" ${(st.holidays || []).includes(k) ? 'checked' : ''}> ${KINDS[k].icon} ${KINDS[k].name}</label>`).join('')}
       <button class="btn primary" id="s-save">Išsaugoti</button></div>
     <div class="card pad stack"><b>Importas iš Google Sheets</b>
-      <div class="small muted">Google Sheets: <b>Failas → Atsisiųsti → CSV</b> (atsisiunčiamas atidarytas lapas). Tada pasirinkite failą čia. Prieš įrašant bus parodyta peržiūra. Importas tik papildo – to paties failo nekelkite du kartus.</div>
-      <input type="file" id="s-csv" accept=".csv,text/csv" hidden><button class="btn" id="s-csv-b">📄 Pasirinkti CSV failą</button>
+      <div class="small muted">Google Sheets: <b>Failas → Atsisiųsti → Microsoft Excel (.xlsx)</b> – vienu failu visi lapai. Tinka ir <b>CSV</b> (tik atidarytas lapas). Tada pasirinkite failą čia. Prieš įrašant bus parodyta peržiūra. Importas tik papildo – to paties failo nekelkite du kartus.</div>
+      <input type="file" id="s-csv" accept=".xlsx,.csv,text/csv,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" hidden><button class="btn" id="s-csv-b">📄 Pasirinkti .xlsx ar .csv failą</button>
       <hr><b>Importas iš JSON</b>
       <div class="small muted">Pvz. jei Claude paruošė idėjų sąrašą. Formatas aprašytas dokumentacijoje.</div>
       <input type="file" id="s-json" accept=".json,application/json" hidden><button class="btn" id="s-json-b">📥 Importuoti JSON</button></div>
@@ -790,7 +790,21 @@ VIEWS.settings = () => {
     toast('Išsaugota');
   };
   const pick = (btn, inp, fn) => { $(btn).onclick = () => $(inp).click(); $(inp).onchange = async e => { const f = e.target.files[0]; e.target.value = ''; if (f) fn(await f.text()); }; };
-  pick('#s-csv-b', '#s-csv', text => importPreview(parseSheet(parseCSV(text))));
+  $('#s-csv-b').onclick = () => $('#s-csv').click();
+  $('#s-csv').onchange = async e => {
+    const f = e.target.files[0]; e.target.value = '';
+    if (!f) return;
+    if (/\.xlsx$/i.test(f.name)) {
+      toast('Skaitomas failas…');
+      let r;
+      try { r = await fetch('api/xlsx', { method: 'POST', body: await f.arrayBuffer() }); } catch (err) { return toast('Nėra ryšio su serveriu'); }
+      const j = await r.json().catch(() => ({}));
+      if (!r.ok) return toast(j.error || 'Nepavyko perskaityti failo');
+      importPreview(parseSheet(j.sheets.map(s => s.rows.map(row => row.map(c => String(c ?? '').replace(/\s+/g, ' ').trim())))));
+    } else if (/\.xls$/i.test(f.name)) {
+      toast('Senas .xls formatas netinka – išsaugokite kaip .xlsx', null, 5000);
+    } else importPreview(parseSheet([parseCSV(await f.text())]));
+  };
   pick('#s-json-b', '#s-json', async text => {
     let d; try { d = JSON.parse(text); } catch (e) { return toast('Netinkamas JSON failas'); }
     if (d.app === 'dovanos') return toast('Tai atsarginė kopija – naudokite „Atkurti iš kopijos“');
@@ -826,7 +840,7 @@ function parseCSV(text) {
 // ---- Google Sheets lentelės išdėstymo atpažinimas:
 // skyrius (Kalėdos / Gimtadieniai / Šventinės dienos + metai), po juo gavėjų antraštės eilutė,
 // po jos – dovanų eilutės su varnele (TRUE/FALSE), pavadinimu ir kaina.
-function parseSheet(grid) {
+function parseSheet(grids) {
   const SEC = [[/^kal[eė]d/i, 'christmas'], [/^gimtad/i, 'birthday'], [/^(švent|svent)/i, 'holiday']];
   const isCheck = v => /^(true|false|taip|ne|✅|⬜|☑️?|☐|✔️?|✓)$/i.test(v);
   const checked = v => /^(true|taip|✅|☑️?|✔️?|✓)$/i.test(v);
@@ -838,7 +852,7 @@ function parseSheet(grid) {
   let sec = null, year = null, heads = [], blank = 1, lastWasItem = false;
 
   const headTarget = label => {
-    if (label === '__extra') return { o: occ(`${sec}|${year}|extra`, sec === 'christmas' ? { kind: 'christmas', year } : { kind: 'other', year, title: 'Kita' }), person: null };
+    if (label === '__extra') return { o: occ(`${sec}|${year}|extra`, sec === 'christmas' ? { kind: 'christmas', year, extra: true } : { kind: 'other', year, title: 'Kita', extra: true }), person: null };
     const m = label.match(/^(.*?)\s+(\d{1,2})[-.](\d{1,2})\.?$/);
     const name = (m ? m[1] : label).trim(), md = m ? `${m[2].padStart(2, '0')}-${m[3].padStart(2, '0')}` : '';
     if (sec === 'christmas') return { o: occ(`christmas|${year}`, { kind: 'christmas', year }), person: name };
@@ -851,6 +865,7 @@ function parseSheet(grid) {
     return { o: occ(`h|${year}|${kind}|${kind === 'other' ? name.toLowerCase() : ''}`, { kind, year, title: kind === 'other' ? name : '', date }), person: null };
   };
 
+  for (const grid of grids) { sec = null; year = null; heads = []; blank = 1; lastWasItem = false;
   for (const r of grid) {
     const cells = r.map((v, i) => ({ v, i })).filter(c => c.v !== '');
     if (!cells.length) { blank++; lastWasItem = false; continue; }
@@ -868,7 +883,12 @@ function parseSheet(grid) {
     if (!checks.length) {
       const texts = cells.filter(c => !isMoney(c.v) && c.v !== '?' && !/^(19|20)\d\d$/.test(c.v));
       if (texts.length && (blank > 0 || !lastWasItem || !heads.length)) {
-        heads = texts.map(c => ({ col: c.i, label: c.v }));
+        heads = [];
+        // data atskiroje ląstelėje („Vardas“ | „03-15“) prijungiama prie pavadinimo
+        for (const c of texts) {
+          if (/^\d{1,2}-\d{1,2}$/.test(c.v) && heads.length) heads[heads.length - 1].label += ' ' + c.v;
+          else heads.push({ col: c.i, label: c.v });
+        }
         for (const h of heads) { const t = headTarget(h.label); if (t.person) t.o.recipients.includes(t.person) || t.o.recipients.push(t.person); }
       }
       blank = 0; lastWasItem = false; continue;
@@ -889,6 +909,7 @@ function parseSheet(grid) {
     }
     blank = 0; lastWasItem = true;
   }
+  }
   // nupirktos, bet dar neįteiktos (būsimos progos)
   for (const o of occs.values()) {
     const d = o.kind === 'other' ? o.date : kindDate(o.kind, o.year, { birthday: o.birthday });
@@ -901,7 +922,7 @@ function parseSheet(grid) {
 function importPreview(data) {
   const list = data.occasions.sort((a, b) => b.year - a.year);
   if (!list.length) return toast('Faile nerasta atpažįstamų dovanų. Patikrinkite, ar tai CSV iš dovanų lentelės.', null, 5000);
-  const label = o => `${KINDS[o.kind].icon} ${o.kind === 'birthday' ? o.person + ' gimtadienis' : o.kind === 'other' ? o.title : KINDS[o.kind].name} ${o.year}`;
+  const label = o => `${KINDS[o.kind].icon} ${o.kind === 'birthday' ? o.person + ' gimtadienis' : o.kind === 'other' ? o.title : KINDS[o.kind].name} ${o.year}${o.extra ? ' · Extra' : ''}`;
   const exists = o => S.occasions.some(x => x.kind === o.kind && x.year === o.year &&
     (o.kind === 'birthday' ? pname(x.person_id).toLowerCase() === o.person.toLowerCase() : o.kind === 'other' ? (x.title || '').toLowerCase() === o.title.toLowerCase() : true));
   const nG = list.reduce((s, o) => s + o.gifts.length, 0);

@@ -12,6 +12,9 @@ import re
 import secrets
 import sqlite3
 import threading
+import io
+import zipfile
+import xml.etree.ElementTree as ET
 from http.cookies import SimpleCookie
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from urllib.parse import urlparse, unquote
@@ -427,6 +430,82 @@ def act_restore(d):
         meta_set("settings", {**DEFAULT_SETTINGS, **d["settings"]})
 
 
+# ---------------------------------------------------------------- .xlsx skaitymas (be papildomų paketų)
+
+NS = {"m": "http://schemas.openxmlformats.org/spreadsheetml/2006/main",
+      "r": "http://schemas.openxmlformats.org/officeDocument/2006/relationships",
+      "rel": "http://schemas.openxmlformats.org/package/2006/relationships"}
+DATE_FMT_IDS = set(range(14, 23)) | {45, 46, 47}
+
+
+def col_index(ref):
+    n = 0
+    for ch in re.match(r"[A-Z]+", ref).group(0):
+        n = n * 26 + ord(ch) - 64
+    return n - 1
+
+
+def read_xlsx(data):
+    """Grąžina [{"name": lapo pavadinimas, "rows": [[ląstelės tekstas, ...], ...]}]."""
+    try:
+        z = zipfile.ZipFile(io.BytesIO(data))
+    except zipfile.BadZipFile:
+        raise ValueError("Tai ne .xlsx failas")
+    names = set(z.namelist())
+    texts = lambda el: "".join(t.text or "" for t in el.iter(f"{{{NS['m']}}}t"))
+    shared = []
+    if "xl/sharedStrings.xml" in names:
+        shared = [texts(si) for si in ET.fromstring(z.read("xl/sharedStrings.xml")).findall("m:si", NS)]
+    date_styles = set()
+    if "xl/styles.xml" in names:
+        st = ET.fromstring(z.read("xl/styles.xml"))
+        custom = {int(f.get("numFmtId")) for f in st.findall("m:numFmts/m:numFmt", NS)
+                  if re.search(r"[dy]", re.sub(r'"[^"]*"|\[[^]]*\]', "", f.get("formatCode", "")), re.I)}
+        for i, xf in enumerate(st.findall("m:cellXfs/m:xf", NS)):
+            fid = int(xf.get("numFmtId", 0))
+            if fid in DATE_FMT_IDS or fid in custom:
+                date_styles.add(i)
+    wb = ET.fromstring(z.read("xl/workbook.xml"))
+    rels = {r.get("Id"): r.get("Target") for r in ET.fromstring(z.read("xl/_rels/workbook.xml.rels")).findall("rel:Relationship", NS)}
+    out = []
+    for sh in wb.findall("m:sheets/m:sheet", NS):
+        target = rels.get(sh.get(f"{{{NS['r']}}}id"), "")
+        path = target.lstrip("/") if target.startswith("/") else "xl/" + target
+        if path not in names:
+            continue
+        grid = []
+        for row in ET.fromstring(z.read(path)).iter(f"{{{NS['m']}}}row"):
+            r = int(row.get("r", len(grid) + 1)) - 1
+            while len(grid) <= r:
+                grid.append([])
+            cells = grid[r]
+            for c in row.findall("m:c", NS):
+                t, v = c.get("t"), c.find("m:v", NS)
+                if t == "inlineStr":
+                    val = texts(c)
+                elif v is None or v.text is None:
+                    continue
+                elif t == "s":
+                    val = shared[int(v.text)]
+                elif t == "b":
+                    val = "TRUE" if v.text == "1" else "FALSE"
+                elif t in ("str", "e"):
+                    val = v.text
+                else:
+                    f = float(v.text)
+                    if int(c.get("s", 0)) in date_styles and 1 < f < 100000:
+                        d = dt.date(1899, 12, 30) + dt.timedelta(days=int(f))
+                        val = d.strftime("%m-%d")
+                    else:
+                        val = str(int(f)) if f.is_integer() else str(round(f, 2)).replace(".", ",")
+                ci = col_index(c.get("r")) if c.get("r") else len(cells)
+                while len(cells) <= ci:
+                    cells.append("")
+                cells[ci] = val.strip()
+        out.append({"name": sh.get("name"), "rows": grid})
+    return out
+
+
 ACTIONS = {
     "save": act_save,
     "delete": act_delete,
@@ -447,7 +526,7 @@ MIME = {".html": "text/html; charset=utf-8", ".js": "application/javascript; cha
 # ---------------------------------------------------------------- HTTP
 
 class Handler(BaseHTTPRequestHandler):
-    server_version = "Dovanos/1.0"
+    server_version = "Dovanos/1.1"
 
     def log_message(self, fmt, *args):
         if os.environ.get("DEBUG"):
@@ -532,6 +611,8 @@ class Handler(BaseHTTPRequestHandler):
                 return self.send(403, {"error": "Neteisingas PIN"})
             if not self.authed():
                 return self.send(401, {"error": "Reikia PIN"})
+            if path == "api/xlsx":
+                return self.send(200, {"sheets": read_xlsx(self.read_body(30 * 1024 * 1024))})
             if path.startswith("api/do/"):
                 name = path[len("api/do/"):]
                 fn = ACTIONS.get(name)
