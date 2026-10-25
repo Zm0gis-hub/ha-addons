@@ -1044,9 +1044,69 @@ class Handler(BaseHTTPRequestHandler):
             return self.send(500, {"error": f"Klaida: {e}"})
 
 
+# ---------------------------------------------------------------- jutiklis HA skydeliui
+SENSOR_ID = "sensor.rodukas_priminimai"
+SENSOR_STATE = {"error": "", "last": ""}
+
+
+def sensor_payload():
+    """Artimiausi darbai: procedūros, skiepai / antiparazitinės, vizitai ir šiuo metu duodami vaistai."""
+    t = dt.date.today()
+    st = meta_get("settings") or DEFAULT_SETTINGS
+    items = []
+    for p in rows("SELECT * FROM procedures WHERE active=1 ORDER BY pos, id"):
+        due = next_due(p, last_done(p["id"]), t)
+        if due and (due - t).days <= 3:
+            items.append({"tekstas": p["name"], "emoji": p["emoji"] or "✂️", "tipas": "procedūra",
+                          "dienos": (due - t).days, "data": due.isoformat()})
+    latest = {}
+    for p in rows("SELECT * FROM prevention WHERE valid_until IS NOT NULL AND valid_until<>'' ORDER BY date DESC, id DESC"):
+        latest.setdefault((p["name"] or "").strip().lower(), p)
+    for p in latest.values():
+        try:
+            left = (dt.date.fromisoformat(p["valid_until"]) - t).days
+        except ValueError:
+            continue
+        if -60 <= left <= int(st.get("alert_days") or 30):
+            items.append({"tekstas": p["name"] + (" – baigėsi" if left < 0 else " – galioja iki " + p["valid_until"]),
+                          "emoji": "💉" if p["kind"] == "Vakcina" else "🛡️", "tipas": p["kind"] or "prevencija",
+                          "dienos": left, "data": p["valid_until"]})
+    for v in rows("SELECT * FROM visits WHERE date>=? AND date<=? ORDER BY date, time",
+                  (t.isoformat(), (t + dt.timedelta(days=14)).isoformat())):
+        items.append({"tekstas": (v["title"] or v["category"] or "Vizitas") + (" " + v["time"] if v["time"] else ""),
+                      "emoji": "🏥", "tipas": "vizitas", "dienos": (dt.date.fromisoformat(v["date"]) - t).days,
+                      "data": v["date"]})
+    items.sort(key=lambda i: i["dienos"])
+    meds = [" ".join(x for x in (m["name"], m["dose"], m["freq"]) if x)
+            for m in rows("SELECT * FROM meds WHERE (start IS NULL OR start='' OR start<=?) AND (end IS NULL OR end='' OR end>=?) ORDER BY id",
+                          (t.isoformat(), t.isoformat()))]
+    name = ((meta_get("profile") or {}).get("name") or "").strip() or "Rodukas"
+    return {"state": len([i for i in items if i["dienos"] <= 0]), "attributes": {
+        "friendly_name": name + " – priminimai", "icon": "mdi:dog", "unit_of_measurement": "prim.",
+        "items": items, "vaistai": meds, "atnaujinta": now()}}
+
+
+def sensor_loop():
+    last, sent = None, 0
+    while True:
+        try:
+            with LOCK:
+                p = sensor_payload()
+            key = json.dumps({**p, "attributes": {**p["attributes"], "atnaujinta": ""}}, sort_keys=True)
+            # HA perkrovus būsena dingsta, todėl kas 10 min. siunčiama iš naujo
+            if key != last or time.time() - sent > 600:
+                ha_request("POST", "/states/" + SENSOR_ID, p)
+                last, sent, SENSOR_STATE["last"], SENSOR_STATE["error"] = key, time.time(), now(), ""
+        except Exception as e:  # noqa
+            SENSOR_STATE["error"] = str(e)
+            log("HA jutiklio klaida:", e)
+        time.sleep(20)
+
+
 def main():
     init_db()
     if SUPERVISOR_TOKEN:
+        threading.Thread(target=sensor_loop, daemon=True).start()
         threading.Thread(target=reminder_loop, daemon=True).start()
         threading.Thread(target=action_listener, daemon=True).start()
     srv = ThreadingHTTPServer(("0.0.0.0", PORT), Handler)

@@ -1,5 +1,8 @@
 # Pakeitimai
 
+## 1.10.0
+- Pirkinių sąrašas ir šiandienos meniu matomi HA pagrindiniame skydelyje: programa sukuria jutiklį `sensor.receptai_pirkiniai` (kiek prekių pirkti, jų sąrašas ir ką šiandien gaminti).
+
 ## 1.9.4
 - Pažymėta prekė apie 1 sekundę lieka vietoje nubraukta ir tik tada pereina į „Nupirkta“. Jei per tą laiką atžymite – niekur nepersikelia. Galima žymėti kelias iš eilės.
 

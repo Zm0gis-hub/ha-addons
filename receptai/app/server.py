@@ -1187,9 +1187,58 @@ def screen_watchdog():
                 print("Ekrano atšaukimo klaida:", e, flush=True)
 
 
+# ---------------------------------------------------------------- jutiklis HA skydeliui
+SENSOR_ID = "sensor.receptai_pirkiniai"
+
+
+def sensor_payload():
+    """Ką pirkti (kaip „Pirkti“ sąraše) ir ką šiandien gaminti – HA pagrindiniam skydeliui."""
+    prods = {p["id"]: p for p in rows("SELECT * FROM products")}
+    st = {r["product_id"]: r for r in rows("SELECT * FROM pstate")}
+    need = {}  # product_id -> ar pridėta ranka
+    for i in rows("""SELECT i.product_id FROM menu m JOIN ingredients i ON i.recipe_id=m.recipe_id
+                     WHERE m.in_list=1 AND m.cooked=0"""):
+        need.setdefault(i["product_id"], False)
+    for e in rows("SELECT product_id FROM extras"):
+        need[e["product_id"]] = True
+    buy = []
+    for pid, extra in need.items():
+        p, s_ = prods.get(pid), st.get(pid) or {}
+        if not p or s_.get("checked") or s_.get("state") == "have":
+            continue
+        if p["always_have"] and not extra and s_.get("state") not in ("need", "low"):
+            continue
+        buy.append((s_.get("pos") if s_.get("pos") is not None else 1e9, p["name"]))
+    buy = [n for _, n in sorted(buy, key=lambda x: (x[0], x[1].lower()))]
+    today = dt.date.today().isoformat()
+    cook = [r["title"] for r in rows("""SELECT r.title FROM menu m JOIN recipes r ON r.id=m.recipe_id
+                                        WHERE m.day=? AND m.cooked=0 ORDER BY m.id""", (today,))]
+    return {"state": len(buy), "attributes": {
+        "friendly_name": "Receptai – pirkiniai", "icon": "mdi:cart", "unit_of_measurement": "prek.",
+        "pirkti": buy, "siandien_gaminti": cook, "atnaujinta": now()}}
+
+
+def sensor_loop():
+    last, sent = None, 0
+    while True:
+        try:
+            with LOCK:
+                p = sensor_payload()
+            key = json.dumps({**p, "attributes": {**p["attributes"], "atnaujinta": ""}}, sort_keys=True)
+            # HA perkrovus būsena dingsta, todėl kas 10 min. siunčiama iš naujo
+            if key != last or time.time() - sent > 600:
+                ha("POST", "states/" + SENSOR_ID, p)
+                last, sent = key, time.time()
+        except Exception as e:  # noqa
+            print("HA jutiklio klaida:", e, flush=True)
+        time.sleep(20)
+
+
 def main():
     init_db()
     threading.Thread(target=screen_watchdog, daemon=True).start()
+    if SUP_TOKEN:
+        threading.Thread(target=sensor_loop, daemon=True).start()
     srv = ThreadingHTTPServer(("0.0.0.0", PORT), Handler)
     print(f"Receptai veikia per prievadą {PORT}. Duomenys: {DATA_DIR}", flush=True)
     srv.serve_forever()

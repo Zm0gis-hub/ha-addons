@@ -1,5 +1,8 @@
 # Pakeitimai
 
+## 1.4.0
+- Priminimai matomi HA pagrindiniame skydelyje: programa sukuria jutiklį `sensor.rodukas_priminimai` (procedūros, skiepai ir antiparazitinės, artimiausi vizitai, šiuo metu duodami vaistai).
+
 ## 1.3.0
 - Paruošta diegti iš GitHub saugyklos.
 - Pranešimų nuoroda atidaro programą nepriklausomai nuo to, iš kur ji įdiegta.
