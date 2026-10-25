@@ -1,5 +1,8 @@
 # Pakeitimai
 
+## 1.9.4
+- Pažymėta prekė apie 1 sekundę lieka vietoje nubraukta ir tik tada pereina į „Nupirkta“. Jei per tą laiką atžymite – niekur nepersikelia. Galima žymėti kelias iš eilės.
+
 ## 1.9.3
 - Pirkinių sąrašo pasiūlymas prigludęs prie įvedimo lauko – nebėra tarpo, į kurį pataikius sąrašas dingdavo.
 - Pasiūlymą lengva paspausti telefonu: didesnis paspaudimo plotas, o paspaustas pasiūlymas iškart įdedamas į sąrašą.

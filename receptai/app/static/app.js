@@ -192,7 +192,7 @@ function computeList() {
     const pid = +pidS, p = IDX.p[pid]; if (!p) continue;
     const st = IDX.ps[pid] || {};
     const row = { pid, p, st, ...o };
-    if (st.checked) bought.push(row);
+    if (st.checked && !CHECK_WAIT.has(pid)) bought.push(row);
     else if (st.state === 'have') have.push(row);
     else if (p.always_have && !o.extra && st.state !== 'need' && st.state !== 'low') always.push(row);
     else toBuy.push(row);
@@ -370,10 +370,14 @@ function bindListRows() {
   $$('details[data-fold]').forEach(d => d.ontoggle = () => { UI[d.dataset.fold] = d.open; saveUI(); });
 }
 
+// Ką tik pažymėtos prekės ~1 s lieka vietoje nubrauktos, tik tada keliauja į „Nupirkta“
+const CHECK_WAIT = new Map();
 function toggleCheck(pid, withUndo) {
   const st = IDX.ps[pid] || { product_id: pid };
   st.checked = st.checked ? 0 : 1; IDX.ps[pid] = st;
   if (!S.pstate.includes(st)) S.pstate.push(st);
+  clearTimeout(CHECK_WAIT.get(pid)); CHECK_WAIT.delete(pid);
+  if (st.checked) CHECK_WAIT.set(pid, setTimeout(() => { CHECK_WAIT.delete(pid); render(); }, 1000));
   render(); // greitas atsakas
   act('check', { product_id: pid, checked: !!st.checked }, { keep: true }).then(render).catch(() => load());
   if (withUndo) showUndo(pid, st.checked);
