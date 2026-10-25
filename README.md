@@ -1,12 +1,13 @@
 # Namų programos Home Assistant
 
-Trys paprastos lietuviškos programos (priedai), veikiančios Home Assistant viduje. Duomenys lieka jūsų HA ir patenka į jo atsargines kopijas.
+Paprastos lietuviškos programos (priedai), veikiančios Home Assistant viduje. Duomenys lieka jūsų HA ir patenka į jo atsargines kopijas.
 
 | Programa | Kas tai |
 |---|---|
 | 🍴 **Receptai** | Receptai, savaitės meniu ir bendras pirkinių sąrašas |
 | 🐶 **Rodukas** | Augintinio priežiūra: maistas, svoris, skiepai, vizitai, dokumentai, procedūros, priminimai |
 | 🏡 **Ūkis** | Namų užduotys kaip paprasta Asana: sekcijos, datos, pasikartojimai, HA kortelė ir kalendorius |
+| 🎁 **Dovanos** | Dovanų idėjos, progos (Kalėdos, gimtadieniai, šventės), gavėjai, išlaidos ir istorija |
 
 ## Įdiegimas
 
