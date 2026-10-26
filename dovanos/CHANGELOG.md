@@ -1,5 +1,9 @@
 # Pakeitimai
 
+## 1.4.0
+- Žmogui galima įrašyti gimimo metus: rodoma, kiek sukaks (ar sukako). Jubiliejai (kas 5 metai) paryškinti 🎉.
+- Ilgesni laikotarpiai rodomi metais ir mėnesiais, pvz. „prieš 1 m. 5 mėn.“.
+
 ## 1.3.0
 - Žmogui galima priskirti pastelinę spalvą (pvz. kieno pusės giminė): spalvotas rėmelis ir labai švelnus fonas kortelėse.
 - Datos: būsimos rodomos žaliai, praėjusios – blankiai.

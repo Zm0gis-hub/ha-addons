@@ -292,3 +292,7 @@ label.check input { width: 20px; height: 20px; accent-color: var(--accent); }
 
 /* šie metai filtre visada apvesti */
 .chip.cur { outline: 2px solid var(--ok); outline-offset: 2px; }
+
+/* amžius: jubiliejus (kas 5 m.) paryškintas */
+.age { font-size: 13px; color: var(--muted); font-weight: 600; white-space: nowrap; }
+.age.jub { font-weight: 800; color: var(--accent); }

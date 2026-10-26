@@ -45,12 +45,12 @@ AUTH_TOKEN = hashlib.sha256(("dovanos:" + PIN).encode()).hexdigest() if PIN else
 
 # lentelė -> stulpeliai, kuriuos galima keisti per bendrą „save“ veiksmą
 TABLES = {
-    "people": ["name", "birthday", "notes", "archived", "pos", "color"],
+    "people": ["name", "birthday", "birth_year", "notes", "archived", "pos", "color"],
     "occasions": ["kind", "title", "year", "date", "person_id", "budget", "notes"],
     "recipients": ["occasion_id", "person_id", "pos"],
     "gifts": ["title", "person_id", "recipient_text", "occasion_id", "shop", "price", "url", "note", "status", "pos"],
 }
-NUMERIC = {"archived", "pos", "year", "person_id", "budget", "occasion_id", "price"}
+NUMERIC = {"birth_year", "archived", "pos", "year", "person_id", "budget", "occasion_id", "price"}
 KINDS = {"christmas", "birthday", "easter", "mother", "father", "midsummer", "valentine", "other"}
 STATUSES = ("idea", "bought", "given")
 
@@ -69,7 +69,7 @@ CREATE TABLE IF NOT EXISTS gifts (id INTEGER PRIMARY KEY, title TEXT, person_id 
 
 # stulpeliai, pridėti vėlesnėse versijose (senoms duomenų bazėms)
 NEW_COLUMNS = {
-    "people": {"color": "TEXT DEFAULT ''"},
+    "people": {"color": "TEXT DEFAULT ''", "birth_year": "INTEGER"},
 }
 
 DEFAULT_SETTINGS = {
@@ -539,7 +539,7 @@ MIME = {".html": "text/html; charset=utf-8", ".js": "application/javascript; cha
 # ---------------------------------------------------------------- HTTP
 
 class Handler(BaseHTTPRequestHandler):
-    server_version = "Dovanos/1.3"
+    server_version = "Dovanos/1.4"
 
     def log_message(self, fmt, *args):
         if os.environ.get("DEBUG"):

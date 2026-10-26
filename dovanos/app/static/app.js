@@ -93,9 +93,22 @@ function until(s) {
   if (n === 0) return 'šiandien';
   if (n === 1) return 'rytoj';
   if (n === -1) return 'vakar';
-  if (n < 0) return n > -60 ? `prieš ${-n} d.` : `prieš ${Math.round(-n / 30.44)} mėn.`;
-  if (n < 60) return `po ${n} d.`;
-  return `po ${Math.round(n / 30.44)} mėn.`;
+  return (n < 0 ? 'prieš ' : 'po ') + span(Math.abs(n));
+}
+// 45 d. / 5 mėn. / 1 m. 5 mėn. (nuo 12 mėn. – metais)
+function span(days) {
+  if (days < 60) return `${days} d.`;
+  const m = Math.round(days / 30.44);
+  if (m < 12) return `${m} mėn.`;
+  return `${Math.floor(m / 12)} m.${m % 12 ? ` ${m % 12} mėn.` : ''}`;
+}
+// kiek sukaks (ar sukako) tų metų gimtadienį; jubiliejus – kas 5 metai
+const ageAt = (pid, year) => { const by = I.people[pid]?.birth_year; return by && year > by ? year - by : null; };
+function ageBadge(pid, year, verb) {
+  const a = ageAt(pid, year);
+  if (!a) return '';
+  const jub = a % 5 === 0;
+  return ` <span class="age ${jub ? 'jub' : ''}">${jub ? '🎉 ' : ''}${verb ? (year < Y() || (year === Y() && mdInYear(I.people[pid].birthday, year) < T()) ? 'sukako ' : 'sukaks ') : ''}${a} m.</span>`;
 }
 function fmtNum(n, dec = 2) {
   if (n == null || n === '' || isNaN(n)) return '';
@@ -268,7 +281,7 @@ VIEWS.soon = () => {
     }
     return `<div class="card event ${n <= 0 ? 'today' : ''} ${e.person_id ? pcCls(e.person_id) : ''}" ${e.person_id ? pcSty(e.person_id) : ''} data-i="${i}">
       <div class="ico">${KINDS[e.kind].icon}</div>
-      <div class="grow"><b>${esc(eventName(e))}</b>${e.occ ? ` <span class="muted small">· ${moneyShort(spent(gifts))}</span>` : ''}<br>${detail}</div>
+      <div class="grow"><b>${esc(eventName(e))}</b>${e.kind === 'birthday' ? ageBadge(e.person_id || e.occ?.person_id, e.year, true) : ''}${e.occ ? ` <span class="muted small">· ${moneyShort(spent(gifts))}</span>` : ''}<br>${detail}</div>
       <div class="when ${dcls(e.date)}"><b>${until(e.date)}</b><span class="small">${niceDate(e.date)}</span></div>
     </div>`;
   }).join('') + `</div>`;
@@ -297,12 +310,12 @@ function bindIdeaLis() {
 VIEWS.occ = id => {
   const o = I.occasions[id];
   if (!o) return go('occs');
-  setTop(occTitle(o), `<button class="icon-btn" id="occ-menu" title="Progos nustatymai">⋯</button>`, true);
+  setTop(occTitle(o) + (o.kind === 'birthday' && ageAt(o.person_id, o.year) ? ` · ${ageAt(o.person_id, o.year)} m.` : ''), `<button class="icon-btn" id="occ-menu" title="Progos nustatymai">⋯</button>`, true);
   const gifts = giftsOf(o.id), recs = recipientsOf(o.id), date = occDate(o);
   const sp = spent(gifts), pl = planned(gifts), c = counts(gifts);
   const past = date && date < T();
   let h = `<div class="card summary">
-    <div><div class="muted small">${occIcon(o)} ${date ? `<span class="${dcls(date)}">${niceDate(date, true)} · ${until(date)}</span>` : 'data nenurodyta'}</div><div class="big">${money(sp) || '0,00 €'}</div></div>
+    <div><div class="muted small">${occIcon(o)} ${date ? `<span class="${dcls(date)}">${niceDate(date, true)} · ${until(date)}</span>` : 'data nenurodyta'}${o.kind === 'birthday' ? ageBadge(o.person_id, o.year, true) : ''}</div><div class="big">${money(sp) || '0,00 €'}</div></div>
     ${o.budget ? `<div class="budget"><div class="small muted">Biudžetas ${money(o.budget)}${sp > o.budget ? ' · <b style="color:var(--danger)">viršyta</b>' : ` · liko ${money(o.budget - sp)}`}</div>
       <div class="bar ${sp > o.budget ? 'over' : ''}"><i style="width:${Math.min(100, sp / o.budget * 100)}%"></i></div></div>` : ''}
     <div class="chips">${c.idea ? `<span class="pill gold">💡 ${c.idea} idėj.${pl ? ' · ' + moneyShort(pl) : ''}</span>` : ''}
@@ -499,7 +512,7 @@ function assignSheet(g) {
   ].sort((a, b) => (mine(b) ? 1 : 0) - (mine(a) ? 1 : 0) || (a.date || '9').localeCompare(b.date || '9'));
   openSheet(`<h3>„${esc(g.title)}“ – kuriai progai?</h3>
     <div class="card list">${items.map((e, i) => `<div class="li" data-i="${i}"><div class="ico">${KINDS[e.kind].icon}</div>
-      <div class="grow">${esc(eventName(e))} ${e.year}</div><span class="small nowrap ${dcls(e.date)}">${e.date ? until(e.date) : ''}</span></div>`).join('') || '<div class="empty">Būsimų progų nėra</div>'}</div>
+      <div class="grow">${esc(eventName(e))} ${e.year}${e.kind === 'birthday' ? ageBadge(e.person_id || e.occ?.person_id, e.year) : ''}</div><span class="small nowrap ${dcls(e.date)}">${e.date ? until(e.date) : ''}</span></div>`).join('') || '<div class="empty">Būsimų progų nėra</div>'}</div>
     <div class="actions"><button class="btn" data-x>Atšaukti</button><button class="btn" data-new>＋ Nauja proga</button></div>`, el => {
     $('[data-x]', el).onclick = closeSheet;
     $('[data-new]', el).onclick = () => newOccasionSheet(async oid => saveRow('gifts', { id: g.id, occasion_id: oid }));
@@ -531,7 +544,7 @@ VIEWS.occs = () => {
     h += `<div class="year-h">${name}</div><div class="grid narrow">` + arr.map(o => {
       const gifts = giftsOf(o.id), d = occDate(o);
       return `<div class="card event ${o.kind === 'birthday' ? pcCls(o.person_id) : ''}" ${o.kind === 'birthday' ? pcSty(o.person_id) : ''} data-o="${o.id}"><div class="ico">${occIcon(o)}</div>
-        <div class="grow"><b>${esc(occName(o))}</b><div class="small muted">${d ? `<span class="${dcls(d)}">${niceDate(d)}</span>` : ''}${recipientsOf(o.id).length > 1 ? ` · ${recipientsOf(o.id).length} gavėjai` : ''}</div>
+        <div class="grow"><b>${esc(occName(o))}</b>${o.kind === 'birthday' ? ageBadge(o.person_id, o.year) : ''}<div class="small muted">${d ? `<span class="${dcls(d)}">${niceDate(d)}</span>` : ''}${recipientsOf(o.id).length > 1 ? ` · ${recipientsOf(o.id).length} gavėjai` : ''}</div>
         <div style="margin-top:4px">${countPills(gifts) || '<span class="small muted">tuščia</span>'}</div></div>
         <div class="when"><b>${moneyShort(spent(gifts))}</b></div></div>`;
     }).join('') + `</div>`;
@@ -624,7 +637,7 @@ VIEWS.people = () => {
     const bd = nextBd(p), ideas = freeIdeas(p.id).length;
     const last = S.gifts.filter(g => g.person_id === p.id && g.occasion_id && g.status !== 'idea');
     return `<div class="card person ${pcCls(p.id)}" ${pcSty(p.id)} data-p="${p.id}"><div class="row"><span class="nm grow ellip">${esc(p.name)}</span>${p.archived ? '<span class="pill">archyve</span>' : ''}</div>
-      <div class="small muted">${bd ? `<span class="${dcls(bd)}">🎂 ${mdNice(p.birthday)} · ${until(bd)}</span>` : 'gimtadienis nenurodytas'}</div>
+      <div class="small muted">${bd ? `<span class="${dcls(bd)}">🎂 ${mdNice(p.birthday)} · ${until(bd)}</span>${ageBadge(p.id, +bd.slice(0, 4), true)}` : 'gimtadienis nenurodytas'}</div>
       <div class="chips" style="margin-top:6px">${ideas ? `<span class="pill gold">💡 ${ideas}</span>` : ''}<span class="pill">🎁 ${last.length} dovan.</span></div></div>`;
   }).join('') + `</div>` : `<div class="card empty">Žmonių dar nėra. Pridėkite artimuosius ir jų gimtadienius.</div>`;
   if (S.people.some(p => p.archived)) h += `<p class="center"><button class="btn small ghost" id="arch">${showArch ? 'Slėpti archyvuotus' : 'Rodyti archyvuotus'}</button></p>`;
@@ -636,13 +649,14 @@ VIEWS.people = () => {
 
 function personSheet(p) {
   const isNew = !p;
-  p = p || { name: '', birthday: '', notes: '', archived: 0, color: '' };
+  p = p || { name: '', birthday: '', birth_year: null, notes: '', archived: 0, color: '' };
   const others = people(true).filter(x => x.id !== p.id);
   openSheet(`<h3>${isNew ? 'Naujas žmogus' : esc(p.name)}</h3>
     <div class="fgrid">
       <label class="field full"><span>Vardas (arba grupė, pvz. „Tėvams“)</span><input type="text" id="p-name" value="${esc(p.name)}" ${isNew ? 'autofocus' : ''}></label>
       <label class="field"><span>Gimtadienis (MM-DD)</span><input type="text" id="p-bd" value="${esc(p.birthday)}" placeholder="pvz. 03-15" inputmode="numeric"></label>
-      ${isNew ? '' : `<label class="check" style="align-self:end"><input type="checkbox" id="p-arch" ${p.archived ? 'checked' : ''}> Archyvuoti (paslėpti)</label>`}
+      <label class="field"><span>Gimimo metai (nebūtina)</span><input type="number" id="p-by" value="${p.birth_year || ''}" placeholder="pvz. 1980" min="1900" max="${Y()}"></label>
+      ${isNew ? '' : `<label class="check full"><input type="checkbox" id="p-arch" ${p.archived ? 'checked' : ''}> Archyvuoti (paslėpti)</label>`}
       <div class="field full"><span class="lbl-s">Spalva (pvz. kieno pusės giminė)</span><div class="swatches" id="p-color">
         <button type="button" class="sw ${!p.color ? 'on' : ''}" data-c="" title="Be spalvos">✕</button>
         ${Object.entries(COLORS).map(([k, [c, n]]) => `<button type="button" class="sw ${p.color === k ? 'on' : ''}" data-c="${k}" title="${n}" style="--pc:${c}"></button>`).join('')}</div></div>
@@ -657,7 +671,9 @@ function personSheet(p) {
     let color = p.color || '';
     $$('#p-color .sw', el).forEach(b => b.onclick = () => { color = b.dataset.c; $$('#p-color .sw', el).forEach(x => x.classList.toggle('on', x === b)); });
     const save = async () => {
-      const row = { name: $('#p-name').value.trim(), birthday: normMD($('#p-bd').value), notes: $('#p-notes').value, color };
+      const bdIn = $('#p-bd').value.trim(), yIn = bdIn.match(/^(\d{4})[-.\/]/);
+      const row = { name: $('#p-name').value.trim(), birthday: normMD(bdIn), notes: $('#p-notes').value, color,
+        birth_year: +$('#p-by').value || (yIn ? +yIn[1] : null) };
       if (!row.name) return toast('Įrašykite vardą');
       if (!isNew) { row.id = p.id; row.archived = $('#p-arch').checked ? 1 : 0; }
       const r = await saveRow('people', row, true);
@@ -708,7 +724,7 @@ function mergePairs() {
 function personBrief(p) {
   const n = giftCount(p.id), occs = new Set(S.gifts.filter(g => g.person_id === p.id && g.occasion_id).map(g => I.occasions[g.occasion_id]?.kind));
   const kinds = [...occs].filter(Boolean).map(k => KINDS[k].icon).join(' ');
-  return `${n} dovan.${p.birthday ? ' · 🎂 ' + p.birthday : ''}${kinds ? ' · ' + kinds : ''}`;
+  return `${n} dovan.${p.birthday ? ' · 🎂 ' + (p.birth_year ? p.birth_year + '-' : '') + p.birthday : ''}${kinds ? ' · ' + kinds : ''}`;
 }
 
 VIEWS.merge = () => {
@@ -759,7 +775,7 @@ VIEWS.person = id => {
   const ideas = freeIdeas(p.id);
   const gifts = S.gifts.filter(g => g.person_id === p.id && g.occasion_id && I.occasions[g.occasion_id]);
   let bd = '';
-  if (p.birthday) { let d = mdInYear(p.birthday, Y()); if (d < T()) d = mdInYear(p.birthday, Y() + 1); bd = `<span class="${dcls(d)}">🎂 ${mdNice(p.birthday)} · ${until(d)}</span>`; }
+  if (p.birthday) { let d = mdInYear(p.birthday, Y()); if (d < T()) d = mdInYear(p.birthday, Y() + 1); bd = `<span class="${dcls(d)}">🎂 ${mdNice(p.birthday)}${p.birth_year ? ' ' + p.birth_year + ' m.' : ''} · ${until(d)}</span>${ageBadge(p.id, +d.slice(0, 4), true)}`; }
   let h = `<div class="card summary ${pcCls(p.id)}" ${pcSty(p.id)}><div><div class="muted small">${bd || 'Gimtadienis nenurodytas'}</div><div class="big">${moneyShort(spent(gifts))}</div><div class="small muted">išleista per visus metus</div></div>
     ${p.notes ? `<div class="grow pre small" style="min-width:200px">${esc(p.notes)}</div>` : ''}</div>`;
   h += `<div class="grid"><div><h2 style="margin-top:4px">💡 Idėjos <span class="sum">${ideas.length}</span></h2>
