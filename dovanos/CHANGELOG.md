@@ -1,5 +1,8 @@
 # Pakeitimai
 
+## 1.4.1
+- Jei gimtadienis neįrašytas (pvz. žmonių grupei), užrašas „nenurodytas“ nebėra rodomas.
+
 ## 1.4.0
 - Žmogui galima įrašyti gimimo metus: rodoma, kiek sukaks (ar sukako). Jubiliejai (kas 5 metai) paryškinti 🎉.
 - Ilgesni laikotarpiai rodomi metais ir mėnesiais, pvz. „prieš 1 m. 5 mėn.“.

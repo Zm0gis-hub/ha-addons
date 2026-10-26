@@ -637,7 +637,7 @@ VIEWS.people = () => {
     const bd = nextBd(p), ideas = freeIdeas(p.id).length;
     const last = S.gifts.filter(g => g.person_id === p.id && g.occasion_id && g.status !== 'idea');
     return `<div class="card person ${pcCls(p.id)}" ${pcSty(p.id)} data-p="${p.id}"><div class="row"><span class="nm grow ellip">${esc(p.name)}</span>${p.archived ? '<span class="pill">archyve</span>' : ''}</div>
-      <div class="small muted">${bd ? `<span class="${dcls(bd)}">🎂 ${mdNice(p.birthday)} · ${until(bd)}</span>${ageBadge(p.id, +bd.slice(0, 4), true)}` : 'gimtadienis nenurodytas'}</div>
+      ${bd ? `<div class="small muted"><span class="${dcls(bd)}">🎂 ${mdNice(p.birthday)} · ${until(bd)}</span>${ageBadge(p.id, +bd.slice(0, 4), true)}</div>` : ''}
       <div class="chips" style="margin-top:6px">${ideas ? `<span class="pill gold">💡 ${ideas}</span>` : ''}<span class="pill">🎁 ${last.length} dovan.</span></div></div>`;
   }).join('') + `</div>` : `<div class="card empty">Žmonių dar nėra. Pridėkite artimuosius ir jų gimtadienius.</div>`;
   if (S.people.some(p => p.archived)) h += `<p class="center"><button class="btn small ghost" id="arch">${showArch ? 'Slėpti archyvuotus' : 'Rodyti archyvuotus'}</button></p>`;
@@ -776,7 +776,7 @@ VIEWS.person = id => {
   const gifts = S.gifts.filter(g => g.person_id === p.id && g.occasion_id && I.occasions[g.occasion_id]);
   let bd = '';
   if (p.birthday) { let d = mdInYear(p.birthday, Y()); if (d < T()) d = mdInYear(p.birthday, Y() + 1); bd = `<span class="${dcls(d)}">🎂 ${mdNice(p.birthday)}${p.birth_year ? ' ' + p.birth_year + ' m.' : ''} · ${until(d)}</span>${ageBadge(p.id, +d.slice(0, 4), true)}`; }
-  let h = `<div class="card summary ${pcCls(p.id)}" ${pcSty(p.id)}><div><div class="muted small">${bd || 'Gimtadienis nenurodytas'}</div><div class="big">${moneyShort(spent(gifts))}</div><div class="small muted">išleista per visus metus</div></div>
+  let h = `<div class="card summary ${pcCls(p.id)}" ${pcSty(p.id)}><div>${bd ? `<div class="muted small">${bd}</div>` : ''}<div class="big">${moneyShort(spent(gifts))}</div><div class="small muted">išleista per visus metus</div></div>
     ${p.notes ? `<div class="grow pre small" style="min-width:200px">${esc(p.notes)}</div>` : ''}</div>`;
   h += `<div class="grid"><div><h2 style="margin-top:4px">💡 Idėjos <span class="sum">${ideas.length}</span></h2>
     <div class="card list">${ideas.map(ideaLi).join('')}
