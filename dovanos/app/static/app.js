@@ -202,7 +202,7 @@ function render() {
   if (!S) return;
   route = (location.hash.slice(1) || 'soon').split('/');
   const name = VIEWS[route[0]] ? route[0] : 'soon';
-  const tab = { occ: 'occs', person: 'people' }[name] || name;
+  const tab = { occ: 'occs', person: 'people', merge: 'people' }[name] || name;
   $$('#tabs a').forEach(a => a.classList.toggle('on', a.dataset.tab === tab));
   VIEWS[name](route[1]);
 }
@@ -608,7 +608,7 @@ VIEWS.ideas = () => {
 
 // ============================================================ ŽMONĖS
 VIEWS.people = () => {
-  setTop('Žmonės', `<button class="btn small primary" id="new-p">＋ Žmogus</button>`);
+  setTop('Žmonės', `<a class="btn small" href="#merge">🔗 Sujungti${mergePairs().length ? ` (${mergePairs().length})` : ''}</a><button class="btn small primary" id="new-p">＋ Žmogus</button>`);
   const showArch = !!UI.arch;
   const list = people(showArch).filter(p => showArch || !p.archived);
   const nextBd = p => { if (!p.birthday) return null; let d = mdInYear(p.birthday, Y()); if (d < T()) d = mdInYear(p.birthday, Y() + 1); return d; };
@@ -668,6 +668,75 @@ function normMD(v) {
   const m = v.match(/^(?:\d{4}[-.\/])?(\d{1,2})[-.\/ ](\d{1,2})$/);
   return m ? `${m[1].padStart(2, '0')}-${m[2].padStart(2, '0')}` : v;
 }
+
+// ============================================================ SUJUNGIMAS
+// Tas pats žmogus lentelėje dažnai užrašytas skirtingais linksniais („Sesei“ / „Sesės“).
+// Panašūs: tiek pat žodžių ir kiekvieno žodžio pradžia sutampa (bent 3 raidės, ilgiems – visa be galūnės).
+function similarNames(a, b) {
+  const wa = a.toLowerCase().replace(/[.,]/g, ' ').split(/\s+/).filter(Boolean);
+  const wb = b.toLowerCase().replace(/[.,]/g, ' ').split(/\s+/).filter(Boolean);
+  if (!wa.length || wa.length !== wb.length || a.toLowerCase() === b.toLowerCase()) return false;
+  return wa.every((x, i) => {
+    const y = wb[i];
+    if (x === y) return true;
+    let n = 0; while (n < x.length && n < y.length && x[n] === y[n]) n++;
+    return n >= Math.max(3, Math.min(x.length, y.length) - 3);
+  });
+}
+const giftCount = pid => S.gifts.filter(g => g.person_id === pid).length;
+function mergePairs() {
+  const skip = new Set(UI.notSame || []), ps = people(true), out = [];
+  for (let i = 0; i < ps.length; i++) for (let j = i + 1; j < ps.length; j++) {
+    const a = ps[i], b = ps[j];
+    if (!skip.has(a.id + '-' + b.id) && similarNames(a.name, b.name)) out.push([a, b]);
+  }
+  return out;
+}
+function personBrief(p) {
+  const n = giftCount(p.id), occs = new Set(S.gifts.filter(g => g.person_id === p.id && g.occasion_id).map(g => I.occasions[g.occasion_id]?.kind));
+  const kinds = [...occs].filter(Boolean).map(k => KINDS[k].icon).join(' ');
+  return `${n} dovan.${p.birthday ? ' · 🎂 ' + p.birthday : ''}${kinds ? ' · ' + kinds : ''}`;
+}
+
+VIEWS.merge = () => {
+  setTop('Sujungti žmones', '', true);
+  const pairs = mergePairs();
+  let h = `<p class="muted small" style="margin:0 4px 12px">Sujungus visos dovanos, idėjos, progos ir gimtadienis atitenka vienam žmogui. Pasirinkite, kuris vardas lieka, arba įrašykite naują (pvz. „Sesė“).</p>`;
+  h += `<h2>Panašūs vardai <span class="sum">${pairs.length}</span></h2>`;
+  h += pairs.length ? `<div class="grid">` + pairs.map(([a, b], i) => `<div class="card pad stack" data-pair="${i}">
+      ${[a, b].map((p, k) => `<label class="check" style="align-items:flex-start"><input type="radio" name="keep${i}" value="${p.id}" ${k === (giftCount(b.id) > giftCount(a.id) ? 1 : 0) ? 'checked' : ''}>
+        <span><b>${esc(p.name)}</b><br><span class="small muted">${personBrief(p)}</span></span></label>`).join('')}
+      <label class="field"><span>Bendras vardas</span><input type="text" data-name value="${esc(giftCount(b.id) > giftCount(a.id) ? b.name : a.name)}"></label>
+      <div class="row"><button class="btn primary grow" data-go>🔗 Sujungti</button><button class="btn" data-no>Skirtingi</button></div></div>`).join('') + `</div>`
+    : `<div class="card empty">Panašių vardų nebėra.</div>`;
+  const ps = people(true);
+  const opts = ps.map(p => `<option value="${p.id}">${esc(p.name)} (${giftCount(p.id)})</option>`).join('');
+  h += `<h2>Sujungti bet kuriuos du</h2><div class="card pad"><div class="fgrid">
+    <label class="field"><span>Šį žmogų…</span><select id="m-from"><option value="">— pasirinkite —</option>${opts}</select></label>
+    <label class="field"><span>…prijungti prie</span><select id="m-to"><option value="">— pasirinkite —</option>${opts}</select></label>
+    <label class="field full"><span>Bendras vardas</span><input type="text" id="m-name" placeholder="paliekamas antrojo vardas"></label></div>
+    <button class="btn primary block" id="m-go" style="margin-top:12px">🔗 Sujungti</button></div>`;
+  view.innerHTML = h;
+  $$('[data-pair]', view).forEach(card => {
+    const [a, b] = pairs[+card.dataset.pair];
+    $$('input[type=radio]', card).forEach(r => r.onchange = () => { $('[data-name]', card).value = I.people[r.value].name; });
+    $('[data-go]', card).onclick = async () => {
+      const to = +$('input[type=radio]:checked', card).value, from = to === a.id ? b.id : a.id;
+      await act('person_merge', { from, to, name: $('[data-name]', card).value });
+      toast('Sujungta: ' + pname(to));
+    };
+    $('[data-no]', card).onclick = () => { UI.notSame = [...(UI.notSame || []), a.id + '-' + b.id]; saveUI(); render(); };
+  });
+  $('#m-from').onchange = $('#m-to').onchange = () => { const t = +$('#m-to').value; if (t) $('#m-name').value = pname(t); };
+  $('#m-go').onclick = async () => {
+    const from = +$('#m-from').value, to = +$('#m-to').value;
+    if (!from || !to || from === to) return toast('Pasirinkite du skirtingus žmones');
+    confirmSheet(`Sujungti „${pname(from)}“ su „${pname(to)}“?`, 'Sujungti', async () => {
+      await act('person_merge', { from, to, name: $('#m-name')?.value || '' });
+      toast('Sujungta: ' + pname(to));
+    });
+  };
+};
 
 // ============================================================ ŽMOGUS
 VIEWS.person = id => {

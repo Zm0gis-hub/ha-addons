@@ -1,5 +1,9 @@
 # Pakeitimai
 
+## 1.2.0
+- Žmonės → **🔗 Sujungti**: programa pati randa panašius vardus (pvz. „Sesei“ ir „Sesės“) ir sujungia vienu paspaudimu. Galima pasirinkti, kuris vardas lieka, ar įrašyti naują.
+- Ten pat galima sujungti ir bet kuriuos du žmones.
+
 ## 1.1.0
 - Importas ir iš Excel (.xlsx) failo: vienu kartu nuskaitomi visi lapai.
 - Gimtadienio data atskiroje ląstelėje (pvz. „Vardas“ | „03-15“) atpažįstama.

@@ -61,7 +61,7 @@ Sąsaja viena: kompiuteryje meniu kairėje ir kortelės keliais stulpeliais, tel
 
 Programa atpažįsta tokį išdėstymą: skyriaus eilutė („Kalėdos“, „Gimtadieniai“, „Šventinės dienos“ ir metai), po jos – gavėjų (ar švenčių) pavadinimai, po jais – dovanos su varnele ir kaina. Gimtadienių antraštėse data `MM-DD` tampa žmogaus gimtadieniu. Pažymėtos varnele dovanos tampa „Įteikta“ (būsimoms progoms – „Nupirkta“), nepažymėtos ir prasidedančios „Gal …“ – idėjomis.
 
-Importas tik papildo – to paties failo nekelkite du kartus (peržiūroje jau esančios progos pažymėtos „jau yra“). Jei tas pats žmogus lentelėje užrašytas skirtingai (pvz. „Tomui“ ir „Tomo“), atsiras du žmonės: atidarykite vieną, **✏️ → Sujungti su kitu žmogumi**.
+Importas tik papildo – to paties failo nekelkite du kartus (peržiūroje jau esančios progos pažymėtos „jau yra“). Jei tas pats žmogus lentelėje užrašytas skirtingai (pvz. „Tomui“ ir „Tomo“), atsiras du žmonės. **Žmonės → 🔗 Sujungti**: programa parodys panašių vardų poras – pasirinkite, kuris vardas lieka (arba įrašykite naują, pvz. „Sesė“), ir spauskite **Sujungti**. Jei pora iš tikrųjų skirtingi žmonės – **Skirtingi**.
 
 ---
 

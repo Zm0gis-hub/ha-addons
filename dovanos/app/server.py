@@ -338,6 +338,9 @@ def act_person_merge(d):
         notes = "\n".join(x for x in (t["notes"], s["notes"]) if x)
         DB.execute("UPDATE people SET birthday=?, notes=? WHERE id=?", (t["birthday"] or s["birthday"], notes, dst))
     DB.execute("DELETE FROM people WHERE id=?", (src,))
+    name = (d.get("name") or "").strip()
+    if name:
+        DB.execute("UPDATE people SET name=? WHERE id=?", (name, dst))
 
 
 def act_order(d):
@@ -526,7 +529,7 @@ MIME = {".html": "text/html; charset=utf-8", ".js": "application/javascript; cha
 # ---------------------------------------------------------------- HTTP
 
 class Handler(BaseHTTPRequestHandler):
-    server_version = "Dovanos/1.1"
+    server_version = "Dovanos/1.2"
 
     def log_message(self, fmt, *args):
         if os.environ.get("DEBUG"):
