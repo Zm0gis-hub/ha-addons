@@ -273,3 +273,22 @@ label.check input { width: 20px; height: 20px; accent-color: var(--accent); }
 .menu .btn { justify-content: flex-start; }
 .preview { max-height: 46vh; overflow-y: auto; }
 .preview .li { cursor: default; }
+
+/* žmogaus spalva: rėmelis ir labai švelnus fonas */
+.card.pcol { border: 2px solid color-mix(in srgb, var(--pc) 80%, var(--card)); background: color-mix(in srgb, var(--pc) 10%, var(--card)); }
+.rcard.pcol .rhead { border-bottom-color: color-mix(in srgb, var(--pc) 40%, var(--card)); background: color-mix(in srgb, var(--pc) 18%, var(--card)); }
+.card.list.pcol > .li { border-top-color: color-mix(in srgb, var(--pc) 30%, var(--card)); }
+.pill.pcol { box-shadow: inset 0 0 0 1.5px var(--pc); }
+.swatches { display: flex; flex-wrap: wrap; gap: 8px; }
+.sw { width: 36px; height: 36px; border-radius: 50%; border: 2px solid var(--line); cursor: pointer; background: var(--pc, var(--card)); color: var(--muted); font-size: 14px; }
+.sw.on { outline: 3px solid var(--ink); outline-offset: 2px; }
+.lbl-s { display: block; font-size: 13px; color: var(--muted); margin: 0 2px 6px; font-weight: 600; }
+
+/* datos: būsima – žalia, praėjusi – blanki */
+.d-future, .d-future * { color: var(--ok) !important; }
+.d-future { font-weight: 700; }
+.d-past, .d-past * { color: var(--muted) !important; }
+.d-past { opacity: .7; }
+
+/* šie metai filtre visada apvesti */
+.chip.cur { outline: 2px solid var(--ok); outline-offset: 2px; }

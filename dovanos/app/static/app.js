@@ -31,6 +31,14 @@ const STATUS = {
   given: { icon: '🎁', name: 'Įteikta' },
 };
 const NEXT_STATUS = { idea: 'bought', bought: 'given', given: 'idea' };
+// pastelinės žmonių (pusių) spalvos
+const COLORS = { blue: ['#7fb2e5', 'Mėlyna'], pink: ['#eea3c4', 'Rožinė'], green: ['#8fcf9f', 'Žalia'], yellow: ['#e8cc6e', 'Geltona'],
+  purple: ['#b9a3e3', 'Violetinė'], orange: ['#f2b183', 'Oranžinė'], teal: ['#7fcdc8', 'Žydra'], gray: ['#b8b0a8', 'Pilka'] };
+const pcolor = pid => COLORS[I.people?.[pid]?.color]?.[0] || '';
+const pcCls = pid => pcolor(pid) ? 'pcol' : '';
+const pcSty = pid => pcolor(pid) ? `style="--pc:${pcolor(pid)}"` : '';
+// būsima data – žalia, praėjusi – blanki
+const dcls = d => !d ? '' : d < T() ? 'd-past' : 'd-future';
 
 function toast(msg, action, ms = 3200) {
   const t = $('#toast');
@@ -85,7 +93,7 @@ function until(s) {
   if (n === 0) return 'šiandien';
   if (n === 1) return 'rytoj';
   if (n === -1) return 'vakar';
-  if (n < 0) return `prieš ${-n} d.`;
+  if (n < 0) return n > -60 ? `prieš ${-n} d.` : `prieš ${Math.round(-n / 30.44)} mėn.`;
   if (n < 60) return `po ${n} d.`;
   return `po ${Math.round(n / 30.44)} mėn.`;
 }
@@ -253,15 +261,15 @@ VIEWS.soon = () => {
       const lines = recs.slice(0, 6).map(r => {
         const g = gifts.filter(x => x.person_id === r.person_id);
         const done = g.some(x => x.status !== 'idea');
-        return `<span class="pill ${done ? 'ok' : g.length ? 'gold' : 'red'}">${done ? '✓' : g.length ? '💡' : '·'} ${esc(pname(r.person_id))}</span>`;
+        return `<span class="pill ${done ? 'ok' : g.length ? 'gold' : 'red'} ${pcCls(r.person_id)}" ${pcSty(r.person_id)}>${done ? '✓' : g.length ? '💡' : '·'} ${esc(pname(r.person_id))}</span>`;
       });
       if (recs.length > 6) lines.push(`<span class="pill">+${recs.length - 6}</span>`);
       detail = `<div class="chips" style="margin-top:6px">${lines.join('') || '<span class="muted small">Gavėjų dar nėra</span>'}</div>`;
     }
-    return `<div class="card event ${n <= 0 ? 'today' : ''}" data-i="${i}">
+    return `<div class="card event ${n <= 0 ? 'today' : ''} ${e.person_id ? pcCls(e.person_id) : ''}" ${e.person_id ? pcSty(e.person_id) : ''} data-i="${i}">
       <div class="ico">${KINDS[e.kind].icon}</div>
       <div class="grow"><b>${esc(eventName(e))}</b>${e.occ ? ` <span class="muted small">· ${moneyShort(spent(gifts))}</span>` : ''}<br>${detail}</div>
-      <div class="when"><b>${until(e.date)}</b><span class="muted small">${niceDate(e.date)}</span></div>
+      <div class="when ${dcls(e.date)}"><b>${until(e.date)}</b><span class="small">${niceDate(e.date)}</span></div>
     </div>`;
   }).join('') + `</div>`;
 
@@ -294,7 +302,7 @@ VIEWS.occ = id => {
   const sp = spent(gifts), pl = planned(gifts), c = counts(gifts);
   const past = date && date < T();
   let h = `<div class="card summary">
-    <div><div class="muted small">${occIcon(o)} ${date ? niceDate(date, true) + ' · ' + until(date) : 'data nenurodyta'}</div><div class="big">${money(sp) || '0,00 €'}</div></div>
+    <div><div class="muted small">${occIcon(o)} ${date ? `<span class="${dcls(date)}">${niceDate(date, true)} · ${until(date)}</span>` : 'data nenurodyta'}</div><div class="big">${money(sp) || '0,00 €'}</div></div>
     ${o.budget ? `<div class="budget"><div class="small muted">Biudžetas ${money(o.budget)}${sp > o.budget ? ' · <b style="color:var(--danger)">viršyta</b>' : ` · liko ${money(o.budget - sp)}`}</div>
       <div class="bar ${sp > o.budget ? 'over' : ''}"><i style="width:${Math.min(100, sp / o.budget * 100)}%"></i></div></div>` : ''}
     <div class="chips">${c.idea ? `<span class="pill gold">💡 ${c.idea} idėj.${pl ? ' · ' + moneyShort(pl) : ''}</span>` : ''}
@@ -334,7 +342,7 @@ function recipientCard(o, r, gifts, past) {
       <div class="addline"><input type="text" data-p="" placeholder="＋ Dovana kitam (pvz. kaimynams)"></div></div>`;
   }
   const ideas = pid ? freeIdeas(pid) : [];
-  return `<div class="card rcard ${r ? '' : 'extra'}">
+  return `<div class="card rcard ${r ? pcCls(pid) : 'extra'}" ${r ? pcSty(pid) : ''}>
     <div class="rhead">
       ${r ? `<a class="name ellip" href="#person/${pid}">${esc(pname(pid))}</a>` : `<span class="grow"><b>Kiti</b> <span class="muted small">(be gavėjo)</span></span>`}
       <span class="total">${moneyShort(spent(gifts))}</span>
@@ -491,7 +499,7 @@ function assignSheet(g) {
   ].sort((a, b) => (mine(b) ? 1 : 0) - (mine(a) ? 1 : 0) || (a.date || '9').localeCompare(b.date || '9'));
   openSheet(`<h3>„${esc(g.title)}“ – kuriai progai?</h3>
     <div class="card list">${items.map((e, i) => `<div class="li" data-i="${i}"><div class="ico">${KINDS[e.kind].icon}</div>
-      <div class="grow">${esc(eventName(e))} ${e.year}</div><span class="muted small nowrap">${e.date ? until(e.date) : ''}</span></div>`).join('') || '<div class="empty">Būsimų progų nėra</div>'}</div>
+      <div class="grow">${esc(eventName(e))} ${e.year}</div><span class="small nowrap ${dcls(e.date)}">${e.date ? until(e.date) : ''}</span></div>`).join('') || '<div class="empty">Būsimų progų nėra</div>'}</div>
     <div class="actions"><button class="btn" data-x>Atšaukti</button><button class="btn" data-new>＋ Nauja proga</button></div>`, el => {
     $('[data-x]', el).onclick = closeSheet;
     $('[data-new]', el).onclick = () => newOccasionSheet(async oid => saveRow('gifts', { id: g.id, occasion_id: oid }));
@@ -513,7 +521,7 @@ VIEWS.occs = () => {
   const yr = years.includes(UI.year) ? UI.year : Y();
   const list = S.occasions.filter(o => o.year === yr).sort((a, b) => (occDate(a) || '9').localeCompare(occDate(b) || '9'));
   const total = spent(S.gifts.filter(g => list.some(o => o.id === g.occasion_id)));
-  let h = `<div class="chips" style="margin-bottom:6px">${years.map(y => `<button class="chip ${y === yr ? 'on' : ''}" data-y="${y}">${y}</button>`).join('')}</div>`;
+  let h = `<div class="chips" style="margin-bottom:6px">${years.map(y => `<button class="chip ${y === yr ? 'on' : ''} ${y === Y() ? 'cur' : ''}" data-y="${y}">${y}</button>`).join('')}</div>`;
   h += `<h2>${yr} m. progos <span class="sum">Iš viso: ${money(total) || '0,00 €'}</span></h2>`;
   if (!list.length) h += `<div class="card empty">${yr} m. progų dar nėra.<br><span class="small">Jos atsiranda pačios, kai atidarote artėjančią progą, arba spauskite „＋ Nauja proga“.</span></div>`;
   const groups = [['Kalėdos', list.filter(o => o.kind === 'christmas')], ['Gimtadieniai', list.filter(o => o.kind === 'birthday')],
@@ -522,8 +530,8 @@ VIEWS.occs = () => {
     if (!arr.length) continue;
     h += `<div class="year-h">${name}</div><div class="grid narrow">` + arr.map(o => {
       const gifts = giftsOf(o.id), d = occDate(o);
-      return `<div class="card event" data-o="${o.id}"><div class="ico">${occIcon(o)}</div>
-        <div class="grow"><b>${esc(occName(o))}</b><div class="small muted">${d ? niceDate(d) : ''}${recipientsOf(o.id).length > 1 ? ` · ${recipientsOf(o.id).length} gavėjai` : ''}</div>
+      return `<div class="card event ${o.kind === 'birthday' ? pcCls(o.person_id) : ''}" ${o.kind === 'birthday' ? pcSty(o.person_id) : ''} data-o="${o.id}"><div class="ico">${occIcon(o)}</div>
+        <div class="grow"><b>${esc(occName(o))}</b><div class="small muted">${d ? `<span class="${dcls(d)}">${niceDate(d)}</span>` : ''}${recipientsOf(o.id).length > 1 ? ` · ${recipientsOf(o.id).length} gavėjai` : ''}</div>
         <div style="margin-top:4px">${countPills(gifts) || '<span class="small muted">tuščia</span>'}</div></div>
         <div class="when"><b>${moneyShort(spent(gifts))}</b></div></div>`;
     }).join('') + `</div>`;
@@ -582,7 +590,7 @@ VIEWS.ideas = () => {
   const keys = [...by.keys()].sort((a, b) => (a === 0) - (b === 0) || lt(pname(a), pname(b)));
   if (!all.length) h += `<div class="card empty" style="margin-top:14px">Laukiančių idėjų nėra.</div>`;
   h += `<div class="grid" style="margin-top:14px">` + keys.map(k => `<div><h2 style="margin-top:4px">${k ? `<a href="#person/${k}" style="color:inherit;text-decoration:none">${esc(pname(k))}</a>` : 'Nežinia kam'} <span class="sum">${by.get(k).length}</span></h2>
-      <div class="card list">${by.get(k).map(ideaLi).join('')}</div></div>`).join('') + `</div>`;
+      <div class="card list ${k ? pcCls(k) : ''}" ${k ? pcSty(k) : ''}>${by.get(k).map(ideaLi).join('')}</div></div>`).join('') + `</div>`;
   const assigned = S.gifts.filter(g => g.occasion_id && g.status === 'idea' && occDate(I.occasions[g.occasion_id] || {}) >= T());
   if (assigned.length) {
     h += `<h2>Priskirtos progoms, bet dar nenupirktos</h2><div class="card list">` + assigned.map(g => {
@@ -615,8 +623,8 @@ VIEWS.people = () => {
   let h = list.length ? `<div class="grid narrow">` + list.map(p => {
     const bd = nextBd(p), ideas = freeIdeas(p.id).length;
     const last = S.gifts.filter(g => g.person_id === p.id && g.occasion_id && g.status !== 'idea');
-    return `<div class="card person" data-p="${p.id}"><div class="row"><span class="nm grow ellip">${esc(p.name)}</span>${p.archived ? '<span class="pill">archyve</span>' : ''}</div>
-      <div class="small muted">${bd ? `🎂 ${mdNice(p.birthday)} · ${until(bd)}` : 'gimtadienis nenurodytas'}</div>
+    return `<div class="card person ${pcCls(p.id)}" ${pcSty(p.id)} data-p="${p.id}"><div class="row"><span class="nm grow ellip">${esc(p.name)}</span>${p.archived ? '<span class="pill">archyve</span>' : ''}</div>
+      <div class="small muted">${bd ? `<span class="${dcls(bd)}">🎂 ${mdNice(p.birthday)} · ${until(bd)}</span>` : 'gimtadienis nenurodytas'}</div>
       <div class="chips" style="margin-top:6px">${ideas ? `<span class="pill gold">💡 ${ideas}</span>` : ''}<span class="pill">🎁 ${last.length} dovan.</span></div></div>`;
   }).join('') + `</div>` : `<div class="card empty">Žmonių dar nėra. Pridėkite artimuosius ir jų gimtadienius.</div>`;
   if (S.people.some(p => p.archived)) h += `<p class="center"><button class="btn small ghost" id="arch">${showArch ? 'Slėpti archyvuotus' : 'Rodyti archyvuotus'}</button></p>`;
@@ -628,13 +636,16 @@ VIEWS.people = () => {
 
 function personSheet(p) {
   const isNew = !p;
-  p = p || { name: '', birthday: '', notes: '', archived: 0 };
+  p = p || { name: '', birthday: '', notes: '', archived: 0, color: '' };
   const others = people(true).filter(x => x.id !== p.id);
   openSheet(`<h3>${isNew ? 'Naujas žmogus' : esc(p.name)}</h3>
     <div class="fgrid">
       <label class="field full"><span>Vardas (arba grupė, pvz. „Tėvams“)</span><input type="text" id="p-name" value="${esc(p.name)}" ${isNew ? 'autofocus' : ''}></label>
       <label class="field"><span>Gimtadienis (MM-DD)</span><input type="text" id="p-bd" value="${esc(p.birthday)}" placeholder="pvz. 03-15" inputmode="numeric"></label>
       ${isNew ? '' : `<label class="check" style="align-self:end"><input type="checkbox" id="p-arch" ${p.archived ? 'checked' : ''}> Archyvuoti (paslėpti)</label>`}
+      <div class="field full"><span class="lbl-s">Spalva (pvz. kieno pusės giminė)</span><div class="swatches" id="p-color">
+        <button type="button" class="sw ${!p.color ? 'on' : ''}" data-c="" title="Be spalvos">✕</button>
+        ${Object.entries(COLORS).map(([k, [c, n]]) => `<button type="button" class="sw ${p.color === k ? 'on' : ''}" data-c="${k}" title="${n}" style="--pc:${c}"></button>`).join('')}</div></div>
       <label class="field full"><span>Pastabos (pomėgiai, dydžiai, ko nedovanoti)</span><textarea id="p-notes">${esc(p.notes)}</textarea></label>
     </div>
     ${isNew || !others.length ? '' : `<details style="margin-top:12px"><summary class="small muted">Sujungti su kitu žmogumi (pvz. po importo)</summary>
@@ -643,8 +654,10 @@ function personSheet(p) {
       <p class="small muted">Visos šio žmogaus dovanos ir idėjos bus perkeltos pasirinktam žmogui, o šis įrašas ištrintas.</p></details>`}
     <div class="actions">${isNew ? '' : '<button class="btn danger" data-del>Ištrinti</button>'}<button class="btn" data-x>Atšaukti</button><button class="btn primary" data-ok>Išsaugoti</button></div>`, el => {
     $('[data-x]', el).onclick = closeSheet;
+    let color = p.color || '';
+    $$('#p-color .sw', el).forEach(b => b.onclick = () => { color = b.dataset.c; $$('#p-color .sw', el).forEach(x => x.classList.toggle('on', x === b)); });
     const save = async () => {
-      const row = { name: $('#p-name').value.trim(), birthday: normMD($('#p-bd').value), notes: $('#p-notes').value };
+      const row = { name: $('#p-name').value.trim(), birthday: normMD($('#p-bd').value), notes: $('#p-notes').value, color };
       if (!row.name) return toast('Įrašykite vardą');
       if (!isNew) { row.id = p.id; row.archived = $('#p-arch').checked ? 1 : 0; }
       const r = await saveRow('people', row, true);
@@ -746,8 +759,8 @@ VIEWS.person = id => {
   const ideas = freeIdeas(p.id);
   const gifts = S.gifts.filter(g => g.person_id === p.id && g.occasion_id && I.occasions[g.occasion_id]);
   let bd = '';
-  if (p.birthday) { let d = mdInYear(p.birthday, Y()); if (d < T()) d = mdInYear(p.birthday, Y() + 1); bd = `🎂 ${mdNice(p.birthday)} · ${until(d)}`; }
-  let h = `<div class="card summary"><div><div class="muted small">${bd || 'Gimtadienis nenurodytas'}</div><div class="big">${moneyShort(spent(gifts))}</div><div class="small muted">išleista per visus metus</div></div>
+  if (p.birthday) { let d = mdInYear(p.birthday, Y()); if (d < T()) d = mdInYear(p.birthday, Y() + 1); bd = `<span class="${dcls(d)}">🎂 ${mdNice(p.birthday)} · ${until(d)}</span>`; }
+  let h = `<div class="card summary ${pcCls(p.id)}" ${pcSty(p.id)}><div><div class="muted small">${bd || 'Gimtadienis nenurodytas'}</div><div class="big">${moneyShort(spent(gifts))}</div><div class="small muted">išleista per visus metus</div></div>
     ${p.notes ? `<div class="grow pre small" style="min-width:200px">${esc(p.notes)}</div>` : ''}</div>`;
   h += `<div class="grid"><div><h2 style="margin-top:4px">💡 Idėjos <span class="sum">${ideas.length}</span></h2>
     <div class="card list">${ideas.map(ideaLi).join('')}
@@ -799,7 +812,7 @@ VIEWS.stats = () => {
   const byShop = sumBy(real.filter(g => g.shop), g => g.shop).sort((a, b) => b[1] - a[1]).slice(0, 12);
   const avg = perYear.reduce((s, r) => s + r[1], 0) / perYear.length;
   let h = `<h2>Išlaidos per metus <span class="sum">vidutiniškai ${moneyShort(avg)} / m.</span></h2>${bars(perYear)}`;
-  h += `<div class="chips" style="margin:22px 0 0">${years.map(y => `<button class="chip ${y === yr ? 'on' : ''}" data-y="${y}">${y}</button>`).join('')}</div>`;
+  h += `<div class="chips" style="margin:22px 0 0">${years.map(y => `<button class="chip ${y === yr ? 'on' : ''} ${y === Y() ? 'cur' : ''}" data-y="${y}">${y}</button>`).join('')}</div>`;
   h += `<div class="grid" style="margin-top:4px"><div><h2>${yr}: pagal progą</h2>${bars(byKind)}</div><div><h2>${yr}: pagal žmogų</h2>${bars(byPerson)}</div></div>`;
   if (byShop.length) h += `<h2>Dažniausios parduotuvės (visi metai)</h2>${bars(byShop)}`;
   h += `<p class="small muted center">Skaičiuojamos tik nupirktos ir įteiktos dovanos su kaina.</p>`;

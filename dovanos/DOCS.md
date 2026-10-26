@@ -49,6 +49,8 @@ Sąsaja viena: kompiuteryje meniu kairėje ir kortelės keliais stulpeliais, tel
 
 **＋ Idėja** (apačioje dešinėje, matomas visur) – greitas įrašymas: parašote idėją, pasirenkate kam (nebūtina), **Įrašyti**. Patogiausia telefone, kai kas nors šauna į galvą.
 
+**Spalvos** – žmogaus lange **✏️ → Spalva** (pvz. vienos pusės giminei mėlyna, kitos – rožinė). Spalvotas rėmelis matomas progų, žmonių ir idėjų kortelėse. Būsimos datos rodomos žaliai, praėjusios – blankiai.
+
 **Žmogus gali būti ir grupė** – pvz. „Tėvams“ ar „Kaimynams“. Gimtadienis rašomas `MM-DD`, pvz. `03-15`. Žmogaus, kuriam nebedovanojate, netrinkite – pažymėkite **Archyvuoti**, istorija liks.
 
 ---

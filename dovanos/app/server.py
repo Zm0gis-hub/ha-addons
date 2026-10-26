@@ -45,7 +45,7 @@ AUTH_TOKEN = hashlib.sha256(("dovanos:" + PIN).encode()).hexdigest() if PIN else
 
 # lentelė -> stulpeliai, kuriuos galima keisti per bendrą „save“ veiksmą
 TABLES = {
-    "people": ["name", "birthday", "notes", "archived", "pos"],
+    "people": ["name", "birthday", "notes", "archived", "pos", "color"],
     "occasions": ["kind", "title", "year", "date", "person_id", "budget", "notes"],
     "recipients": ["occasion_id", "person_id", "pos"],
     "gifts": ["title", "person_id", "recipient_text", "occasion_id", "shop", "price", "url", "note", "status", "pos"],
@@ -66,6 +66,11 @@ CREATE TABLE IF NOT EXISTS gifts (id INTEGER PRIMARY KEY, title TEXT, person_id 
   occasion_id INTEGER, shop TEXT DEFAULT '', price REAL, url TEXT DEFAULT '', note TEXT DEFAULT '',
   status TEXT DEFAULT 'idea', pos INTEGER DEFAULT 0, created TEXT);
 """
+
+# stulpeliai, pridėti vėlesnėse versijose (senoms duomenų bazėms)
+NEW_COLUMNS = {
+    "people": {"color": "TEXT DEFAULT ''"},
+}
 
 DEFAULT_SETTINGS = {
     "ahead_days": 60,
@@ -111,6 +116,11 @@ def meta_set(key, value):
 def init_db():
     with LOCK:
         DB.executescript(SCHEMA)
+        for t, cols in NEW_COLUMNS.items():
+            have = {r["name"] for r in DB.execute(f"PRAGMA table_info({t})")}
+            for c, typ in cols.items():
+                if c not in have:
+                    DB.execute(f"ALTER TABLE {t} ADD COLUMN {c} {typ}")
         if meta_get("version") is None:
             meta_set("version", 1)
         s = meta_get("settings") or {}
@@ -529,7 +539,7 @@ MIME = {".html": "text/html; charset=utf-8", ".js": "application/javascript; cha
 # ---------------------------------------------------------------- HTTP
 
 class Handler(BaseHTTPRequestHandler):
-    server_version = "Dovanos/1.2"
+    server_version = "Dovanos/1.3"
 
     def log_message(self, fmt, *args):
         if os.environ.get("DEBUG"):
