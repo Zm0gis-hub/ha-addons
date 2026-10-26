@@ -45,12 +45,13 @@ AUTH_TOKEN = hashlib.sha256(("dovanos:" + PIN).encode()).hexdigest() if PIN else
 
 # lentelė -> stulpeliai, kuriuos galima keisti per bendrą „save“ veiksmą
 TABLES = {
-    "people": ["name", "birthday", "birth_year", "notes", "archived", "pos", "color"],
+    "people": ["name", "birthday", "birth_year", "notes", "archived", "pos", "color", "is_group"],
+    "members": ["group_id", "person_id"],
     "occasions": ["kind", "title", "year", "date", "person_id", "budget", "notes"],
     "recipients": ["occasion_id", "person_id", "pos"],
     "gifts": ["title", "person_id", "recipient_text", "occasion_id", "shop", "price", "url", "note", "status", "pos"],
 }
-NUMERIC = {"birth_year", "archived", "pos", "year", "person_id", "budget", "occasion_id", "price"}
+NUMERIC = {"is_group", "group_id", "birth_year", "archived", "pos", "year", "person_id", "budget", "occasion_id", "price"}
 KINDS = {"christmas", "birthday", "easter", "mother", "father", "midsummer", "valentine", "other"}
 STATUSES = ("idea", "bought", "given")
 
@@ -62,6 +63,7 @@ CREATE TABLE IF NOT EXISTS occasions (id INTEGER PRIMARY KEY, kind TEXT, title T
   date TEXT DEFAULT '', person_id INTEGER, budget REAL, notes TEXT DEFAULT '');
 CREATE TABLE IF NOT EXISTS recipients (id INTEGER PRIMARY KEY, occasion_id INTEGER, person_id INTEGER,
   pos INTEGER DEFAULT 0);
+CREATE TABLE IF NOT EXISTS members (id INTEGER PRIMARY KEY, group_id INTEGER, person_id INTEGER);
 CREATE TABLE IF NOT EXISTS gifts (id INTEGER PRIMARY KEY, title TEXT, person_id INTEGER, recipient_text TEXT DEFAULT '',
   occasion_id INTEGER, shop TEXT DEFAULT '', price REAL, url TEXT DEFAULT '', note TEXT DEFAULT '',
   status TEXT DEFAULT 'idea', pos INTEGER DEFAULT 0, created TEXT);
@@ -69,7 +71,7 @@ CREATE TABLE IF NOT EXISTS gifts (id INTEGER PRIMARY KEY, title TEXT, person_id 
 
 # stulpeliai, pridėti vėlesnėse versijose (senoms duomenų bazėms)
 NEW_COLUMNS = {
-    "people": {"color": "TEXT DEFAULT ''", "birth_year": "INTEGER"},
+    "people": {"color": "TEXT DEFAULT ''", "birth_year": "INTEGER", "is_group": "INTEGER DEFAULT 0"},
 }
 
 DEFAULT_SETTINGS = {
@@ -245,6 +247,7 @@ def act_delete(d):
         if n:
             raise ValueError(f"Šis žmogus turi {n} dovanų įrašų. Vietoj trynimo galite jį paslėpti (Archyvuoti).")
         DB.execute("DELETE FROM recipients WHERE person_id=?", (rid,))
+        DB.execute("DELETE FROM members WHERE group_id=? OR person_id=?", (rid, rid))
         DB.execute("UPDATE occasions SET person_id=NULL WHERE person_id=?", (rid,))
     if t == "occasions":
         # dovanos nedingsta: tampa idėjomis be progos
@@ -322,6 +325,29 @@ def act_recipient_add(d):
     return {"person_id": pid}
 
 
+def act_group_set(d):
+    """Grupės nariai (grupė – keli žmonės kartu, pvz. „A tėvai“)."""
+    gid = num(d.get("group_id"))
+    if not gid:
+        raise ValueError("Nėra grupės")
+    DB.execute("UPDATE people SET is_group=1 WHERE id=?", (gid,))
+    DB.execute("DELETE FROM members WHERE group_id=?", (gid,))
+    for pid in {num(x) for x in d.get("member_ids") or []}:
+        if pid and pid != gid:
+            DB.execute("INSERT INTO members(group_id, person_id) VALUES(?,?)", (gid, pid))
+
+
+def act_person_groups(d):
+    """Kurioms grupėms priklauso žmogus."""
+    pid = num(d.get("person_id"))
+    if not pid:
+        raise ValueError("Nėra žmogaus")
+    DB.execute("DELETE FROM members WHERE person_id=?", (pid,))
+    for gid in {num(x) for x in d.get("group_ids") or []}:
+        if gid and gid != pid:
+            DB.execute("INSERT INTO members(group_id, person_id) VALUES(?,?)", (gid, pid))
+
+
 def act_person_merge(d):
     """Perkelia visus žmogaus įrašus kitam žmogui ir ištrina pirmąjį (pvz. po importo)."""
     src, dst = num(d.get("from")), num(d.get("to"))
@@ -347,6 +373,9 @@ def act_person_merge(d):
     if s and t:
         notes = "\n".join(x for x in (t["notes"], s["notes"]) if x)
         DB.execute("UPDATE people SET birthday=?, notes=? WHERE id=?", (t["birthday"] or s["birthday"], notes, dst))
+    DB.execute("UPDATE members SET person_id=? WHERE person_id=?", (dst, src))
+    DB.execute("UPDATE members SET group_id=? WHERE group_id=?", (dst, src))
+    DB.execute("DELETE FROM members WHERE group_id=person_id OR id NOT IN (SELECT MIN(id) FROM members GROUP BY group_id, person_id)")
     DB.execute("DELETE FROM people WHERE id=?", (src,))
     name = (d.get("name") or "").strip()
     if name:
@@ -431,12 +460,12 @@ def act_import(d):
 
 def act_restore(d):
     """Atkuria visus duomenis iš atsarginės kopijos (api/export)."""
-    if not all(isinstance(d.get(t), list) for t in TABLES):
+    if not all(isinstance(d.get(t), list) for t in ("people", "occasions", "recipients", "gifts")):
         raise ValueError("Tai ne Dovanų atsarginės kopijos failas")
     for t, cols in TABLES.items():
         DB.execute(f"DELETE FROM {t}")
         extra = ["created"] if t == "gifts" else []
-        for r in d[t]:
+        for r in d.get(t) or []:
             cc = ["id"] + [c for c in cols + extra if c in r]
             DB.execute(f"INSERT INTO {t}({', '.join(cc)}) VALUES({', '.join('?' * len(cc))})", [r.get(c) for c in cc])
     if isinstance(d.get("settings"), dict):
@@ -526,6 +555,8 @@ ACTIONS = {
     "recipient_add": act_recipient_add,
     "order": act_order,
     "person_merge": act_person_merge,
+    "group_set": act_group_set,
+    "person_groups": act_person_groups,
     "settings_save": act_settings_save,
     "import": act_import,
     "restore": act_restore,
@@ -539,7 +570,7 @@ MIME = {".html": "text/html; charset=utf-8", ".js": "application/javascript; cha
 # ---------------------------------------------------------------- HTTP
 
 class Handler(BaseHTTPRequestHandler):
-    server_version = "Dovanos/1.4"
+    server_version = "Dovanos/1.5"
 
     def log_message(self, fmt, *args):
         if os.environ.get("DEBUG"):

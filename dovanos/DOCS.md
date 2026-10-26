@@ -51,7 +51,7 @@ Sąsaja viena: kompiuteryje meniu kairėje ir kortelės keliais stulpeliais, tel
 
 **Spalvos** – žmogaus lange **✏️ → Spalva** (pvz. vienos pusės giminei mėlyna, kitos – rožinė). Spalvotas rėmelis matomas progų, žmonių ir idėjų kortelėse. Būsimos datos rodomos žaliai, praėjusios – blankiai.
 
-**Žmogus gali būti ir grupė** – pvz. „Tėvams“ ar „Kaimynams“. Gimtadienis rašomas `MM-DD`, pvz. `03-15`. Įrašius ir **gimimo metus**, visur rodoma, kiek žmogui sukaks, o jubiliejai (kas 5 metai) paryškinti 🎉. Žmogaus, kuriam nebedovanojate, netrinkite – pažymėkite **Archyvuoti**, istorija liks.
+**Žmonės ir grupės.** Kiekvienas žmogus įrašomas atskirai su gimimo data (`1990-01-15`, arba `01-15`, jei metų nežinote). **Grupė** (**＋ Grupė**, pvz. „A tėvai“) jungia kelis žmones – jai dovanojama kartu, pvz. per Kalėdas, o gimtadieniai lieka kiekvieno atskirai. Žmogaus lange matomos ir jo grupių dovanos. Amžius rodomas datos gale „(37 m.)“, jubiliejai paryškinti. Žmogaus, kuriam nebedovanojate, netrinkite – pažymėkite **Archyvuoti**, istorija liks.
 
 ---
 

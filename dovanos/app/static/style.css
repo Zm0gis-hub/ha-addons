@@ -293,6 +293,18 @@ label.check input { width: 20px; height: 20px; accent-color: var(--accent); }
 /* šie metai filtre visada apvesti */
 .chip.cur { outline: 2px solid var(--ok); outline-offset: 2px; }
 
-/* amžius: jubiliejus (kas 5 m.) paryškintas */
-.age { font-size: 13px; color: var(--muted); font-weight: 600; white-space: nowrap; }
-.age.jub { font-weight: 800; color: var(--accent); }
+/* amžius „(37 m.)“ – tos pačios spalvos kaip data; jubiliejus (kas 5 m.) paryškintas */
+.age { white-space: nowrap; }
+.age.jub, .d-future .age.jub, .d-past .age.jub { font-weight: 900; color: var(--accent) !important; }
+
+/* grupės */
+.members { margin-top: 6px; display: flex; flex-direction: column; gap: 2px; }
+.member { display: block; text-decoration: none; color: var(--ink); padding: 3px 6px; margin: 0 -6px; border-radius: 8px; line-height: 1.3; }
+.member > .small { display: block; }
+.member:hover { background: color-mix(in srgb, var(--ink) 6%, transparent); }
+.member > .ellip { display: block; font-weight: 700; }
+.checks { display: grid; grid-template-columns: repeat(auto-fill, minmax(170px, 1fr)); gap: 0 10px; max-height: 240px; overflow-y: auto; }
+
+/* siauram ekranui – antraštės mygtukai tik su ženkliukais */
+.ico-only { display: none; }
+@media (max-width: 520px) { #top-actions .lbl { display: none; } #top-actions .ico-only { display: inline; } }
