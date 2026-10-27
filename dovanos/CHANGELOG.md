@@ -1,5 +1,12 @@
 # Pakeitimai
 
+## 1.8.0
+- Idėjos → **📋 Įklijuoti sąrašą**: kiekviena eilutė tampa idėja (pvz. iš Google Keep), visoms galima iškart pažymėti gavėjus.
+- Idėjų skiltyje įvedimas toks pat kaip „＋ Idėja“ (keli gavėjai), sąraše – idėja ir po ja smulkiau gavėjai.
+- Paspaudus idėją – greitas langas: kam skirti (vienam ar keliems), **Palikti sąraše**, **→ Proga** ar **Redaguoti**.
+- Archyvavimas: žmogaus lange mygtukas 🗄, Žmonių apačioje skiltis **Archyvas** su **Išarchyvuoti**. Istorija išlieka.
+- Telefone kortelės nebeišlenda už ekrano krašto.
+
 ## 1.7.0
 - Vienodos idėjos keliems žmonėms rodomos viena eilute su visais vardais (ir importuotos).
 - Redaguojant tokią idėją keičiama visiems; gavėjus galima pridėti ar nuimti.

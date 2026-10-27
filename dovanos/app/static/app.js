@@ -164,7 +164,7 @@ const people = (all) => S.people.filter(p => all || !p.archived).sort((a, b) => 
 const pname = id => I.people[id]?.name || '';
 const giftsOf = oid => S.gifts.filter(g => g.occasion_id === oid).sort((a, b) => a.pos - b.pos || a.id - b.id);
 const recipientsOf = oid => S.recipients.filter(r => r.occasion_id === oid && I.people[r.person_id]).sort((a, b) => a.pos - b.pos || a.id - b.id);
-const freeIdeas = pid => S.gifts.filter(g => !g.occasion_id && g.status === 'idea' && (pid === undefined || g.person_id === pid))
+const freeIdeas = pid => S.gifts.filter(g => !g.occasion_id && g.status === 'idea' && (pid === undefined ? !I.people[g.person_id]?.archived : g.person_id === pid))
   .sort((a, b) => b.id - a.id);
 const spent = gifts => gifts.filter(g => g.status !== 'idea').reduce((s, g) => s + (g.price || 0), 0);
 const planned = gifts => gifts.filter(g => g.status === 'idea').reduce((s, g) => s + (g.price || 0), 0);
@@ -310,7 +310,7 @@ const ideaKey = g => [g.title, g.price ?? '', g.shop, g.url, g.note].map(x => St
 function clusters(list) {
   const m = new Map();
   for (const g of list) { const k = ideaKey(g); if (!m.has(k)) m.set(k, []); m.get(k).push(g); }
-  return [...m.values()].map(gs => ({ gifts: gs, pids: gs.map(g => g.person_id).filter(Boolean) }));
+  return [...m.values()].map(gs => ({ gifts: gs, pids: gs.map(g => g.person_id).filter(Boolean).sort((a, b) => lt(pname(a), pname(b))) }));
 }
 const clusterOf = g => clusters(freeIdeas()).find(c => c.gifts.some(x => x.id === g.id)) || { gifts: [g], pids: g.person_id ? [g.person_id] : [] };
 const namesOf = c => c.gifts.some(g => !g.person_id) && !c.pids.length ? 'nežinia kam' : c.pids.map(pid => pLabel(I.people[pid] || { name: '?' })).join(', ');
@@ -320,18 +320,77 @@ function ideaLi(c, skipPid) {
   const others = skipPid ? c.pids.filter(x => x !== skipPid) : null;
   const who = skipPid === -1 ? '' : others ? (others.length ? 'taip pat: ' + others.map(x => pname(x)).join(', ') : '') : namesOf(c);
   return `<div class="li" data-c="${i}"><div class="ico">💡</div>
-    <div class="grow"><div class="ellip">${esc(g.title)}</div><div class="small muted ellip">${esc([who, g.shop].filter(Boolean).join(' · '))}</div></div>
+    <div class="grow"><div>${esc(g.title)}</div><div class="small muted">${esc([who, g.shop].filter(Boolean).join(' · '))}</div></div>
     ${g.price != null ? `<b class="nowrap">${money(g.price)}</b>` : ''}
     <button class="btn small" data-assign="${i}" title="Priskirti progai">→ Proga</button></div>`;
 }
 function bindIdeaLis() {
-  $$('[data-c]', view).forEach(el => el.onclick = e => { if (!e.target.closest('[data-assign]')) clusterSheet(CL[+el.dataset.c]); });
+  $$('[data-c]', view).forEach(el => el.onclick = e => { if (!e.target.closest('[data-assign]')) ideaQuickSheet(CL[+el.dataset.c]); });
   $$('[data-assign]', view).forEach(el => el.onclick = () => assignSheet(CL[+el.dataset.assign]));
 }
 // idėjos redagavimas: bendri laukai visoms kopijoms, gavėjus galima pridėti / nuimti
 function clusterSheet(c) {
-  if (c.gifts.length === 1) return giftSheet(c.gifts[0], {}, true);
+  if (c.gifts.length === 1 && !c.pids.length) return giftSheet(c.gifts[0], { person_ids: [] }, true, c);
   giftSheet(c.gifts[0], { person_ids: [...c.pids] }, true, c);
+}
+// gavėjų keitimas idėjai: nuimtiems kopija ištrinama, naujiems – sukuriama su tais pačiais laukais
+async function setClusterPeople(c, pids, common) {
+  const g0 = c.gifts[0];
+  common = common || { title: g0.title, price: g0.price, shop: g0.shop, url: g0.url, note: g0.note, status: 'idea', recipient_text: '' };
+  const want = pids.length ? pids : [null];
+  const keep = c.gifts.filter(x => want.includes(x.person_id));
+  for (const x of c.gifts) if (!keep.includes(x)) await api('api/do/delete', { t: 'gifts', id: x.id });
+  for (const x of keep) await api('api/do/save', { t: 'gifts', row: { ...common, id: x.id } });
+  for (const pid of want) if (!keep.some(x => x.person_id === pid)) await api('api/do/save', { t: 'gifts', row: { ...common, person_id: pid } });
+  await load();
+}
+// paspaudus idėją: kam ją skirti (vienam ar keliems) arba palikti sąraše
+function ideaQuickSheet(c) {
+  const g = c.gifts[0], pids = [...c.pids];
+  openSheet(`<h3>💡 ${esc(g.title)}</h3>
+    ${g.price != null || g.shop ? `<p class="small muted" style="margin:-8px 2px 12px">${esc([g.price != null ? money(g.price) : '', g.shop].filter(Boolean).join(' · '))}</p>` : ''}
+    <span class="lbl-s">Kam skirti? (galima kelis)</span><div id="iq-p">${multiPeopleChips(pids)}</div>
+    <div class="actions" style="flex-wrap:wrap">
+      <button class="btn" data-edit>✏️ Redaguoti</button><button class="btn" data-occ>→ Proga</button>
+      <button class="btn" data-x>Palikti sąraše</button><button class="btn primary" data-ok>Išsaugoti</button></div>`, el => {
+    bindMultiPeople($('#iq-p', el), pids);
+    $('[data-x]', el).onclick = closeSheet;
+    $('[data-edit]', el).onclick = () => clusterSheet(c);
+    $('[data-occ]', el).onclick = () => assignSheet(c);
+    $('[data-ok]', el).onclick = async () => {
+      closeSheet();
+      const same = pids.length === c.pids.length && pids.every(x => c.pids.includes(x));
+      if (same) return;
+      await setClusterPeople(c, pids);
+      toast(pids.length ? '💡 Skirta: ' + pids.map(pname).join(', ') : '💡 Palikta be gavėjo');
+    };
+  });
+}
+// sąrašo įklijavimas: kiekviena eilutė – atskira idėja (žymės „- “, „• “, „1.“, „☐“ nuimamos)
+function pasteSheet() {
+  const pids = [];
+  openSheet(`<h3>📋 Įklijuoti idėjų sąrašą</h3>
+    <textarea id="ps-t" autofocus style="min-height:180px" placeholder="Kiekviena eilutė – atskira idėja, pvz.:&#10;- Šalikas&#10;- Knyga apie keliones 15,90&#10;- Termosas"></textarea>
+    <p class="small muted" id="ps-n" style="margin:6px 2px 12px">Idėjų: 0</p>
+    <span class="lbl-s">Kam skirti visas? (nebūtina, galima kelis)</span><div id="ps-p">${multiPeopleChips(pids)}</div>
+    <div class="actions"><button class="btn" data-x>Atšaukti</button><button class="btn primary" data-ok>Įrašyti</button></div>`, el => {
+    const lines = () => [...new Set($('#ps-t', el).value.split(/\r?\n/)
+      .map(l => l.replace(/^\s*([-*•·▪◦–—>]+|\d+[.)]|\[[ xX✓]?\]|☐|☑️?|✅|⬜|✔️?)\s*/, '').trim()).filter(Boolean))];
+    $('#ps-t', el).oninput = () => $('#ps-n', el).textContent = 'Idėjų: ' + lines().length;
+    bindMultiPeople($('#ps-p', el), pids);
+    $('[data-x]', el).onclick = closeSheet;
+    $('[data-ok]', el).onclick = async () => {
+      const ls = lines();
+      if (!ls.length) return toast('Įklijuokite sąrašą');
+      closeSheet();
+      for (const l of [...ls].reverse()) {  // naujausios rodomos viršuje – kad tvarka liktų kaip sąraše
+        const { title, price } = splitPrice(l);
+        for (const pid of pids.length ? pids : [null]) await api('api/do/save', { t: 'gifts', row: { title, price, person_id: pid, status: 'idea' } });
+      }
+      await load();
+      toast(`💡 Įrašyta idėjų: ${ls.length}` + (pids.length ? ` (${pids.map(pname).join(', ')})` : ''), null, 4000);
+    };
+  });
 }
 
 // ============================================================ PROGA
@@ -494,16 +553,7 @@ function giftSheet(g, preset = {}, _, cluster) {
         url: $('#g-url').value, note: $('#g-note').value,
       };
       closeSheet();
-      if (cluster) {
-        // bendri laukai – visoms kopijoms; nuimti gavėjai – kopija ištrinama, nauji – pridedama
-        const { person_id, ...common } = row;
-        const want = pids.length ? pids : [null];
-        const keep = cluster.gifts.filter(x => want.includes(x.person_id));
-        for (const x of cluster.gifts) if (!keep.includes(x)) await api('api/do/delete', { t: 'gifts', id: x.id });
-        for (const x of keep) await api('api/do/save', { t: 'gifts', row: { ...common, id: x.id } });
-        for (const pid of want) if (!keep.some(x => x.person_id === pid)) await api('api/do/save', { t: 'gifts', row: { ...common, person_id: pid } });
-        await load(); return;
-      }
+      if (cluster) { const { person_id, ...common } = row; return setClusterPeople(cluster, pids, common); }
       if (!isNew) { row.id = g.id; await saveRow('gifts', row); return; }
       const n = await addForMany(row, pids);
       toast((row.occasion_id ? 'Dovana įrašyta' : '💡 Idėja įrašyta') + (n > 1 ? ` (${n} gavėjams)` : ''));
@@ -683,42 +733,32 @@ function newOccasionSheet(done) {
 
 // ============================================================ IDĖJOS
 VIEWS.ideas = () => {
-  setTop('Idėjos');
-  const all = freeIdeas();
-  let h = `<div class="card quick"><input type="text" id="qi" placeholder="Nauja idėja… (Enter)"><select id="qp">${personOptions(UI.qp || null)}</select>
-    <button class="btn primary" id="qa">Įrašyti</button></div>`;
-  // grupuojama pagal gavėjų rinkinį: vienam žmogui, keliems kartu, nežinia kam
-  const by = new Map();
-  for (const c of clusters(all)) {
-    const k = c.pids.length ? [...c.pids].sort((a, b) => lt(pname(a), pname(b))).join(',') : '';
-    if (!by.has(k)) by.set(k, []); by.get(k).push(c);
-  }
-  const keys = [...by.keys()].sort((a, b) => (a === '') - (b === '') || lt(pname(+a.split(',')[0]), pname(+b.split(',')[0])) || a.length - b.length);
-  if (!all.length) h += `<div class="card empty" style="margin-top:14px">Laukiančių idėjų nėra.</div>`;
-  h += `<div class="grid" style="margin-top:14px">` + keys.map(k => {
-    const ids = k ? k.split(',').map(Number) : [], one = ids.length === 1 ? ids[0] : 0;
-    const head = !ids.length ? 'Nežinia kam' : ids.map(id => `<a href="#person/${id}" style="color:inherit;text-decoration:none">${esc(pLabel(I.people[id]))}</a>`).join(', ');
-    return `<div><h2 style="margin-top:4px"><span class="grow" style="min-width:0">${head}</span> <span class="sum" style="margin-left:0">${by.get(k).length}</span></h2>
-      <div class="card list ${one ? pcCls(one) : ''}" ${one ? pcSty(one) : ''}>${by.get(k).map(c => ideaLi(c, -1)).join('')}</div></div>`;
-  }).join('') + `</div>`;
+  setTop('Idėjos', `<button class="btn small" id="paste">📋<span class="lbl"> Įklijuoti sąrašą</span></button>`);
+  const all = clusters(freeIdeas());
+  const qp = [];
+  let h = `<div class="card pad stack"><div class="row"><input type="text" id="qi" class="grow" placeholder="Kokia idėja? (pvz. Kava 8,99)"><button class="btn primary" id="qa">Įrašyti</button></div>
+    <div id="qp">${multiPeopleChips(qp)}</div></div>`;
+  h += `<h2>💡 Laukiančios idėjos <span class="sum">${all.length}</span></h2>`;
+  h += all.length ? `<div class="card list">${all.map(c => ideaLi(c)).join('')}</div>` : `<div class="card empty">Laukiančių idėjų nėra.</div>`;
   const assigned = S.gifts.filter(g => g.occasion_id && g.status === 'idea' && occDate(I.occasions[g.occasion_id] || {}) >= T());
   if (assigned.length) {
     h += `<h2>Priskirtos progoms, bet dar nenupirktos</h2><div class="card list">` + assigned.map(g => {
       const o = I.occasions[g.occasion_id];
       return `<div class="li" data-go="${o.id}"><div class="ico">${occIcon(o)}</div><div class="grow"><div class="ellip">${esc(g.title)}</div>
-        <div class="small muted">${esc([pname(g.person_id) || g.recipient_text, occTitle(o)].filter(Boolean).join(' · '))}</div></div>${g.price != null ? `<b>${money(g.price)}</b>` : ''}</div>`;
+        <div class="small muted ellip">${esc([pname(g.person_id) || g.recipient_text, occTitle(o)].filter(Boolean).join(' · '))}</div></div>${g.price != null ? `<b class="nowrap">${money(g.price)}</b>` : ''}</div>`;
     }).join('') + `</div>`;
   }
   view.innerHTML = h;
   bindIdeaLis();
+  bindMultiPeople($('#qp'), qp, () => $('#qi').focus());
   $$('[data-go]', view).forEach(el => el.onclick = () => go('occ/' + el.dataset.go));
+  $('#paste').onclick = pasteSheet;
   const add = async () => {
-    const v = $('#qi').value.trim(); if (!v) return;
-    const pid = +$('#qp').value || null;
-    UI.qp = pid; saveUI();
+    const v = $('#qi').value.trim(); if (!v) return $('#qi').focus();
     const { title, price } = splitPrice(v);
-    await saveRow('gifts', { title, price, person_id: pid, status: 'idea' });
-    $('#qi').focus();
+    await addForMany({ title, price, status: 'idea' }, qp);
+    toast('💡 Idėja įrašyta' + (qp.length ? ` (${qp.map(pname).join(', ')})` : ''));
+    $('#qi')?.focus();
   };
   $('#qa').onclick = add;
   $('#qi').onkeydown = e => { if (e.key === 'Enter') add(); };
@@ -734,8 +774,7 @@ VIEWS.people = () => {
   setTop('Žmonės', `<a class="btn small" href="#merge" title="Sujungti">🔗<span class="lbl"> Sujungti</span>${mergePairs().length ? ` (${mergePairs().length})` : ''}</a>
     <button class="btn small" id="new-g" title="Nauja grupė">＋<span class="lbl"> Grupė</span><span class="ico-only">👥</span></button>
     <button class="btn small primary" id="new-p" title="Naujas žmogus">＋<span class="lbl"> Žmogus</span><span class="ico-only">👤</span></button>`);
-  const showArch = !!UI.arch;
-  const all = people(true).filter(p => showArch || !p.archived);
+  const all = people(), arch = people(true).filter(p => p.archived);
   const groups = all.filter(p => p.is_group), indiv = all.filter(p => !p.is_group);
   const sugg = indiv.filter(looksGroup);
   let h = '';
@@ -745,7 +784,7 @@ VIEWS.people = () => {
       <button class="btn small primary" data-mkg="${p.id}">👥 Grupė</button><button class="btn small ghost" data-nog="${p.id}">Ne</button></div>`).join('')}</div></div>`;
   h += `<h2>👥 Grupės <span class="sum">${groups.length}</span></h2>`;
   h += groups.length ? `<div class="grid narrow">` + groups.map(g => {
-    const ms = membersOf(g.id), ideas = freeIdeas(g.id).length;
+    const ms = membersOf(g.id).filter(m => !m.archived), ideas = freeIdeas(g.id).length;
     return `<div class="card person ${pcCls(g.id)}" ${pcSty(g.id)} data-p="${g.id}"><div class="row"><span class="nm grow ellip">${esc(g.name)}</span>${ideas ? `<span class="pill gold">💡 ${ideas}</span>` : ''}${g.archived ? '<span class="pill">archyve</span>' : ''}</div>
       ${ms.length ? `<div class="members">${ms.map(m => `<a class="member" href="#person/${m.id}"><span class="ellip">${esc(m.name)}</span><span class="small">${bdLine(m)}</span></a>`).join('')}</div>`
         : '<div class="small muted">Narių dar nėra – ✏️ priskirkite</div>'}</div>`;
@@ -757,14 +796,17 @@ VIEWS.people = () => {
       ${p.birthday ? `<div class="small muted">${bdLine(p)}</div>` : ''}
       ${gs.length ? `<div class="small muted ellip">👥 ${gs.map(g => esc(g.name)).join(', ')}</div>` : ''}</div>`;
   }).join('') + `</div>` : `<div class="card empty">Žmonių dar nėra. Pridėkite artimuosius ir jų gimtadienius.</div>`;
-  if (S.people.some(p => p.archived)) h += `<p class="center"><button class="btn small ghost" id="arch">${showArch ? 'Slėpti archyvuotus' : 'Rodyti archyvuotus'}</button></p>`;
+  // archyvas: nerodomi sąrašuose, bet istorija lieka; bet kada galima grąžinti
+  if (arch.length) h += `<h2 id="arch" style="cursor:pointer">🗄 Archyvas <span class="sum">${arch.length} ${UI.arch ? '▾' : '▸'}</span></h2>` + (UI.arch ? `<div class="card list">${arch.map(p =>
+    `<div class="li" data-p="${p.id}"><span class="grow ellip">${esc(pLabel(p))}</span><button class="btn small" data-unarch="${p.id}">↩ Išarchyvuoti</button></div>`).join('')}</div>` : '');
   view.innerHTML = h;
-  $$('[data-p]', view).forEach(el => el.onclick = e => { if (!e.target.closest('a.member')) go('person/' + el.dataset.p); });
+  $$('[data-p]', view).forEach(el => el.onclick = e => { if (!e.target.closest('a.member, [data-unarch]')) go('person/' + el.dataset.p); });
   $$('[data-mkg]', view).forEach(b => b.onclick = async () => { const id = +b.dataset.mkg; await saveRow('people', { id, is_group: 1 }, true); render(); personSheet(I.people[id]); });
   $$('[data-nog]', view).forEach(b => b.onclick = () => { UI.notGroup = [...(UI.notGroup || []), +b.dataset.nog]; saveUI(); render(); });
   $('#new-p').onclick = () => personSheet(null);
   $('#new-g').onclick = () => personSheet(null, true);
-  if ($('#arch')) $('#arch').onclick = () => { UI.arch = !showArch; saveUI(); render(); };
+  if ($('#arch')) $('#arch').onclick = () => { UI.arch = !UI.arch; saveUI(); render(); };
+  $$('[data-unarch]', view).forEach(b => b.onclick = async e => { e.stopPropagation(); await saveRow('people', { id: +b.dataset.unarch, archived: 0 }); toast('Grąžinta iš archyvo'); });
 };
 
 function personSheet(p, asGroup) {
@@ -905,7 +947,7 @@ VIEWS.merge = () => {
 VIEWS.person = id => {
   const p = I.people[id];
   if (!p) return go('people');
-  setTop(pLabel(p), `<button class="icon-btn" id="p-edit" title="Redaguoti">✏️</button>`, true);
+  setTop(pLabel(p), `<button class="icon-btn" id="p-arch-t" title="${p.archived ? 'Išarchyvuoti' : 'Archyvuoti (paslėpti iš sąrašų)'}">${p.archived ? '↩' : '🗄'}</button><button class="icon-btn" id="p-edit" title="Redaguoti">✏️</button>`, true);
   const ideas = clusters(freeIdeas()).filter(c => c.pids.includes(p.id));
   const gs = groupsOf(p.id), ms = p.is_group ? membersOf(p.id) : [];
   // istorija: savo dovanos ir (žmogui) – grupių, kurioms priklauso, dovanos
@@ -937,8 +979,15 @@ VIEWS.person = id => {
     h += `</div>`;
   }
   h += `</div></div>`;
+  if (p.archived) h = `<div class="card pad row" style="margin-bottom:12px;background:var(--chip)"><span class="grow">🗄 Archyvuota – nerodoma sąrašuose, istorija išsaugota.</span><button class="btn small" id="p-unarch">↩ Išarchyvuoti</button></div>` + h;
   view.innerHTML = h;
   $('#p-edit').onclick = () => personSheet(p);
+  const setArch = async v => {
+    await saveRow('people', { id: p.id, archived: v });
+    toast(v ? '🗄 Archyvuota' : 'Grąžinta iš archyvo', { label: 'Atšaukti', fn: () => saveRow('people', { id: p.id, archived: v ? 0 : 1 }) });
+  };
+  $('#p-arch-t').onclick = () => setArch(p.archived ? 0 : 1);
+  if ($('#p-unarch')) $('#p-unarch').onclick = () => setArch(0);
   bindIdeaLis(); bindGiftRows(view);
   $('#pi').onkeydown = async e => {
     if (e.key !== 'Enter' || !e.target.value.trim()) return;

@@ -308,3 +308,7 @@ label.check input { width: 20px; height: 20px; accent-color: var(--accent); }
 /* siauram ekranui – antraštės mygtukai tik su ženkliukais */
 .ico-only { display: none; }
 @media (max-width: 520px) { #top-actions .lbl { display: none; } #top-actions .ico-only { display: inline; } }
+
+/* tinklelio stulpelis neišsiplečia dėl ilgo teksto (telefone neišlenda už ekrano) */
+.grid > * { min-width: 0; }
+.li .grow { min-width: 0; }

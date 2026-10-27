@@ -33,7 +33,7 @@ Sąsaja viena: kompiuteryje meniu kairėje ir kortelės keliais stulpeliais, tel
 |---|---|
 | ⏳ **Artėja** | Artimiausios progos (gimtadieniai ir įjungtos šventės). Matyti, kam jau nupirkta (✓), kam tik idėjos (💡), kam dar nieko (·). Paspaudus – atidaroma proga. |
 | 🎁 **Progos** | Visos progos pagal metus su sumomis. **＋ Nauja proga** – bet kuri proga, pvz. krikštynos. |
-| 💡 **Idėjos** | Laukiančios idėjos pagal žmogų. **→ Proga** – priskirti idėją progai. |
+| 💡 **Idėjos** | Laukiančios idėjos. Paspaudus idėją – kam ją skirti arba palikti sąraše; **→ Proga** – priskirti progai. **📋 Įklijuoti sąrašą** – daug idėjų iš karto (kiekviena eilutė – idėja). |
 | 👥 **Žmonės** | Artimieji, jų gimtadieniai ir pastabos. Žmogaus lange – idėjos ir visa dovanų istorija per metus. |
 | 📊 **Statistika** | Išlaidos per metus, pagal progą, žmogų ir parduotuvę. |
 | 🔍 **Paieška** | „Ar jau dovanojom?“ – ieško per visas dovanas, parduotuves ir žmones. |
@@ -51,7 +51,7 @@ Sąsaja viena: kompiuteryje meniu kairėje ir kortelės keliais stulpeliais, tel
 
 **Spalvos** – žmogaus lange **✏️ → Spalva** (pvz. vienos pusės giminei mėlyna, kitos – rožinė). Spalvotas rėmelis matomas progų, žmonių ir idėjų kortelėse. Būsimos datos rodomos žaliai, praėjusios – blankiai.
 
-**Žmonės ir grupės.** Kiekvienas žmogus įrašomas atskirai su gimimo data (`1990-01-15`, arba `01-15`, jei metų nežinote). **Grupė** (**＋ Grupė**, pvz. „A tėvai“) jungia kelis žmones – jai dovanojama kartu, pvz. per Kalėdas, o gimtadieniai lieka kiekvieno atskirai. Žmogaus lange matomos ir jo grupių dovanos. Amžius rodomas datos gale „(37 m.)“, jubiliejai paryškinti. Žmogaus, kuriam nebedovanojate, netrinkite – pažymėkite **Archyvuoti**, istorija liks.
+**Žmonės ir grupės.** Kiekvienas žmogus įrašomas atskirai su gimimo data (`1990-01-15`, arba `01-15`, jei metų nežinote). **Grupė** (**＋ Grupė**, pvz. „A tėvai“) jungia kelis žmones – jai dovanojama kartu, pvz. per Kalėdas, o gimtadieniai lieka kiekvieno atskirai. Žmogaus lange matomos ir jo grupių dovanos. Amžius rodomas datos gale „(37 m.)“, jubiliejai paryškinti. Žmogaus ar grupės, kuriems nebedovanojate, netrinkite – žmogaus lange spauskite **🗄** (archyvuoti): sąrašuose nebus rodomi, istorija liks. Grąžinti – Žmonių skilties apačioje **🗄 Archyvas → Išarchyvuoti**.
 
 ---
 
