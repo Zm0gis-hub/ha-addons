@@ -147,7 +147,7 @@ function taskRow(t, o = {}) {
   if (t.rem && t.rem.length && !t.done) meta.push('<span class="ico">🔔</span>');
   else if (t.due && t.done) meta.push(`<span class="due">📅 ${esc(shortDate(t.due))}</span>`);
   tags.forEach(g => meta.push(`<span class="tg">${esc(tagLabel(g))}</span>`));
-  if (subs.length) meta.push(`<span class="ico ${sd === subs.length ? 'all' : ''}">☑ ${sd}/${subs.length}</span>`);
+  if (subs.length) meta.push(`<span class="ico ${sd === subs.length ? 'all' : ''}">${sd}/${subs.length}</span>`);
   if (t.rep) meta.push(`<span class="ico" title="${esc(repText(t.rep))}">🔁</span>`);
   if (nf) meta.push(`<span class="ico">📎 ${nf}</span>`);
   if (nc) meta.push(`<span class="ico">💬 ${nc}</span>`);
@@ -179,7 +179,7 @@ function dueWord(d) { const n = diffDays(T(), d); return n === 0 ? 'šiandien' :
 // ============================================================ UŽDUOTYS (sąrašas su sekcijomis)
 let addingIn = null; // sekcija, kurioje atidarytas įvedimo laukelis
 routes.list = () => {
-  setTop('Ūkis', { actions: `<button class="icon-btn ${UI.sortMode ? 'on' : ''}" id="sort-tg" aria-label="Keisti tvarką">↕️</button><button class="icon-btn" data-go="#settings" aria-label="Nustatymai">⚙️</button>` });
+  setTop('Ūkis', { actions: `<button class="icon-btn" data-go="#settings" aria-label="Nustatymai">⚙️</button>` });
   const secs = sectionsSorted();
   if (!secs.some(s => s.id === UI.qaSec)) UI.qaSec = secs[0]?.id;
   let h = UI.sortMode ? `<div class="sortbar"><span class="grow">↕️ <b>Tvarkos keitimas</b><br><span class="small">▲ ▼ perkelia užduotį; iš sekcijos krašto – į kaimyninę sekciją</span></span><button class="btn small primary" id="sort-done">Baigti</button></div><div id="tlist" class="sorting">` : `<form id="qa" class="qa" autocomplete="off"><input type="text" id="qa-in" placeholder="＋ Nauja užduotis…" enterkeyhint="done">
@@ -262,7 +262,6 @@ routes.list = () => {
     act('order_tasks', { items: full }, true);
   };
   longPressSort($('#tlist'), '[data-sort]', el => el.matches('.tk'), commitOrder);
-  $('#sort-tg').onclick = () => { UI.sortMode = !UI.sortMode; addingIn = null; saveUI(); render(); };
   if ($('#sort-done')) $('#sort-done').onclick = () => { UI.sortMode = false; saveUI(); render(); };
   $$('[data-mv]').forEach(b => b.onclick = e => {
     e.stopPropagation();

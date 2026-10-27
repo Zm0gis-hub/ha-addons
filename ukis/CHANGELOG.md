@@ -1,5 +1,9 @@
 # Pakeitimai
 
+## 1.5.1
+- Prie sub-užduočių skaičiaus (pvz. 5/5) nebėra varnelės ☑.
+- Viršuje šalia ⚙️ nebėra tvarkos keitimo mygtuko ↕️ (tvarka keičiama tempiant ilgu paspaudimu).
+
 ## 1.5.0
 - Užduotims su sub-užduotimis apačioje rodoma plona progreso juosta: pildosi pagal atliktų sub-užduočių dalį, šalia mažas procentas. Užduotims be sub-užduočių juostos nėra.
 
