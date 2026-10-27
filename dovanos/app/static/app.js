@@ -445,7 +445,8 @@ function giftSheet(g, preset = {}) {
   openSheet(`<h3>${isNew ? (g.occasion_id ? 'Nauja dovana' : '💡 Nauja idėja') : 'Dovana'}</h3>
     <div class="fgrid">
       <label class="field full"><span>Kas</span><input type="text" id="g-title" value="${esc(g.title)}" ${isNew ? 'autofocus' : ''} placeholder="pvz. Šilko pagalvės užvalkalas"></label>
-      <label class="field"><span>Kam</span><select id="g-person">${personOptions(g.person_id, '— kitas / nežinia —')}</select></label>
+      ${isNew ? `<div class="field full"><span class="lbl-s">Kam (galima pažymėti kelis)</span><div id="g-multi">${multiPeopleChips(g.person_ids || (g.person_id ? [g.person_id] : []))}</div></div>`
+        : `<label class="field"><span>Kam</span><select id="g-person">${personOptions(g.person_id, '— kitas / nežinia —')}</select></label>`}
       <label class="field" id="g-rt-wrap"><span>Kam (laisvai)</span><input type="text" id="g-rt" value="${esc(g.recipient_text)}" placeholder="pvz. kaimynams"></label>
       <label class="field full"><span>Proga</span><select id="g-occ">${occasionOptions(g.occasion_id)}</select></label>
       <div class="full"><div class="seg" id="g-status">${Object.entries(STATUS).map(([k, s]) => `<button type="button" data-s="${k}" class="${k === status ? 'on' : ''}">${s.icon} ${s.name}</button>`).join('')}</div></div>
@@ -457,26 +458,52 @@ function giftSheet(g, preset = {}) {
     <datalist id="shops">${[...new Set(S.gifts.map(x => x.shop).filter(Boolean))].sort(lt).map(s => `<option value="${esc(s)}">`).join('')}</datalist>
     <div class="actions">${isNew ? '' : '<button class="btn danger" data-del>Ištrinti</button>'}<button class="btn" data-x>Atšaukti</button><button class="btn primary" data-ok>Išsaugoti</button></div>`, el => {
     const rtWrap = $('#g-rt-wrap', el), sel = $('#g-person', el);
-    const upd = () => rtWrap.style.visibility = sel.value ? 'hidden' : '';
-    sel.onchange = upd; upd();
+    const pids = isNew ? [...(g.person_ids || (g.person_id ? [g.person_id] : []))] : null;
+    const upd = () => rtWrap.style.display = (isNew ? pids.length : sel.value) ? 'none' : '';
+    if (isNew) bindMultiPeople($('#g-multi', el), pids, upd); else sel.onchange = upd;
+    upd();
     $$('#g-status button', el).forEach(b => b.onclick = () => { status = b.dataset.s; $$('#g-status button', el).forEach(x => x.classList.toggle('on', x === b)); });
     $('[data-x]', el).onclick = closeSheet;
     const save = async () => {
       const title = $('#g-title').value.trim();
       if (!title) return toast('Įrašykite, kas per dovana');
       const row = {
-        title, person_id: +sel.value || null, recipient_text: sel.value ? '' : $('#g-rt').value,
+        title, person_id: isNew ? null : +sel.value || null, recipient_text: (isNew ? pids.length : sel.value) ? '' : $('#g-rt').value,
         occasion_id: +$('#g-occ').value || null, status, price: pnum($('#g-price').value), shop: $('#g-shop').value,
         url: $('#g-url').value, note: $('#g-note').value,
       };
-      if (!isNew) row.id = g.id;
-      closeSheet(); await saveRow('gifts', row);
-      if (isNew) toast(row.occasion_id ? 'Dovana įrašyta' : '💡 Idėja įrašyta');
+      closeSheet();
+      if (!isNew) { row.id = g.id; await saveRow('gifts', row); return; }
+      const n = await addForMany(row, pids);
+      toast((row.occasion_id ? 'Dovana įrašyta' : '💡 Idėja įrašyta') + (n > 1 ? ` (${n} gavėjams)` : ''));
     };
     $('[data-ok]', el).onclick = save;
     $('#g-title', el).onkeydown = e => { if (e.key === 'Enter') save(); };
     if (!isNew) $('[data-del]', el).onclick = () => confirmSheet(`Ištrinti „${g.title}“?`, 'Ištrinti', () => delRow('gifts', g.id));
   });
+}
+
+// kelių gavėjų pasirinkimas (naujai idėjai): „Nežinia kam“ arba keli žmonės / grupės
+function multiPeopleChips(sel) {
+  return `<div class="chips multi"><button type="button" class="chip ${sel.length ? '' : 'on'}" data-p="">Nežinia kam</button>
+    ${people().map(p => `<button type="button" class="chip ${sel.includes(p.id) ? 'on' : ''}" data-p="${p.id}">${esc(pLabel(p))}</button>`).join('')}</div>`;
+}
+function bindMultiPeople(box, sel, after) {
+  $$('.chip', box).forEach(b => b.onclick = () => {
+    const id = +b.dataset.p;
+    if (!id) sel.length = 0;
+    else if (sel.includes(id)) sel.splice(sel.indexOf(id), 1);
+    else sel.push(id);
+    $$('.chip', box).forEach(x => x.classList.toggle('on', +x.dataset.p ? sel.includes(+x.dataset.p) : !sel.length));
+    if (after) after();
+  });
+}
+// ta pati idėja keliems – kiekvienam atskiras įrašas (priskyrus vienam, kitiems lieka)
+async function addForMany(row, pids) {
+  const list = pids.length ? pids : [null];
+  for (const pid of list) await api('api/do/save', { t: 'gifts', row: { ...row, person_id: pid } });
+  await load();
+  return list.length;
 }
 
 // greitas idėjos įrašymas (ypač telefone)
@@ -486,23 +513,22 @@ $('#fab').onclick = () => {
   openSheet(`<h3>💡 Nauja idėja</h3>
     <div class="stack">
       <input type="text" id="q-title" autofocus placeholder="Kokia idėja? (pvz. Kava 8,99)">
-      <div class="chips" id="q-people"><button class="chip ${preset.person_id ? '' : 'on'}" data-p="">Nežinia kam</button>
-        ${people().map(p => `<button class="chip ${p.id === preset.person_id ? 'on' : ''}" data-p="${p.id}">${esc(pLabel(p))}</button>`).join('')}</div>
+      <div id="q-people">${multiPeopleChips(preset.person_id ? [preset.person_id] : [])}</div>
     </div>
     <div class="actions"><button class="btn" data-more>Daugiau…</button><button class="btn primary" data-ok>Įrašyti</button></div>`, el => {
-    let pid = preset.person_id || null;
-    $$('#q-people .chip', el).forEach(b => b.onclick = () => { pid = +b.dataset.p || null; $$('#q-people .chip', el).forEach(x => x.classList.toggle('on', x === b)); $('#q-title').focus(); });
+    const pids = preset.person_id ? [preset.person_id] : [];
+    bindMultiPeople($('#q-people', el), pids, () => $('#q-title').focus());
     const ok = async () => {
       const v = $('#q-title').value.trim();
       if (!v) return $('#q-title').focus();
       closeSheet();
       const { title, price } = splitPrice(v);
-      await saveRow('gifts', { title, price, person_id: pid, status: 'idea' });
-      toast('💡 Idėja įrašyta' + (pid ? ` (${pname(pid)})` : ''));
+      await addForMany({ title, price, status: 'idea' }, pids);
+      toast('💡 Idėja įrašyta' + (pids.length ? ` (${pids.map(pname).join(', ')})` : ''));
     };
     $('[data-ok]', el).onclick = ok;
     $('#q-title').onkeydown = e => { if (e.key === 'Enter') ok(); };
-    $('[data-more]', el).onclick = () => { const s = splitPrice($('#q-title').value); giftSheet(null, { ...s, person_id: pid }); };
+    $('[data-more]', el).onclick = () => { const s = splitPrice($('#q-title').value); giftSheet(null, { ...s, person_ids: [...pids] }); };
   });
 };
 

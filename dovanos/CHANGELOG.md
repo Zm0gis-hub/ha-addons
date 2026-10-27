@@ -1,5 +1,8 @@
 # Pakeitimai
 
+## 1.6.0
+- Naujai idėjai (ir dovanai) galima pažymėti kelis žmones ar grupes iš karto – kiekvienam įrašoma atskira idėja.
+
 ## 1.5.0
 - **Grupės**: žmonės lieka atskirai (su gimtadieniais), o grupė (pvz. „A tėvai“) jungia narius ir gali gauti bendras dovanas. Žmogaus istorijoje matomos ir jo grupių dovanos.
 - Žmonių skiltis perdaryta: viršuje grupės su nariais ir jų gimtadieniais, apačioje visi žmonės. Dovanų skaičiai nebėra rodomi.
