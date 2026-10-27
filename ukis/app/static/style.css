@@ -488,6 +488,13 @@ header h1:empty { display: none; }
 .tk.d-over { background: linear-gradient(90deg, var(--danger-soft), var(--card) 70%); }
 .tk.done .tk-t { text-decoration: line-through; color: var(--done); font-weight: 500; }
 .tk.done .tk-m { opacity: .6; }
+.tk.has-pb { padding-bottom: 17px; }
+.tk-pb { position: absolute; left: 48px; right: 14px; bottom: 7px; display: flex; align-items: center; gap: 7px; pointer-events: none; }
+.tk-pb span { flex: 1; height: 3px; border-radius: 3px; background: var(--line); overflow: hidden; }
+.tk-pb i { display: block; height: 100%; border-radius: 3px; background: var(--ok); }
+.tk-pb b { width: 26px; text-align: right; font-size: 10.5px; line-height: 1; font-weight: 700; color: var(--muted); font-variant-numeric: tabular-nums; }
+.tk-pb.full b { color: var(--ok); }
+.tk.done .tk-pb { opacity: .5; }
 .tk.dragging { box-shadow: 0 10px 28px rgba(0,0,0,.25); z-index: 5; border-radius: 14px; }
 .sec-h.dragging { z-index: 5; }
 

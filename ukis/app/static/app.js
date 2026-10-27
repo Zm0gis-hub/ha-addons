@@ -151,10 +151,13 @@ function taskRow(t, o = {}) {
   if (t.rep) meta.push(`<span class="ico" title="${esc(repText(t.rep))}">🔁</span>`);
   if (nf) meta.push(`<span class="ico">📎 ${nf}</span>`);
   if (nc) meta.push(`<span class="ico">💬 ${nc}</span>`);
-  return `<div class="tk ${t.done ? 'done' : ''} ${di ? 'd-' + di.cls : ''}" ${o.sortable ? 'data-sort' : ''} data-task="${t.id}">
+  const pc = subs.length ? Math.round(sd / subs.length * 100) : 0;
+  const bar = subs.length ? `<div class="tk-pb ${pc === 100 ? 'full' : ''}" title="${sd}/${subs.length}"><span><i style="width:${pc}%"></i></span><b>${pc}%</b></div>` : '';
+  return `<div class="tk ${t.done ? 'done' : ''} ${di ? 'd-' + di.cls : ''} ${subs.length ? 'has-pb' : ''}" ${o.sortable ? 'data-sort' : ''} data-task="${t.id}">
     <button class="ck" data-ck="${t.id}" aria-label="Atlikta"></button>
     <div class="grow tk-b" data-open="${t.id}"><div class="tk-t">${esc(t.title)}</div>${t.notes && t.notes.trim() ? `<div class="tk-n">${esc(t.notes.replace(/\s+/g, ' ').trim())}</div>` : ''}${meta.length ? `<div class="tk-m">${meta.join('')}</div>` : ''}</div>
     ${o.sortable && UI.sortMode ? `<span class="mv2"><button data-mv="${t.id}:-1" aria-label="Aukštyn">▲</button><button data-mv="${t.id}:1" aria-label="Žemyn">▼</button></span>` : ''}
+    ${bar}
   </div>`;
 }
 function bindTaskRows(root = view) {

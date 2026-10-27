@@ -1,5 +1,8 @@
 # Pakeitimai
 
+## 1.5.0
+- Užduotims su sub-užduotimis apačioje rodoma plona progreso juosta: pildosi pagal atliktų sub-užduočių dalį, šalia mažas procentas. Užduotims be sub-užduočių juostos nėra.
+
 ## 1.4.2
 - Tempiant eilutę prie ekrano krašto sąrašas slenka lėtai ir tolygiai: kuo arčiau krašto, tuo greičiau, bet ne žaibiškai.
 - Sąrašas slenka ir laikant pirštą vietoje, o tempiama eilutė visą laiką lieka po pirštu.
