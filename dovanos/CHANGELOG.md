@@ -1,5 +1,8 @@
 # Pakeitimai
 
+## 1.8.1
+- Dovanos lange **Proga** – trumpas kategorijų sąrašas (Kalėdos, Velykos, … , „X gimtadienis“), o **Metai** pasirenkami atskirai (pasiūlomi artimiausi). Pasirinkus gimtadienį, gavėju automatiškai pažymimas tas žmogus.
+
 ## 1.8.0
 - Idėjos → **📋 Įklijuoti sąrašą**: kiekviena eilutė tampa idėja (pvz. iš Google Keep), visoms galima iškart pažymėti gavėjus.
 - Idėjų skiltyje įvedimas toks pat kaip „＋ Idėja“ (keli gavėjai), sąraše – idėja ir po ja smulkiau gavėjai.

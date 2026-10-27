@@ -513,10 +513,20 @@ function occasionSheet(o) {
 }
 
 // ============================================================ DOVANOS / IDĖJOS LANGAS
-function occasionOptions(sel) {
-  const list = [...S.occasions].sort((a, b) => b.year - a.year || (occDate(a) || '').localeCompare(occDate(b) || ''));
-  return `<option value="">— be progos (laukianti idėja) —</option>` +
-    list.map(o => `<option value="${o.id}" ${o.id === sel ? 'selected' : ''}>${esc(occTitle(o))}</option>`).join('');
+// Proga – kategorija (Kalėdos, Velykos, X gimtadienis…), metai – atskirai
+const catKey = o => o.kind === 'birthday' ? `birthday|${o.person_id}|` : o.kind === 'other' ? `other||${(o.title || '').trim()}` : `${o.kind}||`;
+function occCategories() {
+  const out = HOLIDAYS.map(k => ({ key: `${k}||`, label: `${KINDS[k].icon} ${KINDS[k].name}` }));
+  for (const p of people().filter(p => !p.is_group && p.birthday)) out.push({ key: `birthday|${p.id}|`, label: `🎂 ${p.name} gimtadienis` });
+  for (const t of [...new Set(S.occasions.filter(o => o.kind === 'other' && o.title).map(o => o.title.trim()))]) out.push({ key: `other||${t}`, label: `🎁 ${t}` });
+  return out;
+}
+// artimiausi metai, kai ta proga dar bus
+function catNextYear(key) {
+  const [kind, pid, title] = key.split('|');
+  if (kind === 'other') return Math.max(Y(), ...S.occasions.filter(o => o.kind === 'other' && (o.title || '').trim() === title).map(o => o.year));
+  const d = kindDate(kind, Y(), I.people[+pid]);
+  return d && d < T() ? Y() + 1 : Y();
 }
 function giftSheet(g, preset = {}, _, cluster) {
   const isNew = !g, multi = isNew || !!cluster;
@@ -528,7 +538,10 @@ function giftSheet(g, preset = {}, _, cluster) {
       ${multi ? `<div class="field full"><span class="lbl-s">Kam (galima pažymėti kelis)</span><div id="g-multi">${multiPeopleChips(preset.person_ids || g.person_ids || (g.person_id ? [g.person_id] : []))}</div></div>`
         : `<label class="field"><span>Kam</span><select id="g-person">${personOptions(g.person_id, '— kitas / nežinia —')}</select></label>`}
       <label class="field" id="g-rt-wrap"><span>Kam (laisvai)</span><input type="text" id="g-rt" value="${esc(g.recipient_text)}" placeholder="pvz. kaimynams"></label>
-      <label class="field full"><span>Proga</span><select id="g-occ">${occasionOptions(g.occasion_id)}</select></label>
+      <label class="field"><span>Proga</span><select id="g-cat"><option value="">— be progos (laukianti idėja) —</option>
+        ${occCategories().map(c => `<option value="${esc(c.key)}" ${g.occasion_id && I.occasions[g.occasion_id] && catKey(I.occasions[g.occasion_id]) === c.key ? 'selected' : ''}>${esc(c.label)}</option>`).join('')}</select></label>
+      <label class="field" id="g-year-w"><span>Metai</span><select id="g-year">${[Y() - 3, Y() - 2, Y() - 1, Y(), Y() + 1, Y() + 2].concat(g.occasion_id && I.occasions[g.occasion_id] ? [I.occasions[g.occasion_id].year] : [])
+        .filter((v, i, a) => a.indexOf(v) === i).sort().map(y => `<option value="${y}" ${y === (I.occasions[g.occasion_id]?.year || Y()) ? 'selected' : ''}>${y}</option>`).join('')}</select></label>
       <div class="full"><div class="seg" id="g-status">${Object.entries(STATUS).map(([k, s]) => `<button type="button" data-s="${k}" class="${k === status ? 'on' : ''}">${s.icon} ${s.name}</button>`).join('')}</div></div>
       <label class="field"><span>Kaina, €</span><input type="text" inputmode="decimal" id="g-price" value="${g.price != null ? fmtNum(g.price) : ''}"></label>
       <label class="field"><span>Parduotuvė / iš kur</span><input type="text" id="g-shop" value="${esc(g.shop)}" list="shops"></label>
@@ -542,14 +555,34 @@ function giftSheet(g, preset = {}, _, cluster) {
     const upd = () => rtWrap.style.display = (multi ? pids.length : sel.value) ? 'none' : '';
     if (multi) bindMultiPeople($('#g-multi', el), pids, upd); else sel.onchange = upd;
     upd();
+    const cat = $('#g-cat', el), yr = $('#g-year', el);
+    const updCat = (setYear) => {
+      $('#g-year-w', el).style.visibility = cat.value ? '' : 'hidden';
+      if (setYear && cat.value) yr.value = catNextYear(cat.value);
+    };
+    cat.onchange = () => {
+      updCat(true);
+      // gimtadienio proga – jei gavėjas nepasirinktas, juo tampa tas žmogus
+      const [kind, pid] = cat.value.split('|');
+      if (kind === 'birthday' && +pid) {
+        if (multi && !pids.length) $(`#g-multi .chip[data-p="${pid}"]`, el)?.click();
+        else if (!multi && !sel.value) { sel.value = pid; upd(); }
+      }
+    };
+    updCat(false);
     $$('#g-status button', el).forEach(b => b.onclick = () => { status = b.dataset.s; $$('#g-status button', el).forEach(x => x.classList.toggle('on', x === b)); });
     $('[data-x]', el).onclick = closeSheet;
     const save = async () => {
       const title = $('#g-title').value.trim();
       if (!title) return toast('Įrašykite, kas per dovana');
+      let occasion_id = null;
+      if (cat.value) {
+        const [kind, pid, ctitle] = cat.value.split('|');
+        occasion_id = (await act('occasion_open', { kind, year: +yr.value, person_id: +pid || null, title: ctitle }, true)).id;
+      }
       const row = {
         title, person_id: multi ? null : +sel.value || null, recipient_text: (multi ? pids.length : sel.value) ? '' : $('#g-rt').value,
-        occasion_id: +$('#g-occ').value || null, status, price: pnum($('#g-price').value), shop: $('#g-shop').value,
+        occasion_id, status, price: pnum($('#g-price').value), shop: $('#g-shop').value,
         url: $('#g-url').value, note: $('#g-note').value,
       };
       closeSheet();
