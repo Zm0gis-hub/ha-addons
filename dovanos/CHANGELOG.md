@@ -1,5 +1,10 @@
 # Pakeitimai
 
+## 1.7.0
+- Vienodos idėjos keliems žmonėms rodomos viena eilute su visais vardais (ir importuotos).
+- Redaguojant tokią idėją keičiama visiems; gavėjus galima pridėti ar nuimti.
+- Priskiriant progai paklausiama, kuriems iš gavėjų – kitiems idėja lieka laukti.
+
 ## 1.6.0
 - Naujai idėjai (ir dovanai) galima pažymėti kelis žmones ar grupes iš karto – kiekvienam įrašoma atskira idėja.
 
