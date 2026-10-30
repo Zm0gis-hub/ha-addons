@@ -409,50 +409,65 @@ VIEWS.occ = id => {
       ${c.bought ? `<span class="pill ok">✓ ${c.bought} nupirkta</span>` : ''}${c.given ? `<span class="pill">🎁 ${c.given} įteikta</span>` : ''}</div>
   </div>`;
   if (o.notes) h += `<div class="card pad pre small" style="margin-bottom:14px">${esc(o.notes)}</div>`;
+  h += `<div class="occbar"><span class="muted small grow">Spauskite ženkliuką prie dovanos: 💡 idėja → ✓ nupirkta → 🎁 įteikta</span>
+    <button class="btn small" id="add-rec">＋ Gavėjas</button></div>`;
   h += `<div class="grid">`;
   for (const r of recs) h += recipientCard(o, r, gifts.filter(g => g.person_id === r.person_id), past);
   const extra = gifts.filter(g => !g.person_id || !recs.some(r => r.person_id === g.person_id));
-  h += recipientCard(o, null, extra, past);
-  h += `<button class="card addcard" id="add-rec">＋ Gavėjas</button></div>`;
+  if (extra.length || !recs.length) h += recipientCard(o, null, extra, past);
+  h += `</div>`;
   view.innerHTML = h;
 
   $('#occ-menu').onclick = () => occasionSheet(o);
   $('#add-rec').onclick = () => recipientSheet(o);
   bindGiftRows(view, past);
-  $$('.addline input', view).forEach(inp => inp.onkeydown = async e => {
-    if (e.key !== 'Enter' || !inp.value.trim()) return;
-    const { title, price } = splitPrice(inp.value);
-    const pid = +inp.dataset.p || null;
-    const n = giftsOf(o.id).filter(g => g.person_id === pid).length;
-    inp.value = '';
-    await saveRow('gifts', { title, price, person_id: pid, occasion_id: o.id, status: past ? 'given' : 'idea', pos: n });
-    $(`.addline input[data-p="${pid || ''}"]`)?.focus();
+  $$('[data-addg]', view).forEach(el => el.onclick = () => {
+    const pid = +el.dataset.addg || null;
+    giftSheet(null, { occasion_id: o.id, person_ids: pid ? [pid] : [], status: past ? 'given' : 'idea' });
   });
-  $$('[data-take]', view).forEach(el => el.onclick = () => saveRow('gifts', { id: +el.dataset.take, occasion_id: o.id }));
+  $$('[data-pick]', view).forEach(el => el.onclick = () => pickIdeaSheet(o, +el.dataset.pick));
   $$('[data-rmrec]', view).forEach(el => el.onclick = () => {
     const r = I.recipients[el.dataset.rmrec];
     confirmSheet(`Pašalinti ${pname(r.person_id)} iš šios progos?`, 'Pašalinti', () => delRow('recipients', r.id));
   });
 };
 
+// idėjos, kurias galima priskirti gavėjui: jo paties ir „nežinia kam“
+const pickableIdeas = pid => ({ own: freeIdeas(pid), loose: S.gifts.filter(g => !g.occasion_id && g.status === 'idea' && !g.person_id).sort((a, b) => b.id - a.id) });
+
 function recipientCard(o, r, gifts, past) {
   const pid = r ? r.person_id : null;
-  if (!r && !gifts.length) {
-    return `<div class="card rcard extra"><div class="rhead"><span class="grow"><b>Kiti</b> <span class="muted small">(be gavėjo)</span></span></div>
-      <div class="addline"><input type="text" data-p="" placeholder="＋ Dovana kitam (pvz. kaimynams)"></div></div>`;
-  }
-  const ideas = pid ? freeIdeas(pid) : [];
+  const pi = pid ? pickableIdeas(pid) : null, nIdeas = pi ? pi.own.length + pi.loose.length : 0;
+  const canRemove = r && !(o.kind === 'birthday' && o.person_id === pid);
   return `<div class="card rcard ${r ? pcCls(pid) : 'extra'}" ${r ? pcSty(pid) : ''}>
     <div class="rhead">
       ${r ? `<a class="name ellip" href="#person/${pid}">${esc(pname(pid))}</a>` : `<span class="grow"><b>Kiti</b> <span class="muted small">(be gavėjo)</span></span>`}
       <span class="total">${moneyShort(spent(gifts))}</span>
-      ${r ? `<button class="icon-btn" style="font-size:15px;min-width:30px;height:30px" data-rmrec="${r.id}" title="Pašalinti gavėją">✕</button>` : ''}
+      ${canRemove ? `<button class="icon-btn" style="font-size:15px;min-width:30px;height:30px" data-rmrec="${r.id}" title="Pašalinti gavėją">✕</button>` : ''}
     </div>
-    <ul class="gifts">${gifts.map(giftRow).join('')}</ul>
-    ${ideas.length ? `<div class="sugg"><div class="lbl">Laukiančios idėjos – spauskite, kad priskirtumėte:</div><div class="chips">
-      ${ideas.slice(0, 8).map(g => `<button class="chip idea" data-take="${g.id}">💡 ${esc(g.title)}</button>`).join('')}</div></div>` : ''}
-    <div class="addline"><input type="text" data-p="${pid || ''}" placeholder="＋ Pridėti dovaną (pvz. Kava 8,99)"></div>
+    ${gifts.length ? `<ul class="gifts">${gifts.map(giftRow).join('')}</ul>` : `<div class="empty-g muted small">Dovanų dar nėra</div>`}
+    <div class="ractions">
+      <button class="btn small" data-addg="${pid || ''}">＋ Dovana</button>
+      ${nIdeas ? `<button class="btn small idea-btn" data-pick="${pid}">💡 Iš idėjų${pi.own.length ? ` <b>${pi.own.length}</b>` : ''}</button>` : ''}
+    </div>
   </div>`;
+}
+
+function pickIdeaSheet(o, pid) {
+  const { own, loose } = pickableIdeas(pid);
+  const li = g => `<li class="gift idea" data-take="${g.id}"><span class="st">💡</span><span class="t">${esc(g.title)}${g.shop ? ` <span class="shop">· ${esc(g.shop)}</span>` : ''}</span><span class="p">${money(g.price)}</span></li>`;
+  openSheet(`<h3>💡 Idėja – ${esc(pname(pid))}</h3>
+    <p class="muted small" style="margin-top:-6px">Pasirinkite idėją – ji bus priskirta šiai progai.</p>
+    ${own.length ? `<div class="lbl-s">${esc(pname(pid))} idėjos</div><ul class="gifts pick">${own.map(li).join('')}</ul>` : ''}
+    ${loose.length ? `<div class="lbl-s">Nežinia kam</div><ul class="gifts pick">${loose.map(li).join('')}</ul>` : ''}
+    <div class="actions"><button class="btn" data-x>Uždaryti</button></div>`, el => {
+    $('[data-x]', el).onclick = closeSheet;
+    $$('[data-take]', el).forEach(x => x.onclick = async () => {
+      closeSheet();
+      await saveRow('gifts', { id: +x.dataset.take, occasion_id: o.id, person_id: pid });
+      toast('Idėja priskirta');
+    });
+  });
 }
 
 function giftRow(g) {
@@ -592,7 +607,7 @@ function giftSheet(g, preset = {}, _, cluster) {
       toast((row.occasion_id ? 'Dovana įrašyta' : '💡 Idėja įrašyta') + (n > 1 ? ` (${n} gavėjams)` : ''));
     };
     $('[data-ok]', el).onclick = save;
-    $('#g-title', el).onkeydown = e => { if (e.key === 'Enter') save(); };
+    $('#g-title', el).onkeydown = e => { if (e.key === 'Enter' || e.keyCode === 13) save(); };
     if (!isNew) $('[data-del]', el).onclick = () => confirmSheet(`Ištrinti „${g.title}“${cluster ? ' visiems' : ''}?`, 'Ištrinti', async () => {
       for (const x of cluster ? cluster.gifts : [g]) await api('api/do/delete', { t: 'gifts', id: x.id });
       await load();

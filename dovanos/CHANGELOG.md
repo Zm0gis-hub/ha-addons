@@ -1,5 +1,11 @@
 # Pakeitimai
 
+## 1.9.0
+- Perdarytas progos langas: vietoj įvedimo laukelių kiekvieno gavėjo kortelėje du aiškūs mygtukai – **＋ Dovana** (atsidaro dovanos langas, gavėjas ir proga jau pažymėti) ir **💡 Iš idėjų** (pasirinkti iš laukiančių idėjų).
+- Tuščioje kortelėje užrašas „Dovanų dar nėra“, virš kortelių – trumpa pagalba, kaip keisti būseną, ir mygtukas **＋ Gavėjas**.
+- Kortelė „Kiti“ rodoma tik kai joje yra dovanų; gimtadienio žmogaus iš jo gimtadienio pašalinti nebegalima.
+- Dovanos lange Enter patikimiau veikia Android klaviatūroje.
+
 ## 1.8.1
 - Dovanos lange **Proga** – trumpas kategorijų sąrašas (Kalėdos, Velykos, … , „X gimtadienis“), o **Metai** pasirenkami atskirai (pasiūlomi artimiausi). Pasirinkus gimtadienį, gavėju automatiškai pažymimas tas žmogus.
 

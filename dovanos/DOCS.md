@@ -39,11 +39,11 @@ Sąsaja viena: kompiuteryje meniu kairėje ir kortelės keliais stulpeliais, tel
 | 🔍 **Paieška** | „Ar jau dovanojom?“ – ieško per visas dovanas, parduotuves ir žmones. |
 
 **Progos langas** – kaip lentelėje: kiekvienam gavėjui kortelė su dovanomis ir suma.
-- **Pridėti dovaną** – rašykite į kortelės apačią ir spauskite Enter. Kainą galima rašyti iškart: `Kava 8,99` arba `Knyga 15 €`.
+- **＋ Dovana** – atsidaro įprastas dovanos langas, kuriame gavėjas ir proga jau pažymėti: įrašote, kas, (nebūtina) kaina, parduotuvė, ir **Išsaugoti**.
+- **💡 Iš idėjų** – parodo šio žmogaus laukiančias idėjas (ir „nežinia kam“). Paspaudus idėja priskiriama šiai progai. Skaičius ant mygtuko – kiek idėjų laukia būtent šiam žmogui.
 - **Būsena** – paspauskite ženkliuką kairėje: 💡 Idėja → ✓ Nupirkta → 🎁 Įteikta. Sumoje skaičiuojamos tik nupirktos ir įteiktos.
 - Paspaudus dovaną – visi laukai: kam, proga, kaina, parduotuvė, nuoroda, pastaba.
-- Jei žmogus turi laukiančių idėjų, jos rodomos kortelėje – paspaudus idėja priskiriama šiai progai.
-- **＋ Gavėjas** – pridėti žmogų. **Kiti** – dovanos be konkretaus gavėjo (pvz. kaimynams).
+- **＋ Gavėjas** (virš kortelių) – pridėti žmogų ar grupę. ✕ kortelėje – pašalinti (gimtadienio žmogaus pašalinti negalima). Dovanos be konkretaus gavėjo rodomos kortelėje **Kiti**.
 - **⋯** viršuje – biudžetas, pastabos, trynimas.
 - Kuriant naujų metų Kalėdas (ar kitą šventę), gavėjai nukopijuojami iš praėjusių metų.
 
