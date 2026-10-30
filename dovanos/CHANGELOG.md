@@ -1,5 +1,8 @@
 # Pakeitimai
 
+## 1.10.1
+- Po idėja be konkretaus gavėjo nebe rašoma „nežinia kam“ – matosi tik tikri gavėjai.
+
 ## 1.10.0
 - Idėjai galima nurodyti **Tinka progai** (pvz. Kalėdoms) – be metų. Idėja laukia sąraše, kol ją panaudosite (šiemet ar po kelerių metų). Pasirinkimas yra visur, kur įrašomos idėjos: ＋ Idėja, Idėjų skiltyje, įklijuojant sąrašą, paspaudus idėją.
 - Idėjų sąrašas sugrupuotas pagal progas, eilutės kompaktiškesnės. Idėjų skiltyje gavėjų ir progos pasirinkimas atsiranda tik pradėjus rašyti.

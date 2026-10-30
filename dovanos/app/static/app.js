@@ -313,7 +313,7 @@ function clusters(list) {
   return [...m.values()].map(gs => ({ gifts: gs, pids: gs.map(g => g.person_id).filter(Boolean).sort((a, b) => lt(pname(a), pname(b))) }));
 }
 const clusterOf = g => clusters(freeIdeas()).find(c => c.gifts.some(x => x.id === g.id)) || { gifts: [g], pids: g.person_id ? [g.person_id] : [] };
-const namesOf = c => c.gifts.some(g => !g.person_id) && !c.pids.length ? 'nežinia kam' : c.pids.map(pid => pLabel(I.people[pid] || { name: '?' })).join(', ');
+const namesOf = c => c.pids.map(pid => pLabel(I.people[pid] || { name: '?' })).join(', ');  // be gavėjo – nieko nerašoma
 function ideaLi(c, skipPid, noCat) {
   if (!c.gifts) c = clusterOf(c);
   const i = CL.push(c) - 1, g = c.gifts[0];
