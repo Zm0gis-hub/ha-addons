@@ -49,7 +49,7 @@ TABLES = {
     "members": ["group_id", "person_id"],
     "occasions": ["kind", "title", "year", "date", "person_id", "budget", "notes"],
     "recipients": ["occasion_id", "person_id", "pos"],
-    "gifts": ["title", "person_id", "recipient_text", "occasion_id", "shop", "price", "url", "note", "status", "pos"],
+    "gifts": ["title", "person_id", "recipient_text", "occasion_id", "cat", "shop", "price", "url", "note", "status", "pos"],
 }
 NUMERIC = {"is_group", "group_id", "birth_year", "archived", "pos", "year", "person_id", "budget", "occasion_id", "price"}
 KINDS = {"christmas", "birthday", "easter", "mother", "father", "midsummer", "valentine", "other"}
@@ -72,6 +72,8 @@ CREATE TABLE IF NOT EXISTS gifts (id INTEGER PRIMARY KEY, title TEXT, person_id 
 # stulpeliai, pridėti vėlesnėse versijose (senoms duomenų bazėms)
 NEW_COLUMNS = {
     "people": {"color": "TEXT DEFAULT ''", "birth_year": "INTEGER", "is_group": "INTEGER DEFAULT 0"},
+    # idėjai tinkanti proga be metų, pvz. „christmas||“ (tas pats raktas kaip JS catKey)
+    "gifts": {"cat": "TEXT DEFAULT ''"},
 }
 
 DEFAULT_SETTINGS = {

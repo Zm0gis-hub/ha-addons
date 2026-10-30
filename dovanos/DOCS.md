@@ -33,7 +33,7 @@ Sąsaja viena: kompiuteryje meniu kairėje ir kortelės keliais stulpeliais, tel
 |---|---|
 | ⏳ **Artėja** | Artimiausios progos (gimtadieniai ir įjungtos šventės). Matyti, kam jau nupirkta (✓), kam tik idėjos (💡), kam dar nieko (·). Paspaudus – atidaroma proga. |
 | 🎁 **Progos** | Visos progos pagal metus su sumomis. **＋ Nauja proga** – bet kuri proga, pvz. krikštynos. |
-| 💡 **Idėjos** | Laukiančios idėjos. Paspaudus idėją – kam ją skirti arba palikti sąraše; **→ Proga** – priskirti progai. **📋 Įklijuoti sąrašą** – daug idėjų iš karto (kiekviena eilutė – idėja). |
+| 💡 **Idėjos** | Laukiančios idėjos, sugrupuotos pagal tai, kuriai progai tinka (dauguma – „Bet kuriai progai“). Žalia eilutė ↺ rodo, kur ir kam tokia dovana jau panaudota. Paspaudus idėją – kam ją skirti, kuriai progai tinka, visas panaudojimo sąrašas; **→ Proga** – priskirti konkrečiai progai (tada pasirenkami ir metai). **📋 Įklijuoti sąrašą** – daug idėjų iš karto (kiekviena eilutė – idėja). |
 | 👥 **Žmonės** | Artimieji, jų gimtadieniai ir pastabos. Žmogaus lange – idėjos ir visa dovanų istorija per metus. |
 | 📊 **Statistika** | Išlaidos per metus, pagal progą, žmogų ir parduotuvę. |
 | 🔍 **Paieška** | „Ar jau dovanojom?“ – ieško per visas dovanas, parduotuves ir žmones. |
@@ -47,7 +47,7 @@ Sąsaja viena: kompiuteryje meniu kairėje ir kortelės keliais stulpeliais, tel
 - **⋯** viršuje – biudžetas, pastabos, trynimas.
 - Kuriant naujų metų Kalėdas (ar kitą šventę), gavėjai nukopijuojami iš praėjusių metų.
 
-**＋ Idėja** (apačioje dešinėje, matomas visur) – greitas įrašymas: parašote idėją, pasirenkate kam (nebūtina, galima pažymėti ir kelis – kiekvienam bus atskira idėja), **Įrašyti**. Vienoda idėja keliems rodoma viena eilute su visais vardais; priskiriant progai pasirenkate, kuriems – kitiems ji lieka laukti. Patogiausia telefone, kai kas nors šauna į galvą.
+**＋ Idėja** (apačioje dešinėje, matomas visur) – greitas įrašymas: parašote idėją, pasirenkate kam (nebūtina, galima pažymėti ir kelis – kiekvienam bus atskira idėja) ir, jei reikia, **Tinka progai** (pvz. tik Kalėdoms – be metų, idėja laukia tol, kol ją panaudosite), **Įrašyti**. Vienoda idėja keliems rodoma viena eilute su visais vardais; priskiriant progai pasirenkate, kuriems – kitiems ji lieka laukti. Patogiausia telefone, kai kas nors šauna į galvą.
 
 **Spalvos** – žmogaus lange **✏️ → Spalva** (pvz. vienos pusės giminei mėlyna, kitos – rožinė). Spalvotas rėmelis matomas progų, žmonių ir idėjų kortelėse. Būsimos datos rodomos žaliai, praėjusios – blankiai.
 

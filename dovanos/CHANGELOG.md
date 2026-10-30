@@ -1,5 +1,11 @@
 # Pakeitimai
 
+## 1.10.0
+- Idėjai galima nurodyti **Tinka progai** (pvz. Kalėdoms) – be metų. Idėja laukia sąraše, kol ją panaudosite (šiemet ar po kelerių metų). Pasirinkimas yra visur, kur įrašomos idėjos: ＋ Idėja, Idėjų skiltyje, įklijuojant sąrašą, paspaudus idėją.
+- Idėjų sąrašas sugrupuotas pagal progas, eilutės kompaktiškesnės. Idėjų skiltyje gavėjų ir progos pasirinkimas atsiranda tik pradėjus rašyti.
+- Prie idėjos žalia eilutė ↺ – kur ir kam tokia dovana jau panaudota (pvz. „↺ 2× · Kalėdos 2025 · Mama“). Paspaudus idėją matomas visas sąrašas.
+- **→ Proga**: pasirenkama proga ir metai atskirai (proga iš anksto pažymima pagal idėją, metai – artimiausi).
+
 ## 1.9.0
 - Perdarytas progos langas: vietoj įvedimo laukelių kiekvieno gavėjo kortelėje du aiškūs mygtukai – **＋ Dovana** (atsidaro dovanos langas, gavėjas ir proga jau pažymėti) ir **💡 Iš idėjų** (pasirinkti iš laukiančių idėjų).
 - Tuščioje kortelėje užrašas „Dovanų dar nėra“, virš kortelių – trumpa pagalba, kaip keisti būseną, ir mygtukas **＋ Gavėjas**.
