@@ -86,8 +86,10 @@ Užduotis galima suvesti ir iš `.json` failo (pvz. paprašius Claude paruošti 
 **Laikas.** Užduoties lange, kai nurodyta data, yra jungiklis **Visa diena**. Išjungus jį, galima nurodyti laiką „nuo–iki“ (kaip Google kalendoriuje).
 
 **Priminimai** nustatomi kiekvienai užduočiai atskirai: **🔔 Priminimai telefone → ＋ Pridėti priminimą**. Jų gali būti keli.
-- Užduočiai su laiku – pagal nutylėjimą **30 min. prieš**. Vienetai: min., val., d., sav.
-- Visos dienos užduočiai – pagal nutylėjimą **tą dieną 13:00**. Galima nurodyti, pvz., **1 d. prieš, 20:00** (šiukšlės) arba **1 sav. prieš** (filtrai, druska).
+- Visos dienos užduočiai pasirinkite iš sąrašo **Tą pačią dieną / Dieną prieš / 2–6 d. prieš / Savaitę prieš** ir valandą. Pvz. šiukšles veža antradienio rytą – **Dieną prieš, 19:00** (pirmadienio vakarą išvežti konteinerį).
+- Užduočiai su laiku – **pradžioje, 5–30 min., 1–12 val., dieną ar savaitę prieš** pradžią.
+- Po kiekvienu priminimu parašyta, kada tiksliai jis ateis (pvz. „🔔 Pirmadienis, lapkričio 2 d. 19:00“).
+- Pirmas priminimas pagal nutylėjimą – tą dieną 13:00 (su laiku – 30 min. prieš), antras – dieną prieš 19:00.
 
 Užduotys be priminimų į telefoną nesiunčiamos.
 

@@ -104,6 +104,7 @@ DEFAULT_SETTINGS = {
     "notify_overdue": True,
     "well_price": 0.2142,   # sutarta siurblio elektros kaina, EUR/kWh
     "well_neighbor": "Kaimynas",
+    "well_nb_from": "",     # nuo kada kaimynas naudoja gręžinį (YYYY-MM-DD); iki tol viskas tenka man
     "well_split": {"druska": "m3", "aptarnavimas": "half", "remontas": "half", "dalys": "half", "kita": "half"},
 }
 DEFAULT_SECTIONS = [("Darbai", "🔨"), ("Pirkiniai", "🛒"), ("Kada nors", "💡")]
@@ -427,6 +428,8 @@ def act_settings_save(d):
                 v = str(v or "").strip()
                 if k.endswith("_time"):
                     v = hm(v, dflt)
+                if k == "well_nb_from" and v:
+                    v = dt.date.fromisoformat(v).isoformat()
             s[k] = v
     meta_set("settings", s)
 

@@ -558,7 +558,8 @@ textarea.plain, input.plain { border: 0 !important; box-shadow: none !important;
 .tm-row .allday { gap: 8px; font-weight: 700; cursor: pointer; }
 .tm-row input[type=time] { width: auto; min-height: 40px; padding: 6px 8px; }
 .rem { display: flex; align-items: center; gap: 6px; margin-top: 6px; flex-wrap: wrap; }
-.rem .rn { width: 64px; text-align: center; font-weight: 800; min-height: 40px; padding: 6px; }
+.rem .rsel { font-weight: 700; }
+.rem .rem-when { flex-basis: 100%; font-size: 13px; color: var(--muted); }
 .rem select { width: auto; min-height: 40px; padding: 6px 8px; }
 .rem input[type=time] { width: auto; min-height: 40px; padding: 6px 8px; }
 .rem .x-btn { margin-left: auto; }

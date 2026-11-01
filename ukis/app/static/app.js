@@ -35,7 +35,14 @@ async function api(path, data) {
   if (!r.ok) { toast(j.error || 'Klaida'); throw new Error(j.error || r.status); }
   return j;
 }
-async function act(name, data, noRender) { const res = await api('api/do/' + name, data || {}); await load(noRender); return res; }
+async function act(name, data, noRender) {
+  const h0 = location.hash;
+  const res = await api('api/do/' + name, data || {});
+  await load(noRender);
+  // jei kol buvo saugoma, jau grįžta į kitą langą (pvz. pakeitus pavadinimą ir paspaudus ‹) – perpiešti jį su naujais duomenimis
+  if (noRender && location.hash !== h0) { const y = scrollY; render(); scrollTo(0, y); }
+  return res;
+}
 const saveRow = (t, row, noRender) => act('save', { t, row }, noRender);
 const delRow = (t, id) => act('delete', { t, id });
 
@@ -115,7 +122,11 @@ const logsOf = tid => S.task_log.filter(l => l.task_id === tid).sort((a, b) => (
 const routes = {};
 let route = { name: 'list', arg: null };
 function go(hash) { location.hash = hash; }
-window.addEventListener('hashchange', () => { closeSheet(); render(); scrollTo(0, 0); });
+window.addEventListener('hashchange', () => {
+  // dar neišsaugotą lauką (pavadinimas, aprašymas) išsaugoti prieš uždarant langą
+  const ae = document.activeElement; if (ae && view.contains(ae) && /INPUT|TEXTAREA/.test(ae.tagName)) ae.blur();
+  closeSheet(); render(); scrollTo(0, 0);
+});
 
 function setTop(title, opts = {}) {
   $('#title').textContent = title;
@@ -494,12 +505,12 @@ routes.task = id => {
     saveRow('tasks', o); };
   if ($('#td-t2')) $('#td-t2').onchange = e => saveRow('tasks', { id: t.id, end_time: e.target.value || '' });
   const remSave = () => {
-    const list = $$('#rems .rem').map(el => { const r = { n: Math.max(0, parseInt($('.rn', el).value) || 0), u: $('.ru', el).value }; const a = $('.ra', el); if (a) r.at = a.value || '13:00'; return r; });
+    const list = $$('#rems .rem').map(el => { const [n, u] = $('.rsel', el).value.split(':'); const r = { n: Math.max(0, parseInt(n) || 0), u }; const a = $('.ra', el); if (a) r.at = a.value || '13:00'; return r; });
     saveRow('tasks', { id: t.id, remind: list });
   };
-  $$('#rems .rn, #rems .ru, #rems .ra').forEach(el => el.onchange = remSave);
+  $$('#rems .rsel, #rems .ra').forEach(el => el.onchange = remSave);
   $$('#rems [data-rdel]').forEach(b => b.onclick = () => { b.closest('.rem').remove(); remSave(); });
-  if ($('#rem-add')) $('#rem-add').onclick = () => saveRow('tasks', { id: t.id, remind: [...t.rem, t.time ? { n: 30, u: 'min' } : { n: 0, u: 'd', at: '13:00' }] });
+  if ($('#rem-add')) $('#rem-add').onclick = () => saveRow('tasks', { id: t.id, remind: [...t.rem, t.time ? { n: t.rem.length ? 1 : 30, u: t.rem.length ? 'd' : 'min' } : t.rem.length ? { n: 1, u: 'd', at: '19:00' } : { n: 0, u: 'd', at: '13:00' }] });
   if ($('#td-done-rep')) { $('#td-done-rep').onclick = () => toggleDone(t); $('#td-skip').onclick = () => toggleDone(t, true); }
   $$('[data-log]').forEach(el => el.onclick = () => { const l = I.task_log[el.dataset.log]; if (confirm(`Ištrinti įrašą „atlikta ${l.date}“ iš istorijos?`)) delRow('task_log', l.id); });
   $('#td-due').onchange = e => setDue(e.target.value);
@@ -550,13 +561,29 @@ routes.task = id => {
 };
 
 const phoneName = sv => sv.replace(/^mobile_app_/, '').replace(/_/g, ' ');
+// priminimų pasirinkimai: visos dienos užduočiai – dienomis prieš + valanda; su laiku – prieš pradžią
+const REM_DAY = [[0, 'd'], [1, 'd'], [2, 'd'], [3, 'd'], [4, 'd'], [5, 'd'], [6, 'd'], [1, 'sav'], [2, 'sav']];
+const REM_TIME = [[0, 'min'], [5, 'min'], [10, 'min'], [15, 'min'], [30, 'min'], [1, 'val'], [2, 'val'], [3, 'val'], [6, 'val'], [12, 'val'], [1, 'd'], [2, 'd'], [1, 'sav']];
+function remLabel(n, u, timed) {
+  if (n === 0) return timed ? 'Užduoties pradžioje' : 'Tą pačią dieną';
+  if (u === 'd') return n === 1 ? 'Dieną prieš' : `${n} d. prieš`;
+  if (u === 'sav') return n === 1 ? 'Savaitę prieš' : `${n} sav. prieš`;
+  return `${n} ${u === 'val' ? 'val.' : 'min.'} prieš`;
+}
+const REM_MIN = { min: 1, val: 60, d: 1440, sav: 10080 };
+function remWhen(t, r) { // kada tiksliai ateis priminimas
+  let d;
+  if (t.time) { d = new Date(pd(t.due).getTime()); const [h, m] = t.time.split(':').map(Number); d.setHours(h, m - r.n * REM_MIN[r.u], 0, 0); }
+  else { d = pd(addDays(t.due, -r.n * (r.u === 'sav' ? 7 : 1))); const [h, m] = (r.at || '13:00').split(':').map(Number); d.setHours(h, m, 0, 0); }
+  return `${DAYS[d.getDay()]}, ${MONTHS_G[d.getMonth()]} ${d.getDate()} d. ${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`;
+}
 function remRow(t, r, i) {
-  const units = t.time ? [['min', 'min.'], ['val', 'val.'], ['d', 'd.'], ['sav', 'sav.']] : [['d', 'd.'], ['sav', 'sav.']];
-  const when = t.time ? 'prieš' : (r.n === 0 ? 'tą dieną' : 'prieš,');
-  return `<div class="rem"><input type="text" inputmode="numeric" class="rn" value="${esc(r.n)}">
-    <select class="ru">${units.map(([v, l]) => `<option value="${v}" ${r.u === v ? 'selected' : ''}>${l}</option>`).join('')}</select>
-    <span class="muted">${when}</span>${t.time ? '' : `<input type="time" class="ra" value="${esc(r.at || '13:00')}">`}
-    <button class="x-btn" data-rdel="${i}" aria-label="Pašalinti">×</button></div>`;
+  const timed = !!t.time, opts = [...(timed ? REM_TIME : REM_DAY)];
+  if (!opts.some(([n, u]) => n === r.n && u === r.u)) opts.push([r.n, r.u]);
+  return `<div class="rem"><select class="rsel">${opts.map(([n, u]) => `<option value="${n}:${u}" ${n === r.n && u === r.u ? 'selected' : ''}>${remLabel(n, u, timed)}</option>`).join('')}</select>
+    ${timed ? '' : `<span class="muted">,</span><input type="time" class="ra" value="${esc(r.at || '13:00')}">`}
+    <button class="x-btn" data-rdel="${i}" aria-label="Pašalinti">×</button>
+    <div class="rem-when">🔔 ${esc(remWhen(t, r))}</div></div>`;
 }
 function repeatSheet(t) {
   const r = t.rep || { type: 'cal', every: 1, unit: 'w' };
@@ -715,6 +742,9 @@ const nbName = () => S.settings.well_neighbor || 'Kaimynas';
 const ownerName = o => o === 'kaimynas' ? nbName() : 'Aš';
 const metersSorted = () => [...S.well_meters].sort((a, b) => a.pos - b.pos || a.id - b.id);
 const splitOf = c => c.split || (S.settings.well_split || {})[c.type] || 'half';
+const nbFrom = () => S.settings.well_nb_from || '';
+// ar kaimynas tuo metu jau naudojo gręžinį (iki nurodytos datos viskas tenka man)
+const nbUses = date => !nbFrom() || (date || '') >= nbFrom();
 
 // visi skaičiavimai: laikotarpiai tarp nurašymų
 function wellCalc() {
@@ -739,7 +769,8 @@ function wellCalc() {
     const tot = p.m3.as + p.m3.kaimynas;
     p.price = r.price ?? S.settings.well_price;
     p.el = p.kwh * p.price;
-    p.shareK = tot > 0 ? p.m3.kaimynas / tot : 0;
+    p.shareK = tot > 0 && nbUses(r.date) ? p.m3.kaimynas / tot : 0;
+    p.before = !nbUses(r.date);
     p.elK = p.el * p.shareK;
     return p;
   });
@@ -749,12 +780,18 @@ function wellYear(C, y) {
   const ps = C.periods.filter(p => p.round.date.startsWith(y) && p.from);
   const o = { kwh: 0, el: 0, elK: 0, m3: { as: 0, kaimynas: 0 }, costs: [], byType: {}, total: 0, totalK: 0 };
   ps.forEach(p => { o.kwh += p.kwh; o.el += p.el; o.elK += p.elK; o.m3.as += p.m3.as; o.m3.kaimynas += p.m3.kaimynas; });
-  const tot = o.m3.as + o.m3.kaimynas, shareK = tot > 0 ? o.m3.kaimynas / tot : 0;
+  // dalis pagal m³ skaičiuojama tik iš laikotarpių, kai kaimynas jau naudojo gręžinį
+  const sh = { as: 0, kaimynas: 0 };
+  ps.filter(p => !p.before).forEach(p => { sh.as += p.m3.as; sh.kaimynas += p.m3.kaimynas; });
+  const tot = sh.as + sh.kaimynas, shareK = tot > 0 ? sh.kaimynas / tot : 0;
   o.shareK = shareK;
+  o.nbFrom = nbFrom() && nbFrom().slice(0, 4) >= y ? nbFrom() : '';
+  o.mine = 0;
   o.costs = S.well_costs.filter(c => (c.date || '').startsWith(y)).sort((a, b) => b.date.localeCompare(a.date) || b.id - a.id);
   o.costs.forEach(c => {
-    const k = splitOf(c) === 'm3' ? shareK : 0.5, t = (o.byType[c.type] = o.byType[c.type] || { sum: 0, k: 0, split: splitOf(c) });
+    const k = !nbUses(c.date) ? 0 : splitOf(c) === 'm3' ? shareK : 0.5, t = (o.byType[c.type] = o.byType[c.type] || { sum: 0, k: 0, split: splitOf(c), mine: 0 });
     t.sum += +c.amount || 0; t.k += (+c.amount || 0) * k;
+    if (!nbUses(c.date)) { t.mine += +c.amount || 0; o.mine += +c.amount || 0; }
   });
   o.total = o.el + Object.values(o.byType).reduce((s, t) => s + t.sum, 0);
   o.totalK = o.elK + Object.values(o.byType).reduce((s, t) => s + t.k, 0);
@@ -802,7 +839,7 @@ routes.well = () => {
 
   // išlaidos
   h += `<h2>🧾 Išlaidos ${esc(y)}</h2>`;
-  h += Y.costs.length ? `<div class="card list">${Y.costs.map(c => { const [e, n] = W_TYPES[c.type] || W_TYPES.kita; return `<div class="li" data-wc="${c.id}"><span class="ic">${e}</span><div class="grow"><div class="t">${esc(n)}${c.note ? ` · <span style="font-weight:500">${esc(c.note)}</span>` : ''}</div><div class="s">${esc(shortDate(c.date))} · ${splitOf(c) === 'm3' ? 'dalinama pagal m³' : 'dalinama per pusę'}</div></div><span class="r"><b>${eur(c.amount)}</b></span></div>`; }).join('')}</div>`
+  h += Y.costs.length ? `<div class="card list">${Y.costs.map(c => { const [e, n] = W_TYPES[c.type] || W_TYPES.kita; return `<div class="li" data-wc="${c.id}"><span class="ic">${e}</span><div class="grow"><div class="t">${esc(n)}${c.note ? ` · <span style="font-weight:500">${esc(c.note)}</span>` : ''}</div><div class="s">${esc(shortDate(c.date))} · ${!nbUses(c.date) ? `tik man (iki ${esc(nbName())} pradžios)` : splitOf(c) === 'm3' ? 'dalinama pagal m³' : 'dalinama per pusę'}</div></div><span class="r"><b>${eur(c.amount)}</b></span></div>`; }).join('')}</div>`
     : `<div class="card pad muted small">Šiais metais išlaidų dar neįrašyta (druska, aptarnavimas, remontas…).</div>`;
 
   // suvestinė
@@ -825,15 +862,18 @@ routes.well = () => {
 function wellSummaryHtml(Y) {
   const nb = esc(nbName()), sh = Math.round(Y.shareK * 1000) / 10;
   const row = (l, sum, k, note) => `<tr><td>${l}${note ? `<div class="muted small">${note}</div>` : ''}</td><td>${eur(sum)}</td><td><b>${eur(k)}</b></td></tr>`;
-  let r = row('⚡ Siurblio elektra', Y.el, Y.elK, `${fmt(Y.kwh, 1)} kWh · pagal m³ kiekviename laikotarpyje`);
-  for (const [tp, t] of Object.entries(Y.byType)) { const [e, n] = W_TYPES[tp] || W_TYPES.kita; r += row(`${e} ${esc(n)}`, t.sum, t.k, t.split === 'm3' ? `pagal m³ (${nb} ${fmt(sh, 1)} %)` : 'per pusę'); }
+  const fromTxt = Y.nbFrom ? ` (nuo ${esc(shortDate(Y.nbFrom))})` : '';
+  let r = row('⚡ Siurblio elektra', Y.el, Y.elK, `${fmt(Y.kwh, 1)} kWh · pagal m³ kiekviename laikotarpyje${fromTxt}`);
+  for (const [tp, t] of Object.entries(Y.byType)) { const [e, n] = W_TYPES[tp] || W_TYPES.kita; r += row(`${e} ${esc(n)}`, t.sum, t.k, (t.split === 'm3' ? `pagal m³ (${nb} ${fmt(sh, 1)} %)` : 'per pusę') + (t.mine ? `; ${eur(t.mine)} iki ${esc(shortDate(Y.nbFrom))} – tik man` : '')); }
   return `<table class="w-tbl"><thead><tr><td></td><td>Viso</td><td>${nb}</td></tr></thead><tbody>${r}</tbody>
     <tfoot><tr><td>Iš viso</td><td>${eur(Y.total)}</td><td>${eur(Y.totalK)}</td></tr></tfoot></table>
-    <div class="muted small" style="margin-top:8px">Vanduo: aš ${fmt(Y.m3.as, 2)} m³, ${nb} ${fmt(Y.m3.kaimynas, 2)} m³ (${fmt(sh, 1)} %).</div>`;
+    <div class="muted small" style="margin-top:8px">Vanduo: aš ${fmt(Y.m3.as, 2)} m³, ${nb} ${fmt(Y.m3.kaimynas, 2)} m³ (${fmt(sh, 1)} %${Y.nbFrom ? ` nuo ${esc(shortDate(Y.nbFrom))}` : ''}).</div>
+    ${Y.nbFrom ? `<div class="muted small">${nb} naudoja nuo ${esc(longDate(Y.nbFrom).split(', ')[1])} Iki tos dienos visos išlaidos ir elektra tenka tik man.</div>` : ''}`;
 }
 function wellText(Y, y) {
   const L = [`Gręžinys ${y} m.`, `Elektra (siurblys): ${fmt(Y.kwh, 1)} kWh = ${eur(Y.el)}, tavo dalis ${eur(Y.elK)}`];
   for (const [tp, t] of Object.entries(Y.byType)) L.push(`${(W_TYPES[tp] || W_TYPES.kita)[1]}: ${eur(t.sum)}, tavo dalis ${eur(t.k)} (${t.split === 'm3' ? 'pagal m³' : 'per pusę'})`);
+  if (Y.nbFrom) L.push(`Skaičiuojama nuo ${longDate(Y.nbFrom).split(', ')[1]} (kai pradėjai naudoti)`);
   L.push(`Vanduo: mano ${fmt(Y.m3.as, 2)} m³, tavo ${fmt(Y.m3.kaimynas, 2)} m³`, `Iš viso tau: ${eur(Y.totalK)}`);
   return L.join('\n');
 }
@@ -916,12 +956,16 @@ routes.wellset = () => {
     <div class="muted small" style="margin-top:6px">Naudojama naujiems nurašymams. Senų nurašymų kaina nesikeičia (ją galima pakeisti atidarius nurašymą).</div></div>
   <h2>🤝 Dalinimas</h2>
   <div class="card pad stack"><label class="field"><span>Kaimyno vardas</span><input type="text" id="ws-nb" value="${esc(nbName())}"></label>
+    <div class="field"><span>Kaimynas naudoja nuo</span><div class="row"><input type="date" id="ws-from" class="grow" value="${esc(nbFrom())}" style="min-width:0">${nbFrom() ? '<button class="icon-btn" id="ws-from-x" aria-label="Pašalinti datą">✕</button>' : ''}</div></div>
+    <div class="muted small" style="margin-top:-6px">Iki šios dienos visos išlaidos ir siurblio elektra tenka tik jums. Jei tuščia – dalinama visada.</div>
     ${Object.entries(W_TYPES).map(([k, [e, n]]) => `<label class="row"><span class="grow">${e} ${esc(n)}</span><select data-wsp="${k}" style="width:auto;flex:none;min-width:140px"><option value="m3" ${sp[k] === 'm3' ? 'selected' : ''}>pagal m³</option><option value="half" ${sp[k] !== 'm3' ? 'selected' : ''}>per pusę</option></select></label>`).join('')}
     <div class="muted small">Siurblio elektra visada dalinama pagal m³ kiekviename laikotarpyje.</div></div>`;
   $('#ws-new').onclick = () => meterSheet();
   $$('[data-wm]').forEach(el => el.onclick = () => meterSheet(I.well_meters[el.dataset.wm]));
   $('#ws-price').onchange = e => { const x = numIn(e.target.value); if (x == null) return toast('Bloga kaina'); act('settings_save', { well_price: x }).then(() => toast('Išsaugota')); };
   $('#ws-nb').onchange = e => act('settings_save', { well_neighbor: e.target.value.trim() || 'Kaimynas' });
+  $('#ws-from').onchange = e => act('settings_save', { well_nb_from: e.target.value || '' }).then(() => toast('Išsaugota'));
+  if ($('#ws-from-x')) $('#ws-from-x').onclick = () => act('settings_save', { well_nb_from: '' });
   $$('[data-wsp]').forEach(s => s.onchange = () => { const o = {}; $$('[data-wsp]').forEach(x => o[x.dataset.wsp] = x.value); act('settings_save', { well_split: o }); });
 };
 function meterSheet(m) {
