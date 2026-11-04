@@ -1,5 +1,8 @@
 # Pakeitimai
 
+## 1.6.1
+- Paspaudus pranešimą telefone atsidaro priedas HA programėlėje (anksčiau rodė „Nepavyksta prisijungti prie Home Assistant“). Pranešimas veda į priedo meniu punktą šoninėje juostoje, todėl jame turi būti įjungta „Rodyti šoninėje juostoje“.
+
 ## 1.6.0
 - Priminimai telefone: aiškus pasirinkimas „Tą pačią dieną / Dieną prieš / 2–6 d. prieš / Savaitę prieš“ + valanda (pvz. šiukšlėms – dieną prieš 19:00). Užduotims su laiku – nuo pradžios iki savaitės prieš. Po kiekvienu priminimu parašyta, kada tiksliai jis ateis.
 - Pakeitus užduoties pavadinimą ar aprašymą ir grįžus atgal, sąrašas atsinaujina iš karto.

@@ -1,5 +1,8 @@
 # Pakeitimai
 
+## 1.4.1
+- Paspaudus pranešimą telefone atsidaro priedas HA programėlėje (anksčiau rodė „Nepavyksta prisijungti prie Home Assistant“). Pranešimas veda į priedo meniu punktą šoninėje juostoje, todėl jame turi būti įjungta „Rodyti šoninėje juostoje“.
+
 ## 1.4.0
 - Priminimai matomi HA pagrindiniame skydelyje: programa sukuria jutiklį `sensor.rodukas_priminimai` (procedūros, skiepai ir antiparazitinės, artimiausi vizitai, šiuo metu duodami vaistai).
 

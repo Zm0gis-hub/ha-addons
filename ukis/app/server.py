@@ -804,9 +804,53 @@ def hm(v, dflt="20:00"):
     return f"{int(m.group(1)):02d}:{m.group(2)}" if m and int(m.group(1)) < 24 and int(m.group(2)) < 60 else dflt
 
 
+def addon_slug():
+    """Šio priedo pilnas slug HA viduje (pvz. 44e59b9c_ukis)."""
+    return socket.gethostname().replace("-", "_", 1)
+
+
+CLICK_PATH = {"path": "", "at": 0.0}
+
+
 def ingress_path():
-    """Kelias į šį priedą HA viduje (pvz. /hassio/ingress/a0d7b954_ukis)."""
-    return "/hassio/ingress/" + socket.gethostname().replace("-", "_", 1)
+    """Kur nuveda paspaudus pranešimą telefone.
+
+    Senas kelias /hassio/ingress/<slug> naujose HA versijose programėlėje meta
+    „Nepavyksta prisijungti“, todėl vedama į priedo meniu punktą šoninėje juostoje
+    (/<slug>). Jį randame paklausę HA, kokie yra skydeliai (get_panels)."""
+    slug = addon_slug()
+    if CLICK_PATH["path"] and time.time() - CLICK_PATH["at"] < 3600:
+        return CLICK_PATH["path"]
+    path = ""
+    try:
+        ws = MiniWS(HA_HOST, HA_PORT, "/core/websocket")
+        try:
+            ws.recv()
+            ws.send({"type": "auth", "access_token": SUPERVISOR_TOKEN})
+            if ws.recv().get("type") == "auth_ok":
+                ws.send({"id": 1, "type": "get_panels"})
+                for _ in range(20):
+                    m = ws.recv()
+                    if m.get("id") == 1:
+                        break
+                panels = (m.get("result") or {}) if m.get("id") == 1 else {}
+                for key, pnl in panels.items():
+                    url = (pnl or {}).get("url_path") or key
+                    if url == slug or ((pnl or {}).get("config") or {}).get("ingress") == slug:
+                        path = "/" + url
+                        break
+        finally:
+            try:
+                ws.sock.close()
+            except Exception:  # noqa
+                pass
+    except Exception as e:  # noqa
+        log("Nepavyko gauti HA skydelių sąrašo:", e)
+    if not path:
+        path = "/hassio/ingress/" + slug
+        log("Priedas nerodomas šoninėje juostoje – pranešimas ves į", path)
+    CLICK_PATH.update(path=path, at=time.time())
+    return path
 
 
 def notify_services():
