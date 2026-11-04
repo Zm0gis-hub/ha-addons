@@ -1,5 +1,8 @@
 # Pakeitimai
 
+## 1.10.2
+- Idėjų sąraše, kai idėja panaudota kelis kartus, ↺ eilutėje matomi visi panaudojimai trumpai (pvz. „↺ 3× · 🎄25 Mama, 🎂24 Jonas“). Jei jų daugiau nei 3, gale rodoma „+N“ – visas sąrašas paspaudus idėją.
+
 ## 1.10.1
 - Po idėja be konkretaus gavėjo nebe rašoma „nežinia kam“ – matosi tik tikri gavėjai.
 

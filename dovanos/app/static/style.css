@@ -326,6 +326,9 @@ label.check input { width: 20px; height: 20px; accent-color: var(--accent); }
 .list.compact > .li .ico { font-size: 16px; }
 .list > .li .grow { min-width: 0; }
 .used { font-size: 12px; color: var(--ok); margin-top: 1px; }
+.used.multi { display: flex; gap: 5px; min-width: 0; }
+.used.multi .ellip { min-width: 0; }
+.used .more { flex: none; background: var(--chip); color: var(--ink); border-radius: 99px; padding: 0 6px; font-weight: 700; }
 .uses { margin: 12px 0 0; display: flex; flex-direction: column; gap: 2px; }
 .uses .use { font-size: 14px; color: var(--ink); text-decoration: none; padding: 5px 8px; border-radius: 8px; background: var(--chip); }
 .btn.ghost.small { padding: 4px 6px; color: var(--muted); }

@@ -322,7 +322,7 @@ function ideaLi(c, skipPid, noCat) {
   const uses = usesOf(g), cat = !noCat && g.cat ? catLabel(g.cat) : '';
   return `<div class="li" data-c="${i}"><div class="ico">💡</div>
     <div class="grow"><div class="ellip">${esc(g.title)}</div><div class="small muted ellip">${esc([cat, who, g.shop].filter(Boolean).join(' · '))}</div>
-      ${uses.length ? `<div class="used ellip">↺ ${uses.length > 1 ? uses.length + '× · ' : ''}${esc(useTxt(uses[0]))}</div>` : ''}</div>
+      ${usedLine(uses)}</div>
     ${g.price != null ? `<b class="nowrap">${money(g.price)}</b>` : ''}
     <button class="btn small ghost" data-assign="${i}" title="Priskirti progai">→ Proga</button></div>`;
 }
@@ -591,6 +591,17 @@ function catLabel(key) {
 const normT = t => String(t || '').trim().toLowerCase();
 const usesOf = g => S.gifts.filter(x => x.occasion_id && I.occasions[x.occasion_id] && normT(x.title) === normT(g.title))
   .sort((a, b) => I.occasions[b.occasion_id].year - I.occasions[a.occasion_id].year || (occDate(I.occasions[b.occasion_id]) || '').localeCompare(occDate(I.occasions[a.occasion_id]) || ''));
+// trumpas panaudojimas idėjų sąraše: „🎄25 Mama“ (visa informacija – paspaudus idėją)
+const cut = (t, n) => t.length > n ? t.slice(0, n - 1) + '…' : t;
+const useShort = x => { const o = I.occasions[x.occasion_id], who = pname(x.person_id || (o.kind === 'birthday' ? o.person_id : 0));
+  return `${occIcon(o)}${String(o.year).slice(-2)}${who ? ' ' + cut(who, 9) : ''}`; };
+const USED_MAX = 3;
+function usedLine(uses) {
+  if (!uses.length) return '';
+  if (uses.length === 1) return `<div class="used ellip">↺ ${esc(useTxt(uses[0]))}</div>`;
+  const more = uses.length - USED_MAX;
+  return `<div class="used multi"><span class="ellip">↺ ${uses.length}× · ${esc(uses.slice(0, USED_MAX).map(useShort).join(', '))}</span>${more > 0 ? `<b class="more">+${more}</b>` : ''}</div>`;
+}
 const useTxt = x => { const o = I.occasions[x.occasion_id]; return `${occTitle(o)}${x.person_id && !(o.kind === 'birthday' && o.person_id === x.person_id) ? ' · ' + pname(x.person_id) : ''}`; };
 
 // artimiausi metai, kai ta proga dar bus
