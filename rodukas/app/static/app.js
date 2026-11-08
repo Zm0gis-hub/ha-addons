@@ -1426,8 +1426,7 @@ function formSheet(o) {
   const vals = o.values || {};
   sheet(`<h3>${esc(o.title)}</h3><form id="fs" autocomplete="off">${o.pre || ''}<div class="fgrid">${o.fields.map(f => fieldHtml(f, vals[f.k])).join('')}</div>
     ${o.extra ? `<div class="stack" style="margin-top:12px">${o.extra}</div>` : ''}
-    <button class="btn primary block" style="margin-top:16px;min-height:50px">${esc(o.saveLabel || '💾 Išsaugoti')}</button>
-    ${o.onDelete ? '<button type="button" class="btn danger block" id="fs-del" style="margin-top:10px">Ištrinti</button>' : ''}</form>`, () => {
+    <div class="sheet-actions">${o.onDelete ? '<button type="button" class="btn danger" id="fs-del">Ištrinti</button>' : ''}<button class="btn primary">${esc(o.saveLabel || '💾 Išsaugoti')}</button></div></form>`, () => {
     const form = $('#fs');
     o.bind && o.bind(form);
     form.onsubmit = async e => {

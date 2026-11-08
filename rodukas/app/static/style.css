@@ -445,3 +445,37 @@ details.fold[open] > summary::before { content: "▾ "; }
   .chart { max-width: 420px; }
 }
 .nw { white-space: nowrap; }
+
+/* =====================================================================
+   IŠŠOKANTYS LANGAI – vienodai visuose prieduose (2026-11)
+   Langas kiek kitokio atspalvio nei puslapis, su plonu kontūru ir šešėliu,
+   už jo – pritemdytas fonas. Atsidaro švelniai iš apačios.
+   ===================================================================== */
+:root {
+  --sheet-bg: color-mix(in srgb, var(--card) 55%, var(--bg));
+  --sheet-line: color-mix(in srgb, var(--line), var(--ink) 12%);
+  --scrim: rgba(25, 18, 10, .45);
+}
+@media (prefers-color-scheme: dark) {
+  :root {
+    --sheet-bg: color-mix(in srgb, var(--card), #fff 5%);
+    --sheet-line: color-mix(in srgb, var(--line), #fff 10%);
+    --scrim: rgba(0, 0, 0, .62);
+  }
+}
+#sheet-bg { background: var(--scrim); }
+#sheet {
+  background: var(--sheet-bg);
+  box-shadow: 0 0 0 1px var(--sheet-line), 0 -10px 36px rgba(0, 0, 0, .28);
+  animation: sheet-in .2s ease-out;
+}
+#sheet-bg:not([hidden]) { animation: scrim-in .2s ease-out; }
+#sheet .grab { background: var(--sheet-line); }
+#pop { background: var(--sheet-bg); box-shadow: 0 0 0 1px var(--sheet-line), 0 10px 32px rgba(0, 0, 0, .3); }
+@keyframes sheet-in { from { translate: 0 48px; opacity: .3; } }
+@keyframes scrim-in { from { opacity: 0; } }
+@media (prefers-reduced-motion: reduce) { #sheet, #sheet-bg:not([hidden]) { animation: none; } }
+/* Mygtukų eilė lango apačioje: kairėje šalutinis (pvz. Pašalinti), dešinėje pagrindinis (Išsaugoti / Atlikta) */
+.sheet-actions { display: flex; gap: 10px; margin-top: 16px; }
+.sheet-actions .btn { flex: 1; min-height: 50px; }
+.sheet-actions .btn.primary { flex: 1.4; }

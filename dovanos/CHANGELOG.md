@@ -1,5 +1,8 @@
 # Pakeitimai
 
+## 1.10.3
+- Visi iššokantys langai dabar vienodi visuose prieduose: šiek tiek kitokio atspalvio nei puslapis, su plonu kontūru ir šešėliu, o fonas už jų labiau pritemdytas – iškart matosi, kad atsidarė naujas langas.
+
 ## 1.10.2
 - Idėjų sąraše, kai idėja panaudota kelis kartus, ↺ eilutėje matomi visi panaudojimai trumpai (pvz. „↺ 3× · 🎄25 Mama, 🎂24 Jonas“). Jei jų daugiau nei 3, gale rodoma „+N“ – visas sąrašas paspaudus idėją.
 

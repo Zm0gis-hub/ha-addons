@@ -1,5 +1,10 @@
 # Pakeitimai
 
+## 1.11.0
+- Pirkinių sąrašas, prekės langas: „Išsaugoti“ perkeltas į apačią dešinėje (kur įprasta patvirtinti), „🗑 Pašalinti“ – šalia kairėje. „🏠 Turiu namie“ ir „↳ Įterpti po šia“ – aukščiau vienoje eilėje.
+- Visi iššokantys langai dabar vienodi visuose prieduose: šiek tiek kitokio atspalvio nei puslapis, su plonu kontūru ir šešėliu, o fonas už jų labiau pritemdytas – iškart matosi, kad atsidarė naujas langas.
+- Meniu patiekalo, skyriaus ir paryškinimo taisyklės languose „Išsaugoti“ taip pat apačioje dešinėje.
+
 ## 1.10.0
 - Pirkinių sąrašas ir šiandienos meniu matomi HA pagrindiniame skydelyje: programa sukuria jutiklį `sensor.receptai_pirkiniai` (kiek prekių pirkti, jų sąrašas ir ką šiandien gaminti).
 

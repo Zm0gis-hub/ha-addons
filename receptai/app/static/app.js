@@ -535,12 +535,14 @@ function itemSheet(pid) {
       <select id="ix-unit" class="grow">${UNITS.map(u => `<option ${u === defUnit ? 'selected' : ''}>${u}</option>`).join('')}${UNITS.includes(defUnit) ? '' : `<option selected>${esc(defUnit)}</option>`}</select></div></div>
     <label class="field"><span>Pastaba (pvz. „Lidl Plus kuponas“)</span><input type="text" id="ix-note" value="${esc(extra?.note || '')}"></label>
     <label class="field"><span>Kategorija ${p.section_id ? '' : '<b style="color:var(--warn)">– nepriskirta</b>'}</span><select id="ix-sec"><option value="">— nepriskirta —</option>${S.sections.map(s => `<option value="${s.id}" ${s.id === p.section_id ? 'selected' : ''}>${esc(s.emoji + ' ' + s.name)}</option>`).join('')}</select></label>
-    <button class="btn primary block" id="ix-save">Išsaugoti</button>
-    ${L.toBuy.some(r => r.pid === pid) ? '<button class="btn block" id="ix-ins">↳ Įterpti naują prekę po šia</button>' : ''}
     <div class="row">
       <button class="btn grow" id="ix-have">${st.state === 'have' ? '↺ Vis dėlto reikia' : '🏠 Turiu namie'}</button>
-      ${extra && !fromRecipes ? '<button class="btn grow danger" id="ix-del">🗑 Pašalinti</button>' : ''}
-    </div></div>`, () => {
+      ${L.toBuy.some(r => r.pid === pid) ? '<button class="btn grow" id="ix-ins">↳ Įterpti po šia</button>' : ''}
+    </div></div>
+    <div class="sheet-actions">
+      ${extra && !fromRecipes ? '<button class="btn danger" id="ix-del">🗑 Pašalinti</button>' : ''}
+      <button class="btn primary" id="ix-save">Išsaugoti</button>
+    </div>`, () => {
     const q = $('#ix-qty');
     const step = d => { const v = parseFloat((q.value || '0').replace(',', '.')) || 0; const u = $('#ix-unit').value; const inc = (u === 'g' || u === 'ml') ? 100 : 1; q.value = fmtNum(Math.max(0, v + d * inc)).replace(/^0$/, ''); };
     $('#ix-m').onclick = () => step(-1); $('#ix-p').onclick = () => step(1);
@@ -702,8 +704,7 @@ function menuItemSheet(m) {
   sheet(`<h3>${esc(r.title)}</h3><div class="stack">
     <label class="field"><span>Porcijos</span><div class="serv"><button id="sm">−</button><b id="sv">${fmtNum(m.servings)}</b><button id="sp">＋</button></div></label>
     <label class="field"><span>Diena</span><input type="date" id="mday" value="${m.day}"></label>
-    <button class="btn block" id="m-save">Išsaugoti</button>
-    <button class="btn block danger" id="m-del">Pašalinti iš meniu</button></div>`, () => {
+    </div><div class="sheet-actions"><button class="btn danger" id="m-del">Pašalinti iš meniu</button><button class="btn primary" id="m-save">Išsaugoti</button></div>`, () => {
     let sv = m.servings;
     $('#sm').onclick = () => { sv = Math.max(1, sv - 1); $('#sv').textContent = fmtNum(sv); };
     $('#sp').onclick = () => { sv += 1; $('#sv').textContent = fmtNum(sv); };
@@ -1156,8 +1157,7 @@ function sectionSheet(s) {
   sheet(`<h3>${s ? 'Redaguoti skyrių' : 'Naujas skyrius'}</h3><form id="sf" class="stack">
     <div class="row"><label class="field" style="width:80px"><span>Ženkliukas</span><input type="text" name="emoji" value="${esc(s?.emoji || '')}" maxlength="4" style="text-align:center;font-size:22px"></label>
     <label class="field grow"><span>Pavadinimas</span><input type="text" name="name" value="${esc(s?.name || '')}" required></label></div>
-    <button class="btn primary block">Išsaugoti</button>
-    ${s ? '<button type="button" class="btn danger block" id="sdel">Ištrinti skyrių</button>' : ''}</form>`, () => {
+    <div class="sheet-actions" style="margin-top:4px">${s ? '<button type="button" class="btn danger" id="sdel">Ištrinti skyrių</button>' : ''}<button class="btn primary">Išsaugoti</button></div></form>`, () => {
     $('#sf').onsubmit = async e => { e.preventDefault(); const f = new FormData(e.target); await act('section_save', { id: s?.id, name: f.get('name'), emoji: f.get('emoji') }); closeSheet(); };
     $('#sdel') && ($('#sdel').onclick = async () => { if (confirm('Ištrinti skyrių? Jo produktai liks be skyriaus.')) { await act('section_delete', { id: s.id }); closeSheet(); } });
   });
@@ -1237,8 +1237,7 @@ function ruleSheet(r) {
     <div><span class="muted small">Spalva</span><div class="swatches" id="sw">${COLORS.map(([c, n]) => `<button type="button" data-c="${c}" title="${n}" class="${c === color ? 'on' : ''}" style="${c ? 'background:' + colorCss(c) : ''}">${c ? '' : 'Aa'}</button>`).join('')}</div></div>
     <div class="row"><b class="grow">Paryškinta (bold)</b><label class="switch"><input type="checkbox" id="rb" ${bold ? 'checked' : ''}><i></i></label></div>
     <div class="card pad"><span class="muted small">Peržiūra: </span><span id="rprev"></span></div>
-    <button class="btn primary block" id="rsave">Išsaugoti</button>
-    ${r ? '<button class="btn danger block" id="rdel">Ištrinti</button>' : ''}</div>`, () => {
+    <div class="sheet-actions" style="margin-top:4px">${r ? '<button class="btn danger" id="rdel">Ištrinti</button>' : ''}<button class="btn primary" id="rsave">Išsaugoti</button></div></div>`, () => {
     const prev = () => { $('#rprev').innerHTML = `Padažas – <span style="${color ? 'color:' + colorCss(color) + ';' : ''}${bold ? 'font-weight:700' : ''}">${esc($('#rw').value || 'žodis')}</span>, akcija`; };
     $$('#sw button').forEach(b => b.onclick = () => { color = b.dataset.c; $$('#sw button').forEach(x => x.classList.toggle('on', x === b)); prev(); });
     $('#rb').onchange = () => { bold = $('#rb').checked; prev(); };

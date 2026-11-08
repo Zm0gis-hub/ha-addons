@@ -414,38 +414,26 @@ function tagSheet(g, after) {
 routes.task = id => {
   const t = I.tasks[id]; if (!t) return go('#' + (UI.lastTab || 'list'));
   setTop('', { back: true, actions: `<button class="icon-btn" id="tk-menu" aria-label="Daugiau">⋯</button>` });
-  const di = !t.done && dueInfo(t.due);
   const subs = subsOf(t.id), files = filesOf(t.id), coms = commentsOf(t.id);
-  const t0 = T();
-  const wd = isoWd(t0), sat = wd < 6 ? addDays(t0, 6 - wd) : wd === 6 ? t0 : addDays(t0, 6);
-  const quick = [['Šiandien', t0], ['Rytoj', addDays(t0, 1)], ['Šeštadienį', sat], ['Po savaitės', addDays(t0, 7)]];
+  const tags = tagsSorted().filter(g => t.tagIds.includes(g.id));
+  const extra = [];
+  if (t.rep) extra.push('🔁 ' + esc(repText(t.rep)));
+  if (t.due && t.rem.length) extra.push('🔔 ' + (t.rem.length === 1 ? esc(remLabel(t.rem[0].n, t.rem[0].u, !!t.time)) : `${t.rem.length} priminimai`));
+  const moved = t.rep && t.rep.type === 'cal' && t.rep.next && t.due && t.rep.next !== t.due;
+  const L = t.rep ? logsOf(t.id) : [];
   view.innerHTML = `
   <div class="td-head ${t.done ? 'done' : ''}">
     <button class="ck big" id="td-ck" aria-label="Atlikta"></button>
     <textarea id="td-title" rows="1" placeholder="Užduoties pavadinimas">${esc(t.title)}</textarea>
   </div>
   ${t.done ? `<div class="donebar">✓ Atlikta ${esc(stamp(t.done_at))}</div>` : ''}
-  <div class="card list" style="margin-top:12px">
-    <div class="li" id="td-sec"><span class="ic">📁</span><div class="grow"><div class="s">Sekcija</div><div class="t">${esc(secLabel(I.sections[t.section_id]))}</div></div><span class="muted">›</span></div>
-    <div class="li td-date" style="align-items:flex-start"><span class="ic">📅</span><div class="grow"><div class="s">Data</div>
-      <div class="row"><input type="date" id="td-due" value="${esc(t.due || '')}">${t.due ? '<button class="icon-btn" id="td-due-x" aria-label="Pašalinti datą">✕</button>' : ''}</div>
-      ${t.due ? `<div class="row wrap tm-row"><label class="row allday"><span class="switch"><input type="checkbox" id="td-allday" ${t.time ? '' : 'checked'}><i></i></span><span>Visa diena</span></label>
-        ${t.time ? `<span class="row"><input type="time" id="td-t1" value="${esc(t.time)}"><span>–</span><input type="time" id="td-t2" value="${esc(t.end_time || '')}"></span>` : ''}</div>` : ''}
-      ${di ? `<div class="due ${di.cls}" style="margin-top:6px">${esc(di.txt)}${t.time ? ' ' + esc(t.time) + (t.end_time ? '–' + esc(t.end_time) : '') : ''} · ${esc(longDate(t.due))}</div>` : ''}
-      <div class="qdates">${quick.map(([l, d]) => `<button class="chip ${t.due === d ? 'on' : ''}" data-qd="${d}">${l}</button>`).join('')}</div></div></div>
-    <div class="li" id="td-rep"><span class="ic">🔁</span><div class="grow"><div class="s">Kartojimas</div><div class="t ${t.rep ? '' : 'muted'}">${t.rep ? esc(repText(t.rep)) : 'Nesikartoja'}</div>
-      ${t.rep && t.rep.type === 'cal' && t.rep.next && t.due && t.rep.next !== t.due ? `<div class="s" style="color:var(--warn);font-weight:700">Šį kartą perkelta (pagal grafiką – ${esc(shortDate(t.rep.next))})</div>` : ''}</div><span class="muted">›</span></div>
-    ${t.due ? `<div class="li" style="align-items:flex-start"><span class="ic">🔔</span><div class="grow"><div class="s">Priminimai telefone</div>
-      <div id="rems">${t.rem.map((r, i) => remRow(t, r, i)).join('')}</div>
-      <button class="chip" id="rem-add" style="margin-top:8px">＋ Pridėti priminimą</button>
-      ${S.settings.notify_services?.length ? '' : '<div class="s" style="margin-top:6px">Telefonas dar nepasirinktas – ⚙️ Nustatymai → Priminimai telefone</div>'}</div></div>` : ''}
-    <div class="li" style="align-items:flex-start"><span class="ic">🏷️</span><div class="grow"><div class="s">Žymos</div>
-      <div class="tagpick">${tagsSorted().map(g => `<button class="chip ${t.tagIds.includes(g.id) ? 'on' : ''}" data-tt="${g.id}">${esc(tagLabel(g))}</button>`).join('')}<button class="chip" id="td-newtag">＋</button></div></div></div>
+  <div class="td-meta">
+    <button class="td-pill" id="td-date"><span class="pi ${t.due ? '' : 'empty'}">📅</span><span class="grow"><small>Terminas</small><b class="${!t.done && t.due ? (dueInfo(t.due).cls || '') : ''}">${t.due ? esc(dueShort(t)) : '<span class="muted">Be datos</span>'}</b></span></button>
+    <button class="td-pill" id="td-sec"><span class="pi">📁</span><span class="grow"><small>Sekcija</small><b>${esc(secLabel(I.sections[t.section_id]))}</b></span></button>
   </div>
-
-  ${t.rep ? (() => { const L = logsOf(t.id); return `<div class="row" style="margin-top:12px"><button class="btn primary grow" id="td-done-rep">✓ Atlikta</button><button class="btn grow" id="td-skip">⏭ Praleisti šį kartą</button></div>
-    ${L.length ? `<details class="card fold-card"><summary class="li"><span class="ic">🕘</span><div class="grow"><div class="t">Atlikta paskutinį kartą ${esc(stamp(L[0].date))}</div><div class="s">Istorija: ${L.length} kart.</div></div><span class="chev">›</span></summary>
-      ${L.slice(0, 30).map(l => `<div class="li" data-log="${l.id}"><span class="ic">✓</span><div class="grow"><div class="t">${esc(longDate(l.date))}</div>${l.due && l.due !== l.date ? `<div class="s">buvo numatyta ${esc(shortDate(l.due))}</div>` : ''}</div></div>`).join('')}</details>` : ''}`; })() : ''}
+  ${extra.length || moved ? `<div class="td-extra" id="td-extra">${extra.join('<span class="dot">·</span>')}${moved ? `<div class="warnline">Šį kartą perkelta (pagal grafiką – ${esc(shortDate(t.rep.next))})</div>` : ''}</div>` : ''}
+  <div class="td-tags" id="td-tags">${tags.map(g => `<span class="chip on">${esc(tagLabel(g))}</span>`).join('')}<span class="chip add">🏷️ ${tags.length ? '＋' : 'Pridėti žymą'}</span></div>
+  ${t.rep ? `<div class="row" style="margin-top:12px"><button class="btn primary grow" id="td-done-rep">✓ Atlikta</button><button class="btn grow" id="td-skip">⏭ Praleisti šį kartą</button></div>` : ''}
 
   <h2>📝 Aprašymas</h2>
   <div class="card"><textarea id="td-notes" class="plain" placeholder="Smulkesnė informacija, telefonai, matmenys…">${esc(t.notes || '')}</textarea></div>
@@ -466,6 +454,8 @@ routes.task = id => {
   <div class="card">${coms.map(c => `<div class="com" data-com="${c.id}"><div class="when">${esc(stamp(c.created))}</div><div class="pre">${esc(c.text)}</div></div>`).join('')}
     <form id="com-new" class="com-new"><textarea placeholder="Komentaras…" rows="1"></textarea><button class="btn primary small">Rašyti</button></form>
   </div>
+  ${L.length ? `<details class="card fold-card"><summary class="li"><span class="ic">🕘</span><div class="grow"><div class="t">Atlikta paskutinį kartą ${esc(stamp(L[0].date))}</div><div class="s">Istorija: ${L.length} kart.</div></div><span class="chev">›</span></summary>
+    ${L.slice(0, 30).map(l => `<div class="li" data-log="${l.id}"><span class="ic">✓</span><div class="grow"><div class="t">${esc(longDate(l.date))}</div>${l.due && l.due !== l.date ? `<div class="s">buvo numatyta ${esc(shortDate(l.due))}</div>` : ''}</div></div>`).join('')}</details>` : ''}
   <p class="muted small center" style="margin-top:18px">Sukurta ${esc(stamp(t.created))}</p>`;
 
   // pavadinimas
@@ -476,52 +466,12 @@ routes.task = id => {
   $('#td-ck').onclick = () => toggleDone(t);
   $('#tk-menu').onclick = () => taskMenu(t);
   $('#td-sec').onclick = () => pickSection(t.section_id, async sid => { if (sid === t.section_id) return; await saveRow('tasks', { id: t.id, section_id: sid, pos: '' }); });
-  // data
-  const setDue = d => {
-    if (!t.rep) return saveRow('tasks', { id: t.id, due: d || '' });
-    if (!d) { $('#td-due').value = t.due || ''; return toast('Kartojamai užduočiai data būtina'); }
-    if (d === t.due) return;
-    if (t.rep.type === 'after') return saveRow('tasks', { id: t.id, due: d, repeat: { ...t.rep, next: d } });
-    sheet(`<h3>Keisti datą į ${esc(longDate(d))}?</h3><div class="card list">
-      <div class="li" id="dd-once"><span class="ic">1️⃣</span><div class="grow"><div class="t">Tik šį kartą</div><div class="s">Kiti kartai lieka pagal grafiką (${esc(repText(t.rep).toLowerCase())})</div></div></div>
-      <div class="li" id="dd-all"><span class="ic">🔁</span><div class="grow"><div class="t">Perkelti visą grafiką</div><div class="s">Toliau bus skaičiuojama nuo ${esc(shortDate(d))}</div></div></div></div>`, () => {
-      $('#dd-once').onclick = () => { closeSheet(); saveRow('tasks', { id: t.id, due: d, repeat: { ...t.rep, next: t.rep.next || t.due } }); };
-      $('#dd-all').onclick = () => { closeSheet(); saveRow('tasks', { id: t.id, due: d, repeat: { ...t.rep, next: d } }); };
-    });
-    $('#sheet-bg').onclick = () => { closeSheet(); render(); };
-  };
-  $('#td-rep').onclick = () => repeatSheet(t);
-  // laikas ir priminimai
-  const conv = (list, timed) => list.map(r => timed
-    ? (r.u === 'd' && r.n === 0 ? { n: 30, u: 'min' } : { n: r.n, u: r.u })
-    : (r.u === 'd' || r.u === 'sav' ? { n: r.n, u: r.u, at: r.at || '13:00' } : { n: 0, u: 'd', at: '13:00' }));
-  if ($('#td-allday')) $('#td-allday').onchange = e => {
-    if (e.target.checked) return saveRow('tasks', { id: t.id, time: '', end_time: '', remind: conv(t.rem, false) });
-    const h = Math.min(22, new Date().getHours() + 1), p2 = n => String(n).padStart(2, '0');
-    saveRow('tasks', { id: t.id, time: p2(h) + ':00', end_time: p2(h + 1) + ':00', remind: conv(t.rem, true) });
-  };
-  if ($('#td-t1')) $('#td-t1').onchange = e => { if (!e.target.value) return; const o = { id: t.id, time: e.target.value };
-    if (t.end_time && t.end_time <= e.target.value) { const [hh, mm] = e.target.value.split(':').map(Number); o.end_time = String(Math.min(23, hh + 1)).padStart(2, '0') + ':' + String(mm).padStart(2, '0'); }
-    saveRow('tasks', o); };
-  if ($('#td-t2')) $('#td-t2').onchange = e => saveRow('tasks', { id: t.id, end_time: e.target.value || '' });
-  const remSave = () => {
-    const list = $$('#rems .rem').map(el => { const [n, u] = $('.rsel', el).value.split(':'); const r = { n: Math.max(0, parseInt(n) || 0), u }; const a = $('.ra', el); if (a) r.at = a.value || '13:00'; return r; });
-    saveRow('tasks', { id: t.id, remind: list });
-  };
-  $$('#rems .rsel, #rems .ra').forEach(el => el.onchange = remSave);
-  $$('#rems [data-rdel]').forEach(b => b.onclick = () => { b.closest('.rem').remove(); remSave(); });
-  if ($('#rem-add')) $('#rem-add').onclick = () => saveRow('tasks', { id: t.id, remind: [...t.rem, t.time ? { n: t.rem.length ? 1 : 30, u: t.rem.length ? 'd' : 'min' } : t.rem.length ? { n: 1, u: 'd', at: '19:00' } : { n: 0, u: 'd', at: '13:00' }] });
+  // terminas, laikas, kartojimas, priminimai – atskirame lange
+  $('#td-date').onclick = () => dateSheet(t);
+  if ($('#td-extra')) $('#td-extra').onclick = () => dateSheet(t);
+  $('#td-tags').onclick = () => tagPickSheet(t);
   if ($('#td-done-rep')) { $('#td-done-rep').onclick = () => toggleDone(t); $('#td-skip').onclick = () => toggleDone(t, true); }
   $$('[data-log]').forEach(el => el.onclick = () => { const l = I.task_log[el.dataset.log]; if (confirm(`Ištrinti įrašą „atlikta ${l.date}“ iš istorijos?`)) delRow('task_log', l.id); });
-  $('#td-due').onchange = e => setDue(e.target.value);
-  if ($('#td-due-x')) $('#td-due-x').onclick = () => setDue('');
-  $$('[data-qd]').forEach(b => b.onclick = () => setDue(t.due === b.dataset.qd ? '' : b.dataset.qd));
-  // žymos
-  $$('[data-tt]').forEach(b => b.onclick = () => {
-    const gid = +b.dataset.tt, ids = t.tagIds.includes(gid) ? t.tagIds.filter(x => x !== gid) : [...t.tagIds, gid];
-    saveRow('tasks', { id: t.id, tags: ids });
-  });
-  $('#td-newtag').onclick = () => tagSheet(null, nid => saveRow('tasks', { id: t.id, tags: [...t.tagIds, nid] }));
   // aprašymas
   const no = $('#td-notes');
   autosize(no, 110); no.oninput = () => autosize(no, 110);
@@ -560,6 +510,118 @@ routes.task = id => {
   $$('[data-com]').forEach(el => el.onclick = () => commentSheet(I.comments[el.dataset.com]));
 };
 
+// trumpas termino užrašas: „Šiandien 13:00“, „Rytoj“, „Št lapkr. 7“
+function dueShort(t) {
+  const n = diffDays(T(), t.due);
+  const w = n === 0 ? 'Šiandien' : n === 1 ? 'Rytoj' : n === -1 ? 'Vakar' : `${DAYS_S[pd(t.due).getDay()]} ${shortDate(t.due)}${t.due.slice(0, 4) !== T().slice(0, 4) ? ' ' + t.due.slice(0, 4) : ''}`;
+  return w + (t.time ? ' ' + t.time : '');
+}
+
+// Žymos – atskirame lange; pakeitimai išsaugomi uždarant
+function tagPickSheet(t) {
+  let ids = [...t.tagIds];
+  const done = () => { closeSheet(); if (ids.join() !== t.tagIds.join()) saveRow('tasks', { id: t.id, tags: ids }); };
+  sheet(`<h3>🏷️ Žymos</h3><div class="tagpick">${tagsSorted().map(g => `<button class="chip ${ids.includes(g.id) ? 'on' : ''}" data-tt="${g.id}">${esc(tagLabel(g))}</button>`).join('')}<button class="chip" id="tp-new">＋ Nauja žyma</button></div>
+    <div class="sheet-actions"><button class="btn primary" id="tp-ok">Atlikta</button></div>`, () => {
+    $$('[data-tt]').forEach(b => b.onclick = () => { const gid = +b.dataset.tt; ids = ids.includes(gid) ? ids.filter(x => x !== gid) : [...ids, gid]; b.classList.toggle('on', ids.includes(gid)); });
+    $('#tp-new').onclick = () => tagSheet(null, nid => saveRow('tasks', { id: t.id, tags: [...ids, nid] }));
+    $('#tp-ok').onclick = done;
+    $('#sheet-bg').onclick = done;
+  });
+}
+
+// Terminas: data (kalendorius), laikas, kartojimas, priminimai – kaip Asana apatinis langas.
+// Viskas keičiama juodraštyje ir išsaugoma tik paspaudus „Atlikta“.
+const MONTHS_N = ['sausis', 'vasaris', 'kovas', 'balandis', 'gegužė', 'birželis', 'liepa', 'rugpjūtis', 'rugsėjis', 'spalis', 'lapkritis', 'gruodis'];
+function dateSheet(t, d) {
+  d = d || { due: t.due || '', time: t.time || '', end_time: t.end_time || '', rem: t.rem.map(r => ({ ...r })), rep: t.rep ? { ...t.rep } : null, repDirty: false };
+  const base = d.due || T();
+  let vy = d.vy ?? pd(base).getFullYear(), vm = d.vm ?? pd(base).getMonth();
+  const t0 = T(), wd = isoWd(t0);
+  const sat = wd < 6 ? addDays(t0, 6 - wd) : wd === 6 ? t0 : addDays(t0, 6);
+  const mon = addDays(t0, 8 - wd);
+  const quick = [['Šiandien', t0], ['Rytoj', addDays(t0, 1)], ['Šeštadienį', sat], ['Kitą pirmadienį', mon], ['Po savaitės', addDays(t0, 7)]];
+  const conv = (list, timed) => list.map(r => timed
+    ? (r.u === 'd' && r.n === 0 ? { n: 30, u: 'min' } : { n: r.n, u: r.u })
+    : (r.u === 'd' || r.u === 'sav' ? { n: r.n, u: r.u, at: r.at || '13:00' } : { n: 0, u: 'd', at: '13:00' }));
+  const calHtml = () => {
+    const first = new Date(vy, vm, 1), lead = (first.getDay() + 6) % 7, days = new Date(vy, vm + 1, 0).getDate();
+    let h = '';
+    for (let i = 0; i < lead; i++) h += '<span></span>';
+    for (let i = 1; i <= days; i++) {
+      const s = ds(new Date(vy, vm, i));
+      h += `<button type="button" class="${s === d.due ? 'sel' : ''} ${s === t0 ? 'today' : ''} ${s < t0 ? 'past' : ''}" data-dd="${s}">${i}</button>`;
+    }
+    return `<div class="dp-head"><b>${vy} m. ${MONTHS_N[vm]}</b><span class="grow"></span><button type="button" class="icon-btn" id="dp-prev" aria-label="Ankstesnis mėnuo">‹</button><button type="button" class="icon-btn" id="dp-next" aria-label="Kitas mėnuo">›</button></div>
+      <div class="dp-grid dp-wd">${['P', 'A', 'T', 'K', 'P', 'Š', 'S'].map(x => `<span>${x}</span>`).join('')}</div><div class="dp-grid">${h}</div>`;
+  };
+  const draw = () => {
+    const di = d.due && dueInfo(d.due);
+    const timed = !!d.time;
+    $('#sheet').innerHTML = `<div class="grab"></div>
+    <div class="dp-top"><button type="button" class="link" id="dp-cancel">Atšaukti</button><b>Terminas</b><span style="width:70px"></span></div>
+    <div class="qdates">${quick.map(([l, x]) => `<button type="button" class="chip ${d.due === x ? 'on' : ''}" data-qd="${x}">${l}</button>`).join('')}</div>
+    <div class="dp">${calHtml()}</div>
+    <div class="dp-sum ${di ? di.cls : ''}">${d.due ? `${esc(longDate(d.due))} · ${esc(di.txt)}` : 'Data nepasirinkta'}</div>
+    <div class="card list" style="margin-top:12px">
+      ${d.due ? `<div class="li" style="align-items:flex-start"><span class="ic">🕐</span><div class="grow"><label class="row allday"><span class="grow t">Visa diena</span><span class="switch"><input type="checkbox" id="dp-allday" ${timed ? '' : 'checked'}><i></i></span></label>
+        ${timed ? `<div class="row tm-row"><input type="time" id="dp-t1" value="${esc(d.time)}"><span>–</span><input type="time" id="dp-t2" value="${esc(d.end_time)}"></div>` : ''}</div></div>` : ''}
+      <div class="li" id="dp-rep"><span class="ic">🔁</span><div class="grow"><div class="s">Kartojimas</div><div class="t ${d.rep ? '' : 'muted'}">${d.rep ? esc(repText(d.rep)) : 'Nesikartoja'}</div></div><span class="muted">›</span></div>
+      ${d.due ? `<div class="li" style="align-items:flex-start"><span class="ic">🔔</span><div class="grow"><div class="s">Priminimai telefone</div>
+        <div id="rems">${d.rem.map((r, i) => remRow(d, r, i)).join('')}</div>
+        <button type="button" class="chip" id="rem-add" style="margin-top:8px">＋ Pridėti priminimą</button>
+        ${S.settings.notify_services?.length ? '' : '<div class="s" style="margin-top:6px">Telefonas dar nepasirinktas – ⚙️ Nustatymai → Priminimai telefone</div>'}</div></div>` : ''}
+    </div>
+    <div class="sheet-actions">${d.due ? '<button type="button" class="btn danger" id="dp-clear">Be datos</button>' : ''}<button type="button" class="btn primary" id="dp-ok">Atlikta</button></div>`;
+    const keep = () => { const y = $('#sheet').scrollTop; draw(); $('#sheet').scrollTop = y; };
+    $$('[data-qd]', $('#sheet')).forEach(b => b.onclick = () => { d.due = b.dataset.qd; vy = pd(d.due).getFullYear(); vm = pd(d.due).getMonth(); keep(); });
+    $$('[data-dd]').forEach(b => b.onclick = () => { d.due = b.dataset.dd; keep(); });
+    $('#dp-prev').onclick = () => { vm--; if (vm < 0) { vm = 11; vy--; } keep(); };
+    $('#dp-next').onclick = () => { vm++; if (vm > 11) { vm = 0; vy++; } keep(); };
+    if ($('#dp-allday')) $('#dp-allday').onchange = e => {
+      if (e.target.checked) { d.time = ''; d.end_time = ''; d.rem = conv(d.rem, false); }
+      else { const h = Math.min(22, new Date().getHours() + 1), p2 = n => String(n).padStart(2, '0'); d.time = p2(h) + ':00'; d.end_time = p2(h + 1) + ':00'; d.rem = conv(d.rem, true); }
+      keep();
+    };
+    if ($('#dp-t1')) $('#dp-t1').onchange = e => { if (!e.target.value) return; d.time = e.target.value;
+      if (d.end_time && d.end_time <= d.time) { const [hh, mm] = d.time.split(':').map(Number); d.end_time = String(Math.min(23, hh + 1)).padStart(2, '0') + ':' + String(mm).padStart(2, '0'); }
+      keep(); };
+    if ($('#dp-t2')) $('#dp-t2').onchange = e => { d.end_time = e.target.value || ''; };
+    const remRead = () => { d.rem = $$('#rems .rem').map(el => { const [n, u] = $('.rsel', el).value.split(':'); const r = { n: Math.max(0, parseInt(n) || 0), u }; const a = $('.ra', el); if (a) r.at = a.value || '13:00'; return r; }); keep(); };
+    $$('#rems .rsel, #rems .ra').forEach(el => el.onchange = remRead);
+    $$('#rems [data-rdel]').forEach(b => b.onclick = () => { b.closest('.rem').remove(); remRead(); });
+    if ($('#rem-add')) $('#rem-add').onclick = () => { d.rem.push(d.time ? { n: d.rem.length ? 1 : 30, u: d.rem.length ? 'd' : 'min' } : d.rem.length ? { n: 1, u: 'd', at: '19:00' } : { n: 0, u: 'd', at: '13:00' }); keep(); };
+    $('#dp-rep').onclick = () => { d.vy = vy; d.vm = vm; repeatSheet({ ...t, due: d.due, rep: d.rep }, rp => {
+      if (rp !== undefined) { d.rep = rp; d.repDirty = true; if (rp) d.due = rp.next; }
+      d.vy = d.vm = undefined; dateSheet(t, d);
+    }); };
+    $('#dp-cancel').onclick = closeSheet;
+    if ($('#dp-clear')) $('#dp-clear').onclick = () => { d.due = ''; apply(); };
+    $('#dp-ok').onclick = apply;
+  };
+  const apply = () => {
+    const row = { id: t.id, due: d.due };
+    if (d.due) { row.time = d.time; row.end_time = d.time ? d.end_time : ''; row.remind = d.rem; }
+    const rep = d.repDirty ? d.rep : t.rep;
+    if (rep && !d.due) return toast('Kartojamai užduočiai data būtina');
+    if (d.repDirty) { row.repeat = d.rep ? { ...d.rep, next: d.due } : ''; if (d.rep) row.done = 0; }
+    else if (t.rep && d.due !== t.due) {
+      if (t.rep.type === 'after') row.repeat = { ...t.rep, next: d.due };
+      else {
+        // kalendorinis kartojimas: paklausti, ar keisti tik šį kartą, ar visą grafiką
+        return sheet(`<h3>Keisti datą į ${esc(longDate(d.due))}?</h3><div class="card list">
+          <div class="li" id="dd-once"><span class="ic">1️⃣</span><div class="grow"><div class="t">Tik šį kartą</div><div class="s">Kiti kartai lieka pagal grafiką (${esc(repText(t.rep).toLowerCase())})</div></div></div>
+          <div class="li" id="dd-all"><span class="ic">🔁</span><div class="grow"><div class="t">Perkelti visą grafiką</div><div class="s">Toliau bus skaičiuojama nuo ${esc(shortDate(d.due))}</div></div></div></div>`, () => {
+          $('#dd-once').onclick = () => { closeSheet(); saveRow('tasks', { ...row, repeat: { ...t.rep, next: t.rep.next || t.due } }); };
+          $('#dd-all').onclick = () => { closeSheet(); saveRow('tasks', { ...row, repeat: { ...t.rep, next: d.due } }); };
+        });
+      }
+    }
+    closeSheet(); saveRow('tasks', row);
+  };
+  sheet('', draw);
+}
+
 const phoneName = sv => sv.replace(/^mobile_app_/, '').replace(/_/g, ' ');
 // priminimų pasirinkimai: visos dienos užduočiai – dienomis prieš + valanda; su laiku – prieš pradžią
 const REM_DAY = [[0, 'd'], [1, 'd'], [2, 'd'], [3, 'd'], [4, 'd'], [5, 'd'], [6, 'd'], [1, 'sav'], [2, 'sav']];
@@ -585,7 +647,7 @@ function remRow(t, r, i) {
     <button class="x-btn" data-rdel="${i}" aria-label="Pašalinti">×</button>
     <div class="rem-when">🔔 ${esc(remWhen(t, r))}</div></div>`;
 }
-function repeatSheet(t) {
+function repeatSheet(t, cb) { // cb – grąžinti pasirinkimą (iš termino lango), o ne išsaugoti
   const r = t.rep || { type: 'cal', every: 1, unit: 'w' };
   const first = t.due || T();
   sheet(`<h3>🔁 Kartojimas</h3><form id="rp" autocomplete="off">
@@ -597,8 +659,7 @@ function repeatSheet(t) {
     <div class="chips" style="margin-top:10px">${[['1', 'd', 'Kasdien'], ['1', 'w', 'Kas savaitę'], ['2', 'w', 'Kas 2 sav.'], ['1', 'm', 'Kas mėnesį'], ['1', 'y', 'Kas metus']].map(([e, u, l]) => `<button type="button" class="chip" data-pre="${e}:${u}">${l}</button>`).join('')}</div>
     <label class="field" style="margin-top:12px"><span id="rp-dl">Kita data</span><input type="date" name="next" value="${esc(first)}"></label>
     <div class="card pad small" id="rp-prev" style="margin-top:12px"></div>
-    <button class="btn primary block" style="margin-top:16px;min-height:50px">💾 Išsaugoti</button>
-    ${t.rep ? '<button type="button" class="btn danger block" id="rp-off" style="margin-top:10px">Nebekartoti</button>' : ''}
+    <div class="sheet-actions">${t.rep ? '<button type="button" class="btn danger" id="rp-off">Nebekartoti</button>' : ''}<button class="btn primary">${cb ? 'Gerai' : '💾 Išsaugoti'}</button></div>
   </form>`, () => {
     const f = $('#rp'); let type = r.type === 'after' ? 'after' : 'cal';
     const prev = () => {
@@ -622,10 +683,12 @@ function repeatSheet(t) {
       const every = Math.max(1, parseInt(f.elements.every.value) || 1);
       const unit = f.elements.unit.value, rp = { type, every, unit, next };
       if (unit === 'm' && f.elements.wd.value !== '') rp.wd = +f.elements.wd.value;
+      if (cb) return cb(rp);
       await saveRow('tasks', { id: t.id, due: next, done: 0, repeat: rp });
       closeSheet();
     };
-    if ($('#rp-off')) $('#rp-off').onclick = async () => { closeSheet(); await saveRow('tasks', { id: t.id, repeat: '' }); };
+    if (cb) $('#sheet-bg').onclick = () => cb(undefined);
+    if ($('#rp-off')) $('#rp-off').onclick = async () => { if (cb) return cb(null); closeSheet(); await saveRow('tasks', { id: t.id, repeat: '' }); };
   });
 }
 const firstWd = (y, m, wd) => { const d = new Date(y, m, 1); d.setDate(1 + ((wd - ((d.getDay() + 6) % 7)) + 7) % 7); return ds(d); };
@@ -898,8 +961,7 @@ function roundSheet(r) {
     ${r ? `<div class="thumbs" style="margin-top:12px">${files.map(thumbHtml).join('')}</div>` : ''}
     <label class="btn block" style="margin-top:12px">📷 ${r ? 'Pridėti nuotrauką' : 'Pridėti skaitiklių nuotraukas'}<input type="file" id="wr-file" multiple accept="image/*" hidden></label>
     <div class="muted small" id="wr-fn"></div>
-    <button class="btn primary block" style="margin-top:14px;min-height:50px">💾 Išsaugoti</button>
-    ${r ? '<button type="button" class="btn danger block" id="wr-del" style="margin-top:10px">Ištrinti nurašymą</button>' : ''}</form>`, () => {
+    <div class="sheet-actions">${r ? '<button type="button" class="btn danger" id="wr-del">Ištrinti</button>' : ''}<button class="btn primary">💾 Išsaugoti</button></div></form>`, () => {
     const f = $('#wr'); let pending = [];
     const vv = () => { const o = {}; $$('[data-mv]', f).forEach(i => { const x = numIn(i.value); if (x != null) o[i.dataset.mv] = x; }); return o; };
     const hint = () => $$('[data-mv]', f).forEach(i => {
@@ -1206,8 +1268,7 @@ function formSheet(o) {
   const vals = o.values || {};
   sheet(`<h3>${esc(o.title)}</h3><form id="fs" autocomplete="off">${o.pre || ''}<div class="fgrid">${o.fields.map(f => fieldHtml(f, vals[f.k])).join('')}</div>
     ${o.extra ? `<div class="stack" style="margin-top:12px">${o.extra}</div>` : ''}
-    <button class="btn primary block" style="margin-top:16px;min-height:50px">${esc(o.saveLabel || '💾 Išsaugoti')}</button>
-    ${o.onDelete ? '<button type="button" class="btn danger block" id="fs-del" style="margin-top:10px">Ištrinti</button>' : ''}</form>`, () => {
+    <div class="sheet-actions">${o.onDelete ? '<button type="button" class="btn danger" id="fs-del">Ištrinti</button>' : ''}<button class="btn primary">${esc(o.saveLabel || '💾 Išsaugoti')}</button></div></form>`, () => {
     const form = $('#fs');
     o.bind && o.bind(form);
     form.onsubmit = async e => {
@@ -1227,6 +1288,7 @@ function sheet(html, bind) {
   $('#sheet').innerHTML = '<div class="grab"></div>' + html;
   $('#sheet').hidden = false; $('#sheet-bg').hidden = false;
   $('#sheet').scrollTop = 0;
+  $('#sheet-bg').onclick = closeSheet; // atskiri langai gali tai pakeisti savo bind()
   bind && bind();
 }
 function closeSheet() { $('#sheet').hidden = true; $('#sheet-bg').hidden = true; $('#sheet').innerHTML = ''; }

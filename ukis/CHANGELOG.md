@@ -1,5 +1,13 @@
 # Pakeitimai
 
+## 1.7.0
+- Užduoties langas pertvarkytas kaip Asana: po pavadinimu viena eilė „📅 Terminas“ ir „📁 Sekcija“, po ja trumpai kartojimas ir priminimai, žymos – mažais ženkliukais. Aprašymas matomas iš karto, be slinkimo.
+- Paspaudus „Terminas“ atsidaro atskiras langas: greiti mygtukai (Šiandien, Rytoj, Šeštadienį, Kitą pirmadienį, Po savaitės), mėnesio kalendorius, laikas / visa diena, kartojimas ir priminimai. Pakeitimai išsaugomi paspaudus „Atlikta“, „Atšaukti“ – nieko nekeičia.
+- Žymos renkamos atskirame lange (paspaudus žymų eilutę).
+- Kartojamos užduoties istorija perkelta į lango apačią.
+- Visi iššokantys langai dabar vienodi visuose prieduose: šiek tiek kitokio atspalvio nei puslapis, su plonu kontūru ir šešėliu, o fonas už jų labiau pritemdytas – iškart matosi, kad atsidarė naujas langas.
+- Languose su „Ištrinti“ ir „Išsaugoti“ abu mygtukai dabar apačioje vienoje eilėje: kairėje „Ištrinti“, dešinėje „Išsaugoti“.
+
 ## 1.6.1
 - Paspaudus pranešimą telefone atsidaro priedas HA programėlėje (anksčiau rodė „Nepavyksta prisijungti prie Home Assistant“). Pranešimas veda į priedo meniu punktą šoninėje juostoje, todėl jame turi būti įjungta „Rodyti šoninėje juostoje“.
 

@@ -1,5 +1,9 @@
 # Pakeitimai
 
+## 1.4.2
+- Visi iššokantys langai dabar vienodi visuose prieduose: šiek tiek kitokio atspalvio nei puslapis, su plonu kontūru ir šešėliu, o fonas už jų labiau pritemdytas – iškart matosi, kad atsidarė naujas langas.
+- Languose su „Ištrinti“ ir „Išsaugoti“ abu mygtukai dabar apačioje vienoje eilėje: kairėje „Ištrinti“, dešinėje „Išsaugoti“.
+
 ## 1.4.1
 - Paspaudus pranešimą telefone atsidaro priedas HA programėlėje (anksčiau rodė „Nepavyksta prisijungti prie Home Assistant“). Pranešimas veda į priedo meniu punktą šoninėje juostoje, todėl jame turi būti įjungta „Rodyti šoninėje juostoje“.
 
