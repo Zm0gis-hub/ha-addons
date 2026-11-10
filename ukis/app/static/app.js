@@ -428,8 +428,8 @@ routes.task = id => {
   </div>
   ${t.done ? `<div class="donebar">✓ Atlikta ${esc(stamp(t.done_at))}</div>` : ''}
   <div class="td-meta">
-    <button class="td-pill" id="td-date"><span class="pi ${t.due ? '' : 'empty'}">📅</span><span class="grow"><small>Terminas</small><b class="${!t.done && t.due ? (dueInfo(t.due).cls || '') : ''}">${t.due ? esc(dueShort(t)) : '<span class="muted">Be datos</span>'}</b></span></button>
-    <button class="td-pill" id="td-sec"><span class="pi">📁</span><span class="grow"><small>Sekcija</small><b>${esc(secLabel(I.sections[t.section_id]))}</b></span></button>
+    <button class="td-pill" id="td-sec"><span class="grow"><small>Sekcija</small><b>${esc(secLabel(I.sections[t.section_id]))}</b></span></button>
+    <button class="td-pill" id="td-date"><span class="pi ${t.due ? '' : 'nodate'}">📅</span><span class="grow"><small>Terminas</small><b class="${!t.done && t.due ? (dueInfo(t.due).cls || '') : ''}">${t.due ? esc(dueShort(t)) : '<span class="muted">Be datos</span>'}</b></span></button>
   </div>
   ${extra.length || moved ? `<div class="td-extra" id="td-extra">${extra.join('<span class="dot">·</span>')}${moved ? `<div class="warnline">Šį kartą perkelta (pagal grafiką – ${esc(shortDate(t.rep.next))})</div>` : ''}</div>` : ''}
   <div class="td-tags" id="td-tags">${tags.map(g => `<span class="chip on">${esc(tagLabel(g))}</span>`).join('')}<span class="chip add">🏷️ ${tags.length ? '＋' : 'Pridėti žymą'}</span></div>

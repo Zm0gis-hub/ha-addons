@@ -65,7 +65,7 @@ TABLES = {
     "journal": ["date", "time", "category", "severity", "text"],
     "contacts": ["name", "category", "phone", "email", "address", "web", "note"],
     "visits": ["date", "time", "category", "contact_id", "place", "title", "price", "notes", "weight_id"],
-    "documents": ["title", "date", "filename", "orig_name", "mime", "size", "visit_id", "journal_id", "supply_id", "note"],
+    "documents": ["title", "date", "filename", "orig_name", "mime", "size", "visit_id", "journal_id", "supply_id", "food_id", "note"],
     "procedures": ["name", "emoji", "interval_days", "active", "pos", "mode", "weekday", "remind", "remind_time",
                    "repeat", "message", "notify_last"],
     "supplies": ["name", "brand", "purpose", "usage", "start", "end", "place", "price", "notes", "unsuitable"],
@@ -104,7 +104,7 @@ CREATE TABLE IF NOT EXISTS supplies (id INTEGER PRIMARY KEY, name TEXT, brand TE
 
 # stulpeliai, pridėti vėlesnėse versijose (senoms duomenų bazėms)
 NEW_COLUMNS = {
-    "documents": {"supply_id": "INTEGER"},
+    "documents": {"supply_id": "INTEGER", "food_id": "INTEGER"},
     "procedures": {"mode": "TEXT DEFAULT 'interval'", "weekday": "INTEGER", "remind": "INTEGER DEFAULT 0",
                    "remind_time": "TEXT DEFAULT '21:00'", "repeat": "INTEGER DEFAULT 1",
                    "message": "TEXT DEFAULT ''", "notify_last": "TEXT"},
@@ -340,6 +340,10 @@ def act_delete(d):
         for r in rows("SELECT filename FROM documents WHERE supply_id=?", (rid,)):
             remove_file(r["filename"])
         DB.execute("DELETE FROM documents WHERE supply_id=?", (rid,))
+    if t == "foods":
+        for r in rows("SELECT filename FROM documents WHERE food_id=?", (rid,)):
+            remove_file(r["filename"])
+        DB.execute("DELETE FROM documents WHERE food_id=?", (rid,))
     DB.execute(f"DELETE FROM {t} WHERE id=?", (rid,))
 
 
@@ -381,10 +385,10 @@ def act_feeding_start(d):
 def act_doc_add(d):
     fn, size = take_upload(d.get("upload"), d.get("orig_name"))
     cur = DB.execute("""INSERT INTO documents(title, date, filename, orig_name, mime, size, visit_id, journal_id,
-                        supply_id, note, created) VALUES(?,?,?,?,?,?,?,?,?,?,?)""",
+                        supply_id, food_id, note, created) VALUES(?,?,?,?,?,?,?,?,?,?,?,?)""",
                      ((d.get("title") or d.get("orig_name") or "Dokumentas").strip(), clean_date(d.get("date")) or today(),
                       fn, d.get("orig_name") or "", d.get("mime") or "", size, num(d.get("visit_id")),
-                      num(d.get("journal_id")), num(d.get("supply_id")), (d.get("note") or "").strip(), now()))
+                      num(d.get("journal_id")), num(d.get("supply_id")), num(d.get("food_id")), (d.get("note") or "").strip(), now()))
     return {"id": cur.lastrowid}
 
 

@@ -619,7 +619,7 @@ body.typing main#view { padding-bottom: 45vh; }
 .td-pill { display: flex; align-items: center; gap: 10px; text-align: left; border: 0; background: var(--card); box-shadow: var(--shadow); border-radius: 14px; padding: 8px 10px; cursor: pointer; color: var(--ink); font: inherit; min-height: 54px; }
 @media (prefers-color-scheme: dark) { .td-pill { border: 1px solid var(--line); } }
 .td-pill .pi { width: 34px; height: 34px; flex: none; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 17px; background: var(--chip); }
-.td-pill .pi.empty { background: transparent; border: 1.5px dashed var(--muted); }
+.td-pill .pi.nodate { background: transparent; border: 1.5px dashed var(--muted); }
 .td-pill small { display: block; font-size: 12px; color: var(--muted); font-weight: 600; }
 .td-pill b { display: block; font-size: 15px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .td-pill b.over { color: var(--danger); }
@@ -684,3 +684,4 @@ button.link { border: 0; background: transparent; color: var(--accent); font: in
 .sheet-actions { display: flex; gap: 10px; margin-top: 16px; }
 .sheet-actions .btn { flex: 1; min-height: 50px; }
 .sheet-actions .btn.primary { flex: 1.4; }
+#td-sec { padding-left: 14px; }

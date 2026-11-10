@@ -20,7 +20,7 @@ const VISIT_ICON = { VET: '🩺', SPA: '🛁', Tyrimai: '🧪' };
 const JOURNAL_ICON = { 'Pastaba': '📝', 'Vėmimas': '🤮', 'Viduriavimas': '💩', 'Kosulys / čiaudulys': '🤧', 'Kvėpavimas': '😮‍💨', 'Akys': '👁️', 'Ausys': '👂', 'Oda / kailis': '🐾', 'Šlubavimas': '🦵', 'Apetitas': '🥣', 'Elgesys': '🐕', 'Kita': '❗' };
 const PREV_ICON = { 'Vakcina': '💉', 'Antiparazitinė': '🛡️' };
 const SEVERITY = [[0, '—'], [1, 'Lengvas'], [2, 'Vidutinis'], [3, 'Stiprus']];
-const FOOD_KINDS = ['Sausas', 'Šlapias', 'Skanėstas', 'Papildas', 'Kita'];
+const FOOD_KINDS = ['Sausas', 'Šlapias', 'Papildas', 'Kita']; // skanukai – atskirai (kind 'Skanėstas')
 const vIcon = c => VISIT_ICON[c] || '📍';
 const jIcon = c => JOURNAL_ICON[c] || '🩹';
 const pIcon = k => PREV_ICON[k] || '💊';
@@ -208,7 +208,7 @@ function render() {
   const h = (location.hash || '#home').slice(1).split('/');
   route = { name: h[0] || 'home', arg: h[1] };
   const fn = routes[route.name] || routes.home;
-  const tab = { cal: 'cal', health: 'health', sup: 'health', food: 'food', foodd: 'food', visits: 'visits', visit: 'visits', contact: 'visits', doc: 'visits' }[route.name] || 'home';
+  const tab = { cal: 'cal', health: 'health', sup: 'health', food: 'food', foodd: 'food', treat: 'food', visits: 'visits', visit: 'visits', contact: 'visits', doc: 'visits' }[route.name] || 'home';
   $$('#tabs a').forEach(a => a.classList.toggle('on', a.dataset.tab === tab));
   fn(route.arg);
   bindCommon();
@@ -708,23 +708,29 @@ function procLogSheet(l) {
 }
 
 // ============================================================ MAISTAS
+const isTreat = f => f && f.kind === 'Skanėstas';
+const mealFoods = id => S.foods.filter(f => !isTreat(f) && (!f.unsuitable || f.id === id)).sort((a, b) => a.name.localeCompare(b.name, 'lt'));
 routes.food = () => {
-  setTop('Maistas', { actions: `<button class="btn small primary" id="f-calc">🧮 Skaičiuoklė</button>` });
+  setTop('Maistas', { actions: `<button class="btn small" id="f-calc">🧮 Skaičiuoklė</button>` });
   const cur = activeFeedings();
   const hist = sortDesc(S.feedings, 'start');
-  const foods = [...S.foods].sort((a, b) => a.unsuitable - b.unsuitable || a.name.localeCompare(b.name, 'lt'));
+  const foods = S.foods.filter(f => !isTreat(f)).sort((a, b) => a.unsuitable - b.unsuitable || a.name.localeCompare(b.name, 'lt'));
+  const treats = S.foods.filter(isTreat).sort((a, b) => a.unsuitable - b.unsuitable || a.name.localeCompare(b.name, 'lt'));
   let h = `<h2>Dabar</h2>`;
-  h += cur.length ? cur.map(f => feedCard(f) + `<div class="row" style="margin:-2px 0 12px"><button class="btn small grow" data-fchange="${f.id}">🧮 Keisti kiekį ar maistą</button><button class="btn small" data-fedit="${f.id}">✏️</button><button class="btn small" data-fend="${f.id}">⏹ Baigti</button></div>`).join('')
+  h += cur.length ? cur.map(f => feedCard(f) + `<div class="row" style="margin:-2px 0 12px"><button class="btn small grow" data-fchange="${f.id}">✏️ Keisti kiekį ar maistą</button><button class="btn small" data-fedit="${f.id}">⋯</button><button class="btn small" data-fend="${f.id}">⏹ Baigti</button></div>`).join('')
     : `<div class="card pad center"><p class="muted" style="margin-top:0">Maitinimas dar nenustatytas.</p><button class="btn primary" id="f-start">Nustatyti maitinimą</button></div>`;
   h += `<h2>Istorija</h2><div class="card list">${hist.map(f => `<div class="li" data-fedit="${f.id}"><span class="ic">🍽️</span><div class="grow"><div class="t">${esc(foodName(f.food_id))}</div>
     <div class="s">${esc(f.start || '?')} – ${f.end ? esc(f.end) : 'dabar'}${f.start ? ` (${duration(f.start, f.end && f.end < T() ? f.end : T())})` : ''}</div>
     <div class="s">${f.g_day ? `${fmtNum(f.g_day)} g/d. · ${f.meals || 1} maitin. · po ${f.portions || 1} įdėj.` : ''}${f.note ? ' · ' + esc(f.note) : ''}</div></div></div>`).join('') || '<div class="empty" style="padding:16px">Dar nėra</div>'}</div>`;
-  h += `<h2>Maistai <button class="btn small" id="f-new">＋ Naujas</button></h2><div class="card list">${foods.map(f => `<a class="li go" href="#foodd/${f.id}"><span class="ic">${f.kind === 'Skanėstas' ? '🦴' : f.kind === 'Šlapias' ? '🥫' : f.kind === 'Papildas' ? '🧴' : '🥣'}</span><div class="grow"><div class="t">${esc(f.name)} ${f.unsuitable ? '<span class="pill bad">netinka</span>' : ''}</div><div class="s">${esc([f.brand, f.kind].filter(Boolean).join(' · '))}${tableOf(f).length ? ' · lentelė ✓' : ''}${f.notes ? ' · ' + esc(f.notes.slice(0, 60)) : ''}</div></div></a>`).join('') || '<div class="empty" style="padding:16px">Pridėkite maistą su pakuotės lentele – skaičiuoklė pagal ją pasiūlys kiekį.</div>'}</div>`;
+  h += `<h2>Maistai <button class="btn small" id="f-new">＋ Naujas</button></h2><div class="card list">${foods.map(f => `<a class="li go" href="#foodd/${f.id}"><span class="ic">${f.kind === 'Šlapias' ? '🥫' : f.kind === 'Papildas' ? '🧴' : '🥣'}</span><div class="grow"><div class="t">${esc(f.name)} ${f.unsuitable ? '<span class="pill bad">netinka</span>' : ''}</div><div class="s">${esc([f.brand, f.kind].filter(Boolean).join(' · '))}${tableOf(f).length ? ' · lentelė ✓' : ''}${f.notes ? ' · ' + esc(f.notes.slice(0, 60)) : ''}</div></div></a>`).join('') || '<div class="empty" style="padding:16px">Dar nėra. Pakuotės lentelę galima įvesti – tada skaičiuoklė pasiūlys kiekį.</div>'}</div>`;
+  h += `<h2>Skanukai <button class="btn small" id="t-new">＋ Naujas</button></h2><div class="card list">${treats.map(f => { const ph = docsOf('food_id', f.id).find(isImg);
+    return `<a class="li go" href="#treat/${f.id}">${ph ? `<span class="sthumb" style="background-image:url('files/${esc(ph.filename)}')"></span>` : '<span class="ic">🦴</span>'}<div class="grow"><div class="t">${esc(f.name)} ${f.unsuitable ? '<span class="pill bad">netinka</span>' : ''}</div>${f.notes ? `<div class="s">${esc(f.notes.slice(0, 80))}</div>` : ''}</div></a>`; }).join('') || '<div class="empty" style="padding:16px">Užsirašykite, kokius skanukus duodate – pavadinimas, nuotrauka, aprašymas.</div>'}</div>`;
   view.innerHTML = h;
   $('#f-calc').onclick = () => calcSheet({ close: cur.map(f => f.id) });
-  $('#f-start') && ($('#f-start').onclick = () => calcSheet({}));
+  $('#f-start') && ($('#f-start').onclick = () => feedSetSheet({}));
   $('#f-new').onclick = () => foodSheet();
-  $$('[data-fchange]').forEach(b => b.onclick = () => { const f = I.feedings[b.dataset.fchange]; calcSheet({ food_id: f.food_id, g_day: f.g_day, meals: f.meals, portions: f.portions, close: [f.id] }); });
+  $('#t-new').onclick = () => treatSheet();
+  $$('[data-fchange]').forEach(b => b.onclick = () => { const f = I.feedings[b.dataset.fchange]; feedSetSheet({ food_id: f.food_id, g_day: f.g_day, meals: f.meals, portions: f.portions, close: [f.id] }); });
   $$('[data-fedit]').forEach(b => b.onclick = () => feedingSheet(I.feedings[b.dataset.fedit]));
   $$('[data-fend]').forEach(b => b.onclick = async () => { if (confirm('Baigti šį maitinimą šiandien?')) { await saveRow('feedings', { id: +b.dataset.fend, end: T() }); toast('Maitinimas baigtas'); } });
 };
@@ -740,57 +746,131 @@ function fromTable(tab, w) {
   const [x0, y0] = tab[i - 1], [x1, y1] = tab[i];
   return Math.max(0, y0 + (y1 - y0) * (w - x0) / (x1 - x0));
 }
+const stepperHtml = (id, k, val, mode, d) => `<div class="stepper"><button type="button" data-st="${k}:-${d}">−</button><input type="text" inputmode="${mode}" id="${id}" value="${esc(val)}"><button type="button" data-st="${k}:${d}">＋</button></div>`;
+const calcOutHtml = () => `<div class="calc-out"><div><b id="o-d">—</b><span>g per dieną</span></div><div><b id="o-m">—</b><span>g per maitinimą</span></div><div><b id="o-p">—</b><span>g per įdėjimą</span></div></div>`;
 
-function calcSheet(o) {
-  const foods = S.foods.filter(f => !f.unsuitable || f.id === o.food_id);
+// Maitinimo nustatymas – gramai įvedami ranka (skaičiuoklė tik pagalbai)
+function feedSetSheet(o) {
+  const foods = mealFoods(o.food_id);
   if (!foods.length) { toast('Pirma pridėkite maistą'); return foodSheet(); }
-  const w = lastWeight(), tgt = S.profile.target_kg;
   const cf = activeFeedings()[0];
-  const st = { food_id: o.food_id || cf?.food_id || foods[0].id, basis: tgt || w?.kg || '', g: o.g_day || '', meals: o.meals || cf?.meals || 2, portions: o.portions || cf?.portions || 2, manual: !!o.g_day };
   const cur = activeFeedings();
-  sheet(`<h3>🧮 Maisto skaičiuoklė</h3><div class="stack">
-    <label class="field"><span>Maistas</span><select id="c-food">${foods.map(f => `<option value="${f.id}" ${f.id == st.food_id ? 'selected' : ''}>${esc(foodName(f.id))}</option>`).join('')}</select></label>
-    <label class="field"><span>Skaičiuoti pagal svorį, kg</span><input type="text" inputmode="decimal" id="c-w" value="${esc(fmtNum(st.basis, 2))}"></label>
-    <div class="row wrap">${w ? `<button type="button" class="btn small" data-wb="${w.kg}">Dabartinis ${kg(w.kg)}</button>` : ''}${tgt ? `<button type="button" class="btn small" data-wb="${tgt}">Tikslinis ${kg(tgt)}</button>` : ''}</div>
-    <div class="card pad small" id="c-tab"></div>
-    <label class="field"><span>Gramai per dieną</span><div class="stepper"><button type="button" data-st="g:-5">−</button><input type="text" inputmode="decimal" id="c-g"><button type="button" data-st="g:5">＋</button></div></label>
+  const close = o.close || cur.map(f => f.id);
+  sheet(`<h3>🍽️ Maitinimas</h3><div class="stack">
+    <label class="field"><span>Maistas</span><select id="c-food">${foods.map(f => `<option value="${f.id}" ${f.id == (o.food_id || cf?.food_id) ? 'selected' : ''}>${esc(foodName(f.id))}</option>`).join('')}</select></label>
+    <label class="field"><span>Gramai per dieną</span>${stepperHtml('c-g', 'g', o.g_day ? fmtNum(o.g_day) : '', 'decimal', 5)}</label>
+    <button type="button" class="btn small" id="c-calc" style="align-self:flex-start">🧮 Paskaičiuoti pagal pakuotės lentelę</button>
     <div class="fgrid">
-      <label class="field"><span>Maitinimai per dieną</span><div class="stepper"><button type="button" data-st="meals:-1">−</button><input type="text" inputmode="numeric" id="c-meals" value="${st.meals}"><button type="button" data-st="meals:1">＋</button></div></label>
-      <label class="field"><span>Įdėjimai per maitinimą</span><div class="stepper"><button type="button" data-st="portions:-1">−</button><input type="text" inputmode="numeric" id="c-por" value="${st.portions}"><button type="button" data-st="portions:1">＋</button></div></label>
+      <label class="field"><span>Maitinimai per dieną</span>${stepperHtml('c-meals', 'meals', o.meals || cf?.meals || 2, 'numeric', 1)}</label>
+      <label class="field"><span>Įdėjimai per maitinimą</span>${stepperHtml('c-por', 'portions', o.portions || cf?.portions || 2, 'numeric', 1)}</label>
     </div>
-    <div class="calc-out"><div><b id="o-d">—</b><span>g per dieną</span></div><div><b id="o-m">—</b><span>g per maitinimą</span></div><div><b id="o-p">—</b><span>g per įdėjimą</span></div></div>
-    <hr><b>Išsaugoti kaip naują maitinimo laikotarpį</b>
+    ${calcOutHtml()}
     <div class="fgrid"><label class="field"><span>Nuo</span><input type="date" id="c-start" value="${T()}"></label><label class="field"><span>Pastaba</span><input type="text" id="c-note" placeholder="pvz. metimui"></label></div>
-    ${cur.length ? `<div class="small muted">Užbaigti dabartinį (diena anksčiau):</div>${cur.map(f => `<label class="row"><input type="checkbox" data-close="${f.id}" ${(o.close || []).includes(f.id) ? 'checked' : ''}> ${esc(foodName(f.food_id))} · ${fmtNum(f.g_day)} g/d.</label>`).join('')}` : ''}
-    <button class="btn primary block" id="c-save">💾 Išsaugoti</button></div>`, () => {
+    ${cur.length ? `<div class="small muted">Užbaigti dabartinį (diena anksčiau):</div>${cur.map(f => `<label class="row"><input type="checkbox" data-close="${f.id}" ${close.includes(f.id) ? 'checked' : ''}> ${esc(foodName(f.food_id))} · ${fmtNum(f.g_day)} g/d.</label>`).join('')}` : ''}
+    </div><div class="sheet-actions"><button class="btn primary" id="c-save">💾 Išsaugoti</button></div>`, () => {
     const gEl = $('#c-g');
-    const recalc = fromInput => {
-      const food = I.foods[$('#c-food').value], tab = tableOf(food), wv = pnum($('#c-w').value);
-      const sug = fromTable(tab, wv);
-      $('#c-tab').innerHTML = tab.length
-        ? `Pagal pakuotės lentelę ${wv ? `${kg(wv)} šuniui: <b>${fmtNum(sug, 0)} g/d.</b>` : ''} ${st.manual && sug != null && Math.round(pnum(gEl.value)) !== Math.round(sug) ? `<button type="button" class="btn small" id="c-use">Naudoti ${fmtNum(sug, 0)} g</button>` : ''}`
-        : `<span class="muted">Šiam maistui pakuotės lentelė neįvesta – gramus įveskite ranka.</span> <a href="#foodd/${food.id}">Įvesti lentelę</a>`;
-      if (!st.manual && !fromInput && sug != null) gEl.value = fmtNum(Math.round(sug), 0);
+    const recalc = () => {
       const g = pnum(gEl.value), m = Math.max(1, pnum($('#c-meals').value) || 1), p = Math.max(1, pnum($('#c-por').value) || 1);
       $('#o-d').textContent = g ? fmtNum(g) : '—'; $('#o-m').textContent = g ? fmtNum(g / m) : '—'; $('#o-p').textContent = g ? fmtNum(g / m / p) : '—';
-      const u = $('#c-use'); if (u) u.onclick = () => { st.manual = false; gEl.value = fmtNum(Math.round(sug), 0); recalc(); };
     };
-    if (st.g) gEl.value = fmtNum(st.g);
-    $('#c-food').onchange = () => { st.manual = false; recalc(); };
-    $('#c-w').oninput = () => recalc();
-    gEl.oninput = () => { st.manual = true; recalc(true); };
-    $('#c-meals').oninput = $('#c-por').oninput = () => recalc(true);
-    $$('[data-wb]').forEach(b => b.onclick = () => { $('#c-w').value = fmtNum(+b.dataset.wb, 2); st.manual = false; recalc(); });
+    gEl.oninput = $('#c-meals').oninput = $('#c-por').oninput = recalc;
     $$('[data-st]').forEach(b => b.onclick = () => {
       const [k, d] = b.dataset.st.split(':'); const el = { g: gEl, meals: $('#c-meals'), portions: $('#c-por') }[k];
-      el.value = fmtNum(Math.max(k === 'g' ? 0 : 1, (pnum(el.value) || 0) + +d)); if (k === 'g') st.manual = true; recalc(true);
+      el.value = fmtNum(Math.max(k === 'g' ? 0 : 1, (pnum(el.value) || 0) + +d)); recalc();
     });
+    $('#c-calc').onclick = () => calcSheet({ food_id: +$('#c-food').value, meals: pnum($('#c-meals').value), portions: pnum($('#c-por').value), close: $$('[data-close]').filter(c => c.checked).map(c => +c.dataset.close) });
     $('#c-save').onclick = async () => {
       const g = pnum(gEl.value); if (!g) return toast('Įveskite gramus per dieną');
       await act('feeding_start', { row: { food_id: +$('#c-food').value, start: $('#c-start').value, g_day: g, meals: pnum($('#c-meals').value) || 1, portions: pnum($('#c-por').value) || 1, note: $('#c-note').value }, close: $$('[data-close]').filter(c => c.checked).map(c => +c.dataset.close) });
-      closeSheet(); toast('Naujas maitinimas išsaugotas');
+      closeSheet(); toast('Maitinimas išsaugotas');
     };
     recalc();
+  });
+}
+
+// Skaičiuoklė – atskira pagalbinė funkcija; rezultatą galima perkelti į maitinimą
+function calcSheet(o) {
+  const foods = mealFoods(o.food_id);
+  if (!foods.length) { toast('Pirma pridėkite maistą'); return foodSheet(); }
+  const w = lastWeight(), tgt = S.profile.target_kg;
+  const cf = activeFeedings()[0];
+  sheet(`<h3>🧮 Maisto skaičiuoklė</h3><div class="stack">
+    <label class="field"><span>Maistas</span><select id="c-food">${foods.map(f => `<option value="${f.id}" ${f.id == (o.food_id || cf?.food_id) ? 'selected' : ''}>${esc(foodName(f.id))}</option>`).join('')}</select></label>
+    <label class="field"><span>Šuns svoris, kg</span><input type="text" inputmode="decimal" id="c-w" value="${esc(fmtNum(tgt || w?.kg || '', 2))}"></label>
+    <div class="row wrap">${w ? `<button type="button" class="btn small" data-wb="${w.kg}">Dabartinis ${kg(w.kg)}</button>` : ''}${tgt ? `<button type="button" class="btn small" data-wb="${tgt}">Tikslinis ${kg(tgt)}</button>` : ''}</div>
+    <div class="card pad small" id="c-tab"></div>
+    <label class="field"><span>Gramai per dieną</span>${stepperHtml('c-g', 'g', '', 'decimal', 5)}</label>
+    <div class="fgrid">
+      <label class="field"><span>Maitinimai per dieną</span>${stepperHtml('c-meals', 'meals', o.meals || cf?.meals || 2, 'numeric', 1)}</label>
+      <label class="field"><span>Įdėjimai per maitinimą</span>${stepperHtml('c-por', 'portions', o.portions || cf?.portions || 2, 'numeric', 1)}</label>
+    </div>
+    ${calcOutHtml()}
+    </div><div class="sheet-actions"><button class="btn" id="c-x">Uždaryti</button><button class="btn primary" id="c-use">Naudoti kaip maitinimą</button></div>`, () => {
+    const gEl = $('#c-g');
+    const recalc = fromG => {
+      const food = I.foods[$('#c-food').value], tab = tableOf(food), wv = pnum($('#c-w').value);
+      const sug = fromTable(tab, wv);
+      $('#c-tab').innerHTML = tab.length
+        ? (wv ? `Pagal pakuotės lentelę ${kg(wv)} šuniui: <b>${fmtNum(sug, 0)} g/d.</b>` : 'Įveskite šuns svorį.')
+        : `<span class="muted">Šiam maistui pakuotės lentelė neįvesta.</span> <a href="#foodd/${food.id}">Įvesti lentelę</a>`;
+      if (!fromG && sug != null) gEl.value = fmtNum(Math.round(sug), 0);
+      const g = pnum(gEl.value), m = Math.max(1, pnum($('#c-meals').value) || 1), p = Math.max(1, pnum($('#c-por').value) || 1);
+      $('#o-d').textContent = g ? fmtNum(g) : '—'; $('#o-m').textContent = g ? fmtNum(g / m) : '—'; $('#o-p').textContent = g ? fmtNum(g / m / p) : '—';
+    };
+    $('#c-food').onchange = () => recalc();
+    $('#c-w').oninput = () => recalc();
+    gEl.oninput = () => recalc(true);
+    $('#c-meals').oninput = $('#c-por').oninput = () => recalc(true);
+    $$('[data-wb]').forEach(b => b.onclick = () => { $('#c-w').value = fmtNum(+b.dataset.wb, 2); recalc(); });
+    $$('[data-st]').forEach(b => b.onclick = () => {
+      const [k, d] = b.dataset.st.split(':'); const el = { g: gEl, meals: $('#c-meals'), portions: $('#c-por') }[k];
+      el.value = fmtNum(Math.max(k === 'g' ? 0 : 1, (pnum(el.value) || 0) + +d)); recalc(true);
+    });
+    $('#c-x').onclick = closeSheet;
+    $('#c-use').onclick = () => {
+      const g = pnum(gEl.value); if (!g) return toast('Įveskite gramus per dieną');
+      feedSetSheet({ food_id: +$('#c-food').value, g_day: g, meals: pnum($('#c-meals').value) || 1, portions: pnum($('#c-por').value) || 1, close: o.close });
+    };
+    recalc();
+  });
+}
+
+// Skanukai: pavadinimas, nuotrauka, aprašymas (be dozavimo)
+routes.treat = id => {
+  const f = I.foods[id]; if (!f) return go('#food');
+  setTop(f.name, { back: '#food', actions: `<button class="icon-btn" id="tr-edit" aria-label="Redaguoti">✏️</button>` });
+  const photos = docsOf('food_id', f.id);
+  view.innerHTML = `${f.unsuitable ? '<div class="card pad warnbox">⚠️ Pažymėta, kad <b>netinka</b></div>' : ''}
+    <h2>Aprašymas</h2><div class="card pad ${f.notes ? 'pre' : 'muted'}">${f.notes ? esc(f.notes) : 'Aprašymo nėra – spauskite ✏️'}</div>
+    <h2>Nuotraukos <label class="btn small">📷 Pridėti<input type="file" id="tr-ph" accept="image/*" multiple hidden></label></h2>
+    ${photos.length ? `<div class="thumbs">${photos.map(thumbHtml).join('')}</div>` : '<div class="muted small" style="margin:0 4px">Nufotografuokite pakuotę – lengviau rasti parduotuvėje.</div>'}`;
+  $('#tr-edit').onclick = () => treatSheet(f);
+  $('#tr-ph').onchange = async e => {
+    const files = [...e.target.files];
+    for (const file of files) await uploadDoc(file, { title: `${f.name} – nuotrauka`, date: T(), food_id: f.id });
+    await load(); toast('Įkelta');
+  };
+};
+function treatSheet(f) {
+  f = f || {};
+  formSheet({
+    title: f.id ? 'Redaguoti skanuką' : 'Naujas skanukas', values: f,
+    fields: [
+      { k: 'name', label: 'Pavadinimas' },
+      { k: 'notes', label: 'Aprašymas (kas tai, kaip patinka, kada duodam)', type: 'textarea' },
+      { k: 'unsuitable', label: '⚠️ Netinka', type: 'switch' },
+    ],
+    extra: f.id ? '' : `<label class="btn block">📷 Nuotrauka<input type="file" id="tr-files" multiple accept="image/*" hidden></label><div class="muted small" id="tr-fl"></div>`,
+    bind: fm => { const fi = $('#tr-files', fm); if (fi) fi.onchange = e => $('#tr-fl').textContent = [...e.target.files].map(x => x.name).join(', '); },
+    onSave: async (v, fm) => {
+      if (!v.name) { toast('Įrašykite pavadinimą'); return false; }
+      const res = await api('api/do/save', { t: 'foods', row: { ...v, kind: 'Skanėstas', unsuitable: v.unsuitable ? 1 : 0, id: f.id } });
+      const files = f.id ? [] : [...($('#tr-files', fm)?.files || [])];
+      for (const file of files) await uploadDoc(file, { title: `${v.name} – nuotrauka`, date: T(), food_id: res.id });
+      await load();
+      if (!f.id) go('#treat/' + res.id);
+    },
+    onDelete: f.id && (async () => { await delRow('foods', f.id); go('#food'); }),
   });
 }
 
@@ -798,7 +878,7 @@ function feedingSheet(f) {
   formSheet({
     title: 'Maitinimo laikotarpis', values: f,
     fields: [
-      { k: 'food_id', label: 'Maistas', type: 'select', opts: S.foods.map(x => [x.id, foodName(x.id)]) },
+      { k: 'food_id', label: 'Maistas', type: 'select', opts: mealFoods(f.food_id).map(x => [x.id, foodName(x.id)]) },
       { k: 'start', label: 'Nuo', type: 'date', half: true }, { k: 'end', label: 'Iki (tuščia = dabar)', type: 'date', half: true },
       { k: 'g_day', label: 'Gramai per dieną', type: 'number' },
       { k: 'meals', label: 'Maitinimai per d.', type: 'number', half: true }, { k: 'portions', label: 'Įdėjimai per maitinimą', type: 'number', half: true },
@@ -811,6 +891,7 @@ function feedingSheet(f) {
 
 routes.foodd = id => {
   const f = I.foods[id]; if (!f) return go('#food');
+  if (isTreat(f)) return go('#treat/' + f.id);
   setTop(f.name, { back: '#food', actions: `<button class="icon-btn" id="fd-edit">✏️</button>` });
   const tab = tableOf(f), w = lastWeight(), tgt = S.profile.target_kg;
   const periods = sortDesc(S.feedings.filter(x => x.food_id === f.id), 'start');
@@ -822,9 +903,9 @@ routes.foodd = id => {
       <div class="small" style="margin-top:8px">${w ? `Dabartiniam svoriui (${kg(w.kg)}): <b>${fmtNum(fromTable(tab, w.kg), 0)} g/d.</b>` : ''}${tgt ? `<br>Tiksliniam svoriui (${kg(tgt)}): <b>${fmtNum(fromTable(tab, tgt), 0)} g/d.</b>` : ''}</div>`
       : '<span class="muted">Neįvesta. Spauskite ✏️ ir įrašykite lentelę nuo pakuotės.</span>'}</div>
     <h2>Kada duota</h2><div class="card list">${periods.map(p => `<div class="li" data-fedit="${p.id}"><span class="ic">🍽️</span><div class="grow"><div class="t">${esc(p.start || '?')} – ${p.end ? esc(p.end) : 'dabar'}</div><div class="s">${p.g_day ? fmtNum(p.g_day) + ' g/d.' : ''}${p.note ? ' · ' + esc(p.note) : ''}</div></div></div>`).join('') || '<div class="empty" style="padding:16px">Dar neduota</div>'}</div>
-    <button class="btn primary block" id="fd-start" style="margin-top:14px">🧮 Pradėti duoti šį maistą</button>`;
+    <button class="btn primary block" id="fd-start" style="margin-top:14px">🍽️ Pradėti duoti šį maistą</button>`;
   $('#fd-edit').onclick = () => foodSheet(f);
-  $('#fd-start').onclick = () => calcSheet({ food_id: f.id, close: activeFeedings().map(x => x.id) });
+  $('#fd-start').onclick = () => feedSetSheet({ food_id: f.id, close: activeFeedings().map(x => x.id) });
   $$('[data-fedit]').forEach(b => b.onclick = () => feedingSheet(I.feedings[b.dataset.fedit]));
 };
 

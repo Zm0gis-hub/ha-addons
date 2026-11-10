@@ -1,5 +1,9 @@
 # Pakeitimai
 
+## 1.7.1
+- Užduoties lange, kai nėra datos, „Terminas“ kortelė nebeiškraipyta.
+- Kortelės sukeistos: „Sekcija“ kairėje, „Terminas“ dešinėje. Nuo „Sekcijos“ nuimtas 📁 – lieka tik pačios sekcijos ženkliukas.
+
 ## 1.7.0
 - Užduoties langas pertvarkytas kaip Asana: po pavadinimu viena eilė „📅 Terminas“ ir „📁 Sekcija“, po ja trumpai kartojimas ir priminimai, žymos – mažais ženkliukais. Aprašymas matomas iš karto, be slinkimo.
 - Paspaudus „Terminas“ atsidaro atskiras langas: greiti mygtukai (Šiandien, Rytoj, Šeštadienį, Kitą pirmadienį, Po savaitės), mėnesio kalendorius, laikas / visa diena, kartojimas ir priminimai. Pakeitimai išsaugomi paspaudus „Atlikta“, „Atšaukti“ – nieko nekeičia.

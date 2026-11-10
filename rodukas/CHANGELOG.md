@@ -1,5 +1,9 @@
 # Pakeitimai
 
+## 1.5.0
+- Maistas: „Nustatyti maitinimą“ ir „Keisti kiekį ar maistą“ dabar paprasta forma – gramai įvedami ranka. Skaičiuoklė lieka atskira pagalbinė funkcija (🧮 viršuje arba mygtukas formoje); jos rezultatą galima perkelti mygtuku „Naudoti kaip maitinimą“.
+- Nauja skiltis „Skanukai“: pavadinimas, nuotrauka, aprašymas – be jokio dozavimo, tiesiog žinoti, ką duodam. Anksčiau įvesti „Skanėstas“ tipo maistai rodomi čia.
+
 ## 1.4.2
 - Visi iššokantys langai dabar vienodi visuose prieduose: šiek tiek kitokio atspalvio nei puslapis, su plonu kontūru ir šešėliu, o fonas už jų labiau pritemdytas – iškart matosi, kad atsidarė naujas langas.
 - Languose su „Ištrinti“ ir „Išsaugoti“ abu mygtukai dabar apačioje vienoje eilėje: kairėje „Ištrinti“, dešinėje „Išsaugoti“.
