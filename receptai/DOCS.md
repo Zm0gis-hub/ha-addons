@@ -88,7 +88,7 @@ Laikrodžio programėlė **Pirkiniai** rodo tą patį pirkinių sąrašą: galim
 
 **B. Įdiegti programėlę į laikrodį (vieną kartą kiekvienam laikrodžiui)**
 
-Programėlės nėra „Play“ parduotuvėje, todėl ji įkeliama iš telefono.
+Programėlės nėra „Play“ parduotuvėje, todėl ji įkeliama iš telefono (žemiau) arba iš Windows kompiuterio: laikrodyje atlikite 2–3 žingsnius, tada kompiuteryje paleiskite failą `laikrodis/Idiegti-i-laikrodi.bat` iš saugyklos (https://github.com/Zm0gis-hub/ha-addons/blob/main/laikrodis/Idiegti-i-laikrodi.bat → „Download raw file“) ir sekite nurodymus. Kompiuteris ir laikrodis turi būti tame pačiame Wi-Fi.
 
 1. Telefone atsisiųskite failą: `https://github.com/Zm0gis-hub/ha-addons/releases/download/laikrodis/pirkiniai-laikrodis.apk`
 2. Laikrodyje: **Nustatymai → Apie laikrodį → Programinės įrangos informacija** → 7 kartus bakstelėkite **Versijos numeris**, kol parašys, kad esate kūrėjas.
