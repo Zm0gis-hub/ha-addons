@@ -1134,10 +1134,11 @@ routes.more = () => {
     <a class="menu-link" href="#products"><span>🥕</span><span>Produktai<br><span class="muted small">Kategorija, „visada turima“, sujungimas</span></span></a>
     <a class="menu-link" href="#rules"><span>🎨</span><span>Pastabų paryškinimas<br><span class="muted small">pvz. „Maxima“ – mėlyna, „kuponas“ – balta</span></span></a>
     <a class="menu-link" href="#screen"><span>☀️</span><span>Ekranas gaminant<br><span class="muted small">Kad telefonas neužgestų gaminimo metu</span></span></a>
+    <a class="menu-link" href="#watch"><span>⌚</span><span>Laikrodis<br><span class="muted small">Pirkinių sąrašas Wear OS laikrodyje</span></span></a>
     <a class="menu-link" href="#stats"><span>📊</span><span>Statistika ir istorija</span></a>
     <a class="menu-link" href="#data"><span>💾</span><span>Importas ir eksportas</span></a>
   </div>
-  <p class="muted small center" style="margin-top:20px">Receptai v1.9.0 · ${S.recipes.length} receptai · ${S.products.length} produktai</p>`;
+  <p class="muted small center" style="margin-top:20px">Receptai v1.12.0 · ${S.recipes.length} receptai · ${S.products.length} produktai</p>`;
 };
 
 // --- Parduotuvės skyriai (tempimas aukštyn/žemyn)
@@ -1218,6 +1219,60 @@ routes.screen = async () => {
       <p style="margin-bottom:0">Arba Receptai programėlės <b>Konfigūracijoje</b> laukelyje <i>ekrano_telefonai</i> įrašykite telefono pranešimų paslaugą${st.all && st.all.length ? ': ' + st.all.map(x => '<code>' + esc(x) + '</code>').join(', ') : ''}.</p></div>` : ''}`;
   $('#sc-on') && ($('#sc-on').onclick = async () => { const r = await screenApi(true); toast(r.ok ? 'Įjungta – ekranas neužges' : (r.error || 'Nepavyko')); });
   $('#sc-off') && ($('#sc-off').onclick = async () => { const r = await screenApi(false); toast(r.ok ? 'Atšaukta' : (r.error || 'Nepavyko')); });
+};
+
+// --- Laikrodis (Wear OS programėlė „Pirkiniai“)
+let watchTimer = null;
+routes.watch = async () => {
+  setTop('Laikrodis', { back: '#more' });
+  clearInterval(watchTimer);
+  view.innerHTML = '<div class="empty">Tikrinama…</div>';
+  let w = {}; try { w = await (await fetch('api/laikrodis')).json(); } catch (e) { w = { error: 'Nėra ryšio' }; }
+  if (route.name !== 'watch') return;
+  if (!w.via_ha) {
+    view.innerHTML = `<div class="card pad"><p style="margin:0">Laikrodį galima nustatyti tik atidarius Receptus per <b>Home Assistant</b> (šoninis meniu → Receptai).</p></div>`;
+    return;
+  }
+  const url = w.url || w.auto_url || '';
+  view.innerHTML = `<div class="card pad stack">
+    <p style="margin:0">Laikrodžio programėlė <b>„Pirkiniai“</b> rodo šį pirkinių sąrašą ir leidžia žymėti prekes. Ji jungiasi prie Home Assistant, todėl veikia ir parduotuvėje. Kaip ją įsidiegti – priedo skirtuke <b>Dokumentacija</b>.</p></div>
+    <h2>1. Ryšys su Home Assistant</h2>
+    <div class="card pad stack">
+      <label class="field"><span>HA adresas iš išorės</span><input type="text" inputmode="url" id="w-url" value="${esc(url)}" placeholder="https://xxxx.ui.nabu.casa" autocomplete="off"></label>
+      <label class="field"><span>Ilgalaikis prieigos raktas ${w.has_token ? '<b style="color:#30a46c">✓ įrašytas</b>' : ''}</span><input type="password" id="w-tok" placeholder="${w.has_token ? 'Palikite tuščią, jei nekeičiate' : 'Įklijuokite raktą'}" autocomplete="off"></label>
+      <p class="muted small" style="margin:0">Raktas: HA → apačioje kairėje jūsų vardas → skirtukas <b>Sauga</b> → <b>Ilgalaikiai prieigos raktai</b> → <b>Sukurti raktą</b> (pavadinimas „Laikrodis“) → nukopijuokite ir įklijuokite čia. Raktas turi būti administratoriaus paskyros.</p>
+      <button class="btn primary" id="w-save">Išsaugoti ir patikrinti</button>
+      <div id="w-res"></div>
+    </div>
+    <h2>2. Susieti laikrodį</h2>
+    <div class="card pad stack">
+      <p style="margin:0">Laikrodis turi būti prijungtas prie namų Wi-Fi. Atidarykite jame <b>Pirkiniai</b>, paspauskite žemiau esantį mygtuką ir laikrodyje įveskite kodą.</p>
+      <div id="w-code"></div>
+      <p class="muted small" style="margin:0">Jei laikrodis paprašys HA IP adreso: <b>${w.ip ? esc(w.ip) : 'žr. HA → Nustatymai → Sistema → Tinklas'}</b></p>
+      <button class="btn" id="w-new" ${w.has_token && w.url ? '' : 'disabled'}>Gauti susiejimo kodą</button>
+    </div>`;
+  const showCode = (code, left) => {
+    clearInterval(watchTimer);
+    const until = Date.now() + left * 1000;
+    const draw = () => {
+      const s = Math.round((until - Date.now()) / 1000);
+      if (route.name !== 'watch' || s <= 0) { clearInterval(watchTimer); $('#w-code') && ($('#w-code').innerHTML = s <= 0 ? '<p class="muted small" style="margin:0">Kodas nebegalioja.</p>' : ''); return; }
+      $('#w-code').innerHTML = `<div style="font-size:44px;font-weight:700;letter-spacing:6px;text-align:center">${code.slice(0, 3)} ${code.slice(3)}</div><p class="muted small center" style="margin:0">Galioja dar ${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}</p>`;
+    };
+    draw(); watchTimer = setInterval(draw, 1000);
+  };
+  if (w.code) showCode(w.code, w.left);
+  $('#w-save').onclick = async () => {
+    const b = $('#w-save'); b.disabled = true; $('#w-res').innerHTML = '<p class="muted small" style="margin:0">Tikrinama… (iki 10 s)</p>';
+    let r = {}; try { r = await (await fetch('api/laikrodis/nustatymai', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ url: $('#w-url').value, token: $('#w-tok').value }) })).json(); } catch (e) { r = { error: 'Nėra ryšio' }; }
+    b.disabled = false;
+    if (r.ok) { toast('Viskas veikia'); routes.watch(); return; }
+    $('#w-res').innerHTML = `<p style="margin:0">⚠️ ${esc(r.error || 'Nepavyko')}</p>`;
+  };
+  $('#w-new').onclick = async () => {
+    let r = {}; try { r = await (await fetch('api/laikrodis/kodas', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: '{}' })).json(); } catch (e) { r = { error: 'Nėra ryšio' }; }
+    if (r.code) showCode(r.code, r.left); else toast(r.error || 'Nepavyko');
+  };
 };
 
 // --- Pastabų paryškinimas

@@ -1,0 +1,43 @@
+plugins {
+    id "com.android.application"
+}
+
+android {
+    namespace "lt.namai.pirkiniai"
+    compileSdk 34
+
+    defaultConfig {
+        applicationId "lt.namai.pirkiniai"
+        minSdk 26
+        targetSdk 34
+        versionCode 1
+        versionName "1.0"
+    }
+
+    signingConfigs {
+        // Pastovus raktas, kad naują versiją būtų galima įdiegti ant senos.
+        pastovus {
+            storeFile file("../pirkiniai.keystore")
+            storePassword "pirkiniai"
+            keyAlias "pirkiniai"
+            keyPassword "pirkiniai"
+        }
+    }
+
+    buildTypes {
+        release {
+            minifyEnabled false
+            signingConfig signingConfigs.pastovus
+        }
+    }
+
+    compileOptions {
+        sourceCompatibility JavaVersion.VERSION_17
+        targetCompatibility JavaVersion.VERSION_17
+    }
+
+    lint {
+        checkReleaseBuilds false
+        abortOnError false
+    }
+}

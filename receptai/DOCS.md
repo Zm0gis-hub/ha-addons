@@ -76,6 +76,35 @@ Failo formatas:
 
 ---
 
+## 4b. Pirkinių sąrašas laikrodyje (Wear OS)
+
+Laikrodžio programėlė **Pirkiniai** rodo tą patį pirkinių sąrašą: galima slinkti ir paspaudus pažymėti prekę. Pažymėjimas iškart matosi ir telefone. Jei parduotuvėje dingsta ryšys, laikrodis rodo paskutinį sąrašą, o pažymėjimus išsiunčia, kai ryšys atsiranda. Tinka bet kuriam Wear OS laikrodžiui.
+
+**A. Paruošti Receptus (vieną kartą)**
+
+1. Atnaujinkite Receptus iki 1.12.0 ar naujesnės.
+2. HA: apačioje kairėje paspauskite savo vardą → skirtukas **Sauga** → apačioje **Ilgalaikiai prieigos raktai** → **Sukurti raktą**, pavadinimas „Laikrodis“. Nukopijuokite rodomą raktą (jis rodomas tik vieną kartą).
+3. Receptai → **Daugiau → Laikrodis**: įrašykite HA adresą, kuriuo HA pasiekiate ne namie (pvz. `https://xxxx.ui.nabu.casa`), įklijuokite raktą ir spauskite **Išsaugoti ir patikrinti**. Turi parašyti „Viskas veikia“.
+
+**B. Įdiegti programėlę į laikrodį (vieną kartą kiekvienam laikrodžiui)**
+
+Programėlės nėra „Play“ parduotuvėje, todėl ji įkeliama iš telefono.
+
+1. Telefone atsisiųskite failą: `https://github.com/Zm0gis-hub/ha-addons/releases/download/laikrodis/pirkiniai-laikrodis.apk`
+2. Laikrodyje: **Nustatymai → Apie laikrodį → Programinės įrangos informacija** → 7 kartus bakstelėkite **Versijos numeris**, kol parašys, kad esate kūrėjas.
+3. Laikrodyje: **Nustatymai → Kūrėjo parinktys** → įjunkite **ADB derinimas** ir **Belaidis derinimas** (laikrodis turi būti prijungtas prie to paties Wi-Fi kaip telefonas).
+4. Telefone iš „Play“ parduotuvės įdiekite **Bugjaeger** (nemokama). Joje: kištuko piktograma viršuje → **Susieti** (Pair). Laikrodyje: **Belaidis derinimas → Susieti naują įrenginį** – įveskite į telefoną laikrodžio rodomą kodą, IP adresą ir prievadą. Tada prisijunkite (Connect) su IP ir prievadu, rodomais lange „Belaidis derinimas“.
+5. Bugjaeger: skirtukas **Paketai** (Packages) → **＋** → **Pasirinkti APK failą** → atsisiųstas `pirkiniai-laikrodis.apk`.
+6. Įdiegus laikrodyje išjunkite **Belaidis derinimas** (taupo bateriją).
+
+**C. Susieti**
+
+1. Laikrodis prijungtas prie namų Wi-Fi. Atidarykite jame **Pirkiniai**.
+2. Telefone: Receptai → **Daugiau → Laikrodis → Gauti susiejimo kodą**.
+3. Laikrodyje įveskite 6 skaitmenų kodą ir spauskite **Gerai**. Jei laikrodis paprašys IP adreso – įveskite tą, kurį rodo Receptai po kodu.
+
+Pakeitus laikrodį pakartokite B ir C. Programėlę atnaujinti reikia tik tada, kai tai parašyta Receptų pakeitimuose (tas pats B žingsnis, sena versija pasikeičia nauja).
+
 ## 5. Atnaujinimas
 
 Kai išleidžiama nauja versija, HA parodo **Yra atnaujinimas**. Atidarykite programą ir spauskite **Atnaujinti**. Duomenys atnaujinant nedingsta.

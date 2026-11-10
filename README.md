@@ -16,6 +16,8 @@ Paprastos lietuviškos programos (priedai), veikiančios Home Assistant viduje. 
    `https://github.com/Zm0gis-hub/ha-addons`
 3. Perkraukite puslapį, pasirinkite norimą programą ir spauskite **Įdiegti**.
 
+Aplanke `laikrodis/` yra Wear OS laikrodžio programėlė **Pirkiniai** (pirkinių sąrašas iš Receptų). Paruoštas failas: [pirkiniai-laikrodis.apk](https://github.com/Zm0gis-hub/ha-addons/releases/download/laikrodis/pirkiniai-laikrodis.apk), diegimas aprašytas Receptų dokumentacijoje.
+
 Išsamios instrukcijos – kiekvienos programos skirtuke **Dokumentacija**.
 
 Veikia su Raspberry Pi (aarch64, armv7) ir kompiuteriais (amd64). Programos naudoja tik standartinę Python biblioteką.

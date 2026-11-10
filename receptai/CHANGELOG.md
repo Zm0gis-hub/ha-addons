@@ -1,5 +1,9 @@
 # Pakeitimai
 
+## 1.12.0
+- Pirkinių sąrašas laikrodyje: nauja Wear OS programėlė „Pirkiniai“ rodo tą patį sąrašą, leidžia slinkti ir žymėti prekes. Nustatymas: **Daugiau → Laikrodis**, diegimas aprašytas Dokumentacijoje.
+- Jutiklis `sensor.receptai_pirkiniai` atsinaujina iškart pažymėjus prekę (anksčiau – per 20 s).
+
 ## 1.11.0
 - Pirkinių sąrašas, prekės langas: „Išsaugoti“ perkeltas į apačią dešinėje (kur įprasta patvirtinti), „🗑 Pašalinti“ – šalia kairėje. „🏠 Turiu namie“ ir „↳ Įterpti po šia“ – aukščiau vienoje eilėje.
 - Visi iššokantys langai dabar vienodi visuose prieduose: šiek tiek kitokio atspalvio nei puslapis, su plonu kontūru ir šešėliu, o fonas už jų labiau pritemdytas – iškart matosi, kad atsidarė naujas langas.

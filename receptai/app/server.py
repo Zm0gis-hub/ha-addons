@@ -19,6 +19,7 @@ from http.cookies import SimpleCookie
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from urllib.parse import urlparse, unquote
 import time
+import urllib.error
 import urllib.request
 import html as htmlmod
 
@@ -1001,6 +1002,10 @@ class Handler(BaseHTTPRequestHandler):
         path = unquote(urlparse(self.path).path).lstrip("/")
         if path in ("login", "login.html"):
             return self.static("login.html")
+        if path == "api/laikrodis/susieti":
+            q = dict(x.split("=", 1) for x in (urlparse(self.path).query or "").split("&") if "=" in x)
+            code, res = watch_pair(unquote(q.get("kodas", "")))
+            return self.send(code, res)
         if not self.authed():
             if path.startswith("api/"):
                 return self.send(401, {"error": "Reikia PIN"})
@@ -1020,6 +1025,8 @@ class Handler(BaseHTTPRequestHandler):
                 except Exception as e:  # noqa
                     info["error"] = str(e)
                 return self.send(200, info)
+            if path == "api/laikrodis":
+                return self.send(200, watch_info(self.client_address[0] == INGRESS_IP))
             if path == "api/version":
                 with LOCK:
                     return self.send(200, {"version": version()})
@@ -1064,6 +1071,17 @@ class Handler(BaseHTTPRequestHandler):
                     return self.send(200, {"error": str(e)})
                 except Exception as e:  # noqa
                     return self.send(200, {"error": "Nepavyko atidaryti nuorodos (%s)" % e})
+            if path.startswith("api/laikrodis/"):
+                if self.client_address[0] != INGRESS_IP:
+                    return self.send(403, {"error": "Atidarykite Receptus per Home Assistant"})
+                d = self.read_json()
+                if path == "api/laikrodis/nustatymai":
+                    return self.send(200, watch_save(d))
+                if path == "api/laikrodis/patikrinti":
+                    return self.send(200, watch_test())
+                if path == "api/laikrodis/kodas":
+                    return self.send(200, watch_new_code())
+                return self.send(404, {"error": "Nerasta"})
             if path == "api/screen":
                 d = self.read_json()
                 uid = self.headers.get("X-Remote-User-Id", "")
@@ -1087,6 +1105,7 @@ class Handler(BaseHTTPRequestHandler):
                         DB.rollback()
                         raise
                     res["version"] = version()
+                SENSOR_NOW.set()
                 return self.send(200, res)
             return self.send(404, {"error": "Nerasta"})
         except ValueError as e:
@@ -1215,7 +1234,8 @@ def sensor_payload():
                                         WHERE m.day=? AND m.cooked=0 ORDER BY m.id""", (today,))]
     return {"state": len(buy), "attributes": {
         "friendly_name": "Receptai – pirkiniai", "icon": "mdi:cart", "unit_of_measurement": "prek.",
-        "pirkti": buy, "siandien_gaminti": cook, "atnaujinta": now()}}
+        "pirkti": buy, "siandien_gaminti": cook, "laikrodis": watch_items(), "priedas": addon_slug(),
+        "atnaujinta": now()}}
 
 
 def sensor_loop():
@@ -1231,7 +1251,279 @@ def sensor_loop():
                 last, sent = key, time.time()
         except Exception as e:  # noqa
             print("HA jutiklio klaida:", e, flush=True)
-        time.sleep(20)
+        SENSOR_NOW.wait(20)
+        SENSOR_NOW.clear()
+
+# ---------------------------------------------------------------- laikrodis (Wear OS programėlė „Pirkiniai“)
+# Laikrodis skaito jutiklio sensor.receptai_pirkiniai atributą „laikrodis“ per HA API,
+# o prekę pažymi per HA paslaugą hassio.addon_stdin – komanda ateina į šio priedo stdin.
+SENSOR_NOW = threading.Event()  # jutiklį atnaujinti nedelsiant
+SLUG = ""
+PINGS = {}  # patikrinimo žymė -> laikas
+PAIR = {"code": "", "until": 0.0, "fails": 0}
+UNIT_SHORT = {"šaukštas": "v. š.", "šaukštelis": "a. š.", "skiltelė": "skilt.", "stiklinė": "stikl.",
+              "pakelis": "pak.", "žiupsnelis": "žiupsn.", "gabalas": "gab.", "riekė": "riek."}
+
+
+def fmt_num(n):
+    fr = {0.25: "¼", 0.5: "½", 0.75: "¾", 0.33: "⅓", 0.67: "⅔"}
+    w = int(n // 1)
+    f = round((n - w) * 100) / 100
+    if n < 20 and f in fr:
+        return (str(w) if w else "") + fr[f]
+    r = round(n) if n >= 100 else round(n * 10) / 10
+    return ("%g" % r).replace(".", ",")
+
+
+def fmt_amount(q, u):
+    if q is None:
+        return u or ""
+    u = UNIT_SHORT.get(u, u)
+    if u == "g" and q >= 1000:
+        return fmt_num(q / 1000) + " kg"
+    if u == "ml" and q >= 1000:
+        return fmt_num(q / 1000) + " l"
+    return fmt_num(q) + (" " + u if u else "")
+
+
+def watch_items():
+    """Pirkinių sąrašas kaip programos „Parduotuvėje“ rodinyje: nepirktos ir nupirktos (x=1) prekės."""
+    prods = {p["id"]: p for p in rows("SELECT * FROM products")}
+    st = {r["product_id"]: r for r in rows("SELECT * FROM pstate")}
+    secs = rows("SELECT * FROM sections ORDER BY pos, id")
+    spos = {x["id"]: i for i, x in enumerate(secs)}
+    semo = {x["id"]: x["emoji"] or "" for x in secs}
+    need = {}
+
+    def add(pid, qty, unit, extra):
+        o = need.setdefault(pid, {"a": {}, "extra": False})
+        if qty is not None:
+            ul = (unit or "").lower()
+            if ul == "kg":
+                qty, unit = qty * 1000, "g"
+            elif ul == "l":
+                qty, unit = qty * 1000, "ml"
+            unit = unit or ""
+            o["a"][unit] = (o["a"].get(unit) or 0) + qty
+        elif unit and unit != "pagal skonį" and unit not in o["a"]:
+            o["a"][unit] = None
+        if extra:
+            o["extra"] = True
+
+    for m in rows("""SELECT m.servings, r.id AS rid, r.servings AS rserv FROM menu m JOIN recipes r ON r.id=m.recipe_id
+                     WHERE m.in_list=1 AND m.cooked=0 ORDER BY m.id"""):
+        f = (m["servings"] or m["rserv"] or 1) / (m["rserv"] or 1)
+        for i in rows("SELECT * FROM ingredients WHERE recipe_id=? ORDER BY pos, id", (m["rid"],)):
+            add(i["product_id"], i["qty"] * f if i["qty"] is not None else None, i["unit"], False)
+    for e in rows("SELECT * FROM extras ORDER BY id"):
+        add(e["product_id"], e["qty"], e["unit"], True)
+    out = []
+    for pid, o in need.items():
+        p, s_ = prods.get(pid), st.get(pid) or {}
+        if not p:
+            continue
+        x = 1 if s_.get("checked") else 0
+        if not x and s_.get("state") == "have":
+            continue
+        if not x and p["always_have"] and not o["extra"] and s_.get("state") not in ("need", "low"):
+            continue
+        k = " + ".join(t for t in (fmt_amount(q, u) for u, q in o["a"].items()) if t)
+        pos = s_.get("pos") if s_.get("pos") is not None else 1e9
+        out.append(((pos, spos.get(p["section_id"], 999), p["name"].lower()),
+                    {"i": pid, "n": p["name"], "k": k, "x": x, "e": semo.get(p["section_id"], "")}))
+    return [it for _, it in sorted(out, key=lambda t: t[0])]
+
+
+def addon_slug():
+    """Šio priedo pavadinimas Supervisor'iuje (pvz. 44e59b9c_receptai) – jo reikia hassio.addon_stdin."""
+    global SLUG
+    if SLUG:
+        return SLUG
+    try:
+        req = urllib.request.Request("http://supervisor/addons/self/info",
+                                     headers={"Authorization": "Bearer " + SUP_TOKEN})
+        with urllib.request.urlopen(req, timeout=10) as r:
+            SLUG = json.loads(r.read())["data"]["slug"]
+    except Exception:  # noqa
+        SLUG = os.environ.get("HOSTNAME", "").replace("-", "_")
+    return SLUG
+
+
+def lan_ip():
+    """HA adresas namų tinkle – jo gali prireikti susiejant laikrodį."""
+    try:
+        req = urllib.request.Request("http://supervisor/network/info",
+                                     headers={"Authorization": "Bearer " + SUP_TOKEN})
+        with urllib.request.urlopen(req, timeout=10) as r:
+            for i in json.loads(r.read())["data"]["interfaces"]:
+                for a in (i.get("ipv4") or {}).get("address") or []:
+                    if i.get("connected", True) and a:
+                        return a.split("/")[0]
+    except Exception:  # noqa
+        pass
+    return ""
+
+
+def handle_stdin(obj):
+    if isinstance(obj, str):
+        try:
+            obj = json.loads(obj)
+        except ValueError:
+            return
+    if not isinstance(obj, dict):
+        return
+    v = obj.get("veiksmas")
+    if v == "ping":
+        PINGS[str(obj.get("n"))] = time.time()
+    elif v == "pazymeti":
+        pid = int(obj.get("id") or 0)
+        with LOCK:
+            if not DB.execute("SELECT 1 FROM products WHERE id=?", (pid,)).fetchone():
+                return
+            try:
+                act_check({"product_id": pid, "checked": bool(obj.get("x"))})
+                bump()
+                DB.commit()
+            except Exception:
+                DB.rollback()
+                raise
+        SENSOR_NOW.set()
+
+
+def stdin_loop():
+    """HA paslauga hassio.addon_stdin rašo JSON į priedo stdin (be naujos eilutės gale)."""
+    dec, buf = json.JSONDecoder(), ""
+    while True:
+        try:
+            chunk = os.read(0, 65536)
+        except OSError:
+            return
+        if not chunk:
+            return
+        buf += chunk.decode("utf-8", "replace")
+        while True:
+            buf = buf.lstrip()
+            if not buf:
+                break
+            try:
+                obj, end = dec.raw_decode(buf)
+            except ValueError:
+                if buf.rstrip().endswith(("}", '"', "\n")) or len(buf) > 100000:
+                    buf = ""  # sugadinta komanda – išmetam
+                break
+            buf = buf[end:]
+            try:
+                handle_stdin(obj)
+            except Exception as e:  # noqa
+                print("Laikrodžio komandos klaida:", e, flush=True)
+
+
+def meta_get(k):
+    r = DB.execute("SELECT value FROM meta WHERE key=?", (k,)).fetchone()
+    return r["value"] if r else ""
+
+
+def meta_set(k, v):
+    DB.execute("INSERT OR REPLACE INTO meta(key, value) VALUES(?, ?)", (k, v))
+
+
+def watch_cfg():
+    with LOCK:
+        return meta_get("w_url"), meta_get("w_token")
+
+
+def watch_info(via_ha):
+    url, tok = watch_cfg()
+    auto = ""
+    if not url and SUP_TOKEN:
+        try:
+            c = ha("GET", "config") or {}
+            auto = c.get("external_url") or c.get("internal_url") or ""
+        except Exception:  # noqa
+            pass
+    left = int(PAIR["until"] - time.time()) if PAIR["code"] else 0
+    return {"via_ha": via_ha, "url": url, "auto_url": auto, "has_token": bool(tok), "slug": addon_slug(),
+            "ip": lan_ip() if via_ha and SUP_TOKEN else "",
+            "code": PAIR["code"] if via_ha and left > 0 else "", "left": max(left, 0)}
+
+
+def clean_url(u):
+    u = (u or "").strip().rstrip("/")
+    if u and not re.match(r"^https?://", u):
+        u = "https://" + u
+    return u
+
+
+def watch_save(d):
+    url = clean_url(d.get("url"))
+    tok = (d.get("token") or "").strip()
+    with LOCK:
+        meta_set("w_url", url)
+        if tok:
+            meta_set("w_token", tok)
+        DB.commit()
+    return watch_test()
+
+
+def http_json(method, url, tok, body=None, timeout=10):
+    req = urllib.request.Request(url, method=method, data=json.dumps(body).encode() if body is not None else None,
+                                 headers={"Authorization": "Bearer " + tok, "Content-Type": "application/json"})
+    with urllib.request.urlopen(req, timeout=timeout) as r:
+        return r.status
+
+
+def watch_test():
+    url, tok = watch_cfg()
+    if not url or not tok:
+        return {"ok": False, "error": "Įrašykite HA adresą ir raktą."}
+    try:
+        http_json("GET", url + "/api/states/" + SENSOR_ID, tok)
+    except urllib.error.HTTPError as e:
+        if e.code == 401:
+            return {"ok": False, "error": "Raktas netinka (HA atsakė 401). Sukurkite naują ir įklijuokite iš naujo."}
+        if e.code == 404:
+            return {"ok": False, "error": "Prisijungta, bet HA dar nemato jutiklio „%s“. Palaukite minutę ir bandykite dar kartą." % SENSOR_ID}
+        return {"ok": False, "error": "HA atsakė klaida %s." % e.code}
+    except Exception as e:  # noqa
+        return {"ok": False, "error": "Nepavyko prisijungti prie %s (%s). Patikrinkite adresą." % (url, e)}
+    n = secrets.token_hex(4)
+    try:
+        http_json("POST", url + "/api/services/hassio/addon_stdin", tok,
+                  {"addon": addon_slug(), "input": {"veiksmas": "ping", "n": n}})
+    except urllib.error.HTTPError as e:
+        if e.code in (401, 403):
+            return {"ok": False, "error": "Raktas turi būti sukurtas administratoriaus paskyroje (HA atsakė %s)." % e.code}
+        return {"ok": False, "error": "Nepavyko perduoti komandos priedui (HA klaida %s)." % e.code}
+    except Exception as e:  # noqa
+        return {"ok": False, "error": "Nepavyko perduoti komandos priedui (%s)." % e}
+    for _ in range(30):
+        if n in PINGS:
+            PINGS.pop(n, None)
+            return {"ok": True}
+        time.sleep(0.2)
+    return {"ok": False, "error": "Priedas komandos negavo. Paleiskite Receptus iš naujo (Nustatymai → Priedai → Receptai → Paleisti iš naujo) ir bandykite dar kartą."}
+
+
+def watch_new_code():
+    url, tok = watch_cfg()
+    if not url or not tok:
+        return {"error": "Pirmiausia įrašykite HA adresą ir raktą."}
+    PAIR.update(code="%06d" % secrets.randbelow(10 ** 6), until=time.time() + 600, fails=0)
+    return {"code": PAIR["code"], "left": 600}
+
+
+def watch_pair(code):
+    """Laikrodis namų tinkle atsiunčia kodą ir gauna HA adresą bei raktą."""
+    if not PAIR["code"] or time.time() > PAIR["until"]:
+        return 403, {"error": "Kodas nebegalioja. Receptuose sukurkite naują."}
+    if not secrets.compare_digest(code.strip(), PAIR["code"]):
+        PAIR["fails"] += 1
+        if PAIR["fails"] >= 5:
+            PAIR["code"] = ""
+        return 403, {"error": "Neteisingas kodas."}
+    PAIR["code"] = ""
+    url, tok = watch_cfg()
+    return 200, {"url": url, "token": tok, "priedas": addon_slug(), "jutiklis": SENSOR_ID}
 
 
 def main():
@@ -1239,6 +1531,7 @@ def main():
     threading.Thread(target=screen_watchdog, daemon=True).start()
     if SUP_TOKEN:
         threading.Thread(target=sensor_loop, daemon=True).start()
+    threading.Thread(target=stdin_loop, daemon=True).start()
     srv = ThreadingHTTPServer(("0.0.0.0", PORT), Handler)
     print(f"Receptai veikia per prievadą {PORT}. Duomenys: {DATA_DIR}", flush=True)
     srv.serve_forever()
