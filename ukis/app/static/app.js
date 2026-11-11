@@ -580,7 +580,7 @@ function dateSheet(t, d) {
     $('#dp-next').onclick = () => { vm++; if (vm > 11) { vm = 0; vy++; } keep(); };
     if ($('#dp-allday')) $('#dp-allday').onchange = e => {
       if (e.target.checked) { d.time = ''; d.end_time = ''; d.rem = conv(d.rem, false); }
-      else { const h = Math.min(22, new Date().getHours() + 1), p2 = n => String(n).padStart(2, '0'); d.time = p2(h) + ':00'; d.end_time = p2(h + 1) + ':00'; d.rem = conv(d.rem, true); }
+      else { const [h, m] = (S.settings.task_time || '09:00').split(':').map(Number), p2 = n => String(n).padStart(2, '0'); d.time = p2(h) + ':' + p2(m); d.end_time = p2(Math.min(23, h + 1)) + ':' + p2(m); d.rem = conv(d.rem, true); }
       keep();
     };
     if ($('#dp-t1')) $('#dp-t1').onchange = e => { if (!e.target.value) return; d.time = e.target.value;
@@ -1063,6 +1063,10 @@ routes.settings = () => {
     ${[[0, 'Tik tą dieną'], [1, 'Iki kitos dienos pabaigos'], [3, '3 dienas'], [7, 'Savaitę']].map(([v, l]) => `<option value="${v}" ${keep == v ? 'selected' : ''}>${l}</option>`).join('')}</select></label>
     <div class="muted small" style="margin-top:6px">Vėliau jos pasislepia, bet visada pasiekiamos sekcijos apačioje („Rodyti atliktas“).</div></div>
 
+  <h2>🕐 Užduoties laikas</h2>
+  <div class="card pad"><label class="field"><span>Numatytasis laikas, kai išjungiate „Visa diena“</span><input type="time" id="st-ttime" value="${esc(S.settings.task_time || '09:00')}"></label>
+    <div class="muted small" style="margin-top:6px">Pabaiga nustatoma valanda vėliau. Konkrečiai užduočiai laiką visada galima pakeisti.</div></div>
+
   <h2>🔔 Priminimai telefone</h2>
   <div class="card pad stack" id="st-nt">
     <div class="muted small">Kada priminti, nustatote kiekvienai užduočiai atskirai – užduoties lange <b>🔔 Priminimai telefone</b>. Pranešime yra mygtukas <b>✓ Atlikta</b>, o užduočiai tą dieną – ir <b>Rytoj</b> (atidėti dienai).</div>
@@ -1099,6 +1103,7 @@ routes.settings = () => {
   $$('[data-smv]').forEach(mover(sectionsSorted, 'sections'));
   $$('[data-tmv]').forEach(mover(tagsSorted, 'tags'));
   $('#st-keep').onchange = e => act('settings_save', { done_keep_days: +e.target.value });
+  $('#st-ttime').onchange = e => { if (e.target.value) act('settings_save', { task_time: e.target.value }, true).then(() => toast('Išsaugota')); };
   $('#st-hadays').onchange = e => act('settings_save', { ha_days: +e.target.value });
   // priminimai
   const ntSave = o => act('settings_save', o, true).then(() => toast('Išsaugota'));

@@ -102,6 +102,7 @@ DEFAULT_SETTINGS = {
     "ha_days": 7,          # kiek dienų į priekį rodyti HA kortelėje
     "notify_services": [],  # mobile_app_* paslaugos (telefonai)
     "notify_overdue": True,
+    "task_time": "09:00",  # numatytasis užduoties laikas (išjungus „Visa diena“)
     "well_price": 0.2142,   # sutarta siurblio elektros kaina, EUR/kWh
     "well_neighbor": "Kaimynas",
     "well_nb_from": "",     # nuo kada kaimynas naudoja gręžinį (YYYY-MM-DD); iki tol viskas tenka man

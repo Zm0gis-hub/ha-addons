@@ -35,21 +35,27 @@ Sąsaja viena: kompiuteryje meniu kairėje ir kortelės keliais stulpeliais, tel
 | 🎁 **Progos** | Visos progos pagal metus su sumomis. **＋ Nauja proga** – bet kuri proga, pvz. krikštynos. |
 | 💡 **Idėjos** | Laukiančios idėjos, sugrupuotos pagal tai, kuriai progai tinka (dauguma – „Bet kuriai progai“). Žalia eilutė ↺ rodo, kur ir kam tokia dovana jau panaudota. Paspaudus idėją – kam ją skirti, kuriai progai tinka, visas panaudojimo sąrašas; **→ Proga** – priskirti konkrečiai progai (tada pasirenkami ir metai). **📋 Įklijuoti sąrašą** – daug idėjų iš karto (kiekviena eilutė – idėja). |
 | 👥 **Žmonės** | Artimieji, jų gimtadieniai ir pastabos. Žmogaus lange – idėjos ir visa dovanų istorija per metus. |
-| 📊 **Statistika** | Išlaidos per metus, pagal progą, žmogų ir parduotuvę. |
+| 🛒 **Pirkiniai** | Kas dar nenupirkta artėjančioms progoms, pagal parduotuves (kompiuteryje – meniu, telefone – kortelė „Reikia nupirkti“ skiltyje Artėja). |
+| 📊 **Statistika** | Išlaidos per metus, pagal progą, žmogų ir parduotuvę; vidutinė dovana, biudžetas ir išleista, gautos dovanos. |
 | 🔍 **Paieška** | „Ar jau dovanojom?“ – ieško per visas dovanas, parduotuves ir žmones. |
 
 **Progos langas** – kaip lentelėje: kiekvienam gavėjui kortelė su dovanomis ir suma.
 - **＋ Dovana** – atsidaro įprastas dovanos langas, kuriame gavėjas ir proga jau pažymėti: įrašote, kas, (nebūtina) kaina, parduotuvė, ir **Išsaugoti**.
 - **💡 Iš idėjų** – parodo šio žmogaus laukiančias idėjas (ir „nežinia kam“). Paspaudus idėja priskiriama šiai progai. Skaičius ant mygtuko – kiek idėjų laukia būtent šiam žmogui.
-- **Būsena** – paspauskite ženkliuką kairėje: 💡 Idėja → ✓ Nupirkta → 🎁 Įteikta. Sumoje skaičiuojamos tik nupirktos ir įteiktos.
+- **Būsena** – paspauskite ženkliuką kairėje: 🛒 Reikia nupirkti → ✓ Nupirkta → 🎀 Supakuota → 🎁 Įteikta (ties „Įteikta“ sustoja). 📦 Užsakyta ir grąžinimas atgal – dovanos lange. Sumoje skaičiuojama viskas, kas nebe „Reikia nupirkti“.
+- **📥 Gauta šia proga** – kas ir nuo ko gauta.
 - Paspaudus dovaną – visi laukai: kam, proga, kaina, parduotuvė, nuoroda, pastaba.
-- **＋ Gavėjas** (virš kortelių) – pridėti žmogų ar grupę. ✕ kortelėje – pašalinti (gimtadienio žmogaus pašalinti negalima). Dovanos be konkretaus gavėjo rodomos kortelėje **Kiti**.
+- **＋ Gavėjas** (virš kortelių) – pridėti žmogų ar grupę (naujai – pažymėkite „Tai grupė“). ✕ kortelėje – pašalinti (gimtadienio žmogaus pašalinti negalima). Dovanos be konkretaus gavėjo rodomos kortelėje **Kiti**.
 - **⋯** viršuje – biudžetas, pastabos, trynimas.
 - Kuriant naujų metų Kalėdas (ar kitą šventę), gavėjai nukopijuojami iš praėjusių metų.
 
-**＋ Idėja** (apačioje dešinėje, matomas visur) – greitas įrašymas: parašote idėją, pasirenkate kam (nebūtina, galima pažymėti ir kelis – kiekvienam bus atskira idėja) ir, jei reikia, **Tinka progai** (pvz. tik Kalėdoms – be metų, idėja laukia tol, kol ją panaudosite), **Įrašyti**. Vienoda idėja keliems rodoma viena eilute su visais vardais; priskiriant progai pasirenkate, kuriems – kitiems ji lieka laukti. Patogiausia telefone, kai kas nors šauna į galvą.
+**＋ Idėja** (apačioje dešinėje, matomas visur) – vienintelė vieta naujai idėjai. Galima įklijuoti ir parduotuvės nuorodą – pavadinimas, kaina ir nuotrauka užsipildo patys (jei parduotuvė leidžia). **📋 Sąrašas** – daug idėjų iš karto. Greitas įrašymas: parašote idėją, pasirenkate kam (nebūtina, galima pažymėti ir kelis – kiekvienam bus atskira idėja) ir, jei reikia, **Tinka progai** (pvz. tik Kalėdoms – be metų, idėja laukia tol, kol ją panaudosite), **Įrašyti**. Vienoda idėja keliems rodoma viena eilute su visais vardais; priskiriant progai pasirenkate, kuriems – kitiems ji lieka laukti. Patogiausia telefone, kai kas nors šauna į galvą.
 
-**Spalvos** – žmogaus lange **✏️ → Spalva** (pvz. vienos pusės giminei mėlyna, kitos – rožinė). Spalvotas rėmelis matomas progų, žmonių ir idėjų kortelėse. Būsimos datos rodomos žaliai, praėjusios – blankiai.
+**Žmogaus profilis** – žmogaus lange **✏️**: dydžiai (drabužiai, avalynė, žiedas), ką mėgsta, ko nedovanoti, ką jau turi.
+
+**Priminimai telefone** – **⚙️ Nustatymai → 🔔 Priminimai telefone**: pažymėkite telefoną, kiek dienų prieš (pvz. 14 d. ir 3 d.) ir kuriuo metu. Spauskite **📨 Išbandyti pranešimą**. Priedas turi būti rodomas šoniniame meniu, kad paspaudus pranešimą atsidarytų Dovanos.
+
+**Spalvos** – žmogus ar grupė visur rodomi užpildytu ženkliuku, proga – violetiniu rėmeliu. Žmogaus lange **✏️ → Spalva** (pvz. vienos pusės giminei mėlyna, kitos – rožinė). Spalvotas rėmelis matomas progų, žmonių ir idėjų kortelėse. Būsimos datos rodomos žaliai, praėjusios – blankiai.
 
 **Žmonės ir grupės.** Kiekvienas žmogus įrašomas atskirai su gimimo data (`1990-01-15`, arba `01-15`, jei metų nežinote). **Grupė** (**＋ Grupė**, pvz. „A tėvai“) jungia kelis žmones – jai dovanojama kartu, pvz. per Kalėdas, o gimtadieniai lieka kiekvieno atskirai. Žmogaus lange matomos ir jo grupių dovanos. Amžius rodomas datos gale „(37 m.)“, jubiliejai paryškinti. Žmogaus ar grupės, kuriems nebedovanojate, netrinkite – žmogaus lange spauskite **🗄** (archyvuoti): sąrašuose nebus rodomi, istorija liks. Grąžinti – Žmonių skilties apačioje **🗄 Archyvas → Išarchyvuoti**.
 

@@ -1,5 +1,8 @@
 # Pakeitimai
 
+## 1.7.2
+- ⚙️ Nustatymuose naujas laukas **Užduoties laikas** (iš karto 09:00): toks laikas nustatomas, kai užduoties termino lange išjungiate „Visa diena“. Pabaiga – valanda vėliau.
+
 ## 1.7.1
 - Užduoties lange, kai nėra datos, „Terminas“ kortelė nebeiškraipyta.
 - Kortelės sukeistos: „Sekcija“ kairėje, „Terminas“ dešinėje. Nuo „Sekcijos“ nuimtas 📁 – lieka tik pačios sekcijos ženkliukas.

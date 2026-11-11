@@ -1,5 +1,23 @@
 # Pakeitimai
 
+## 1.11.0
+- **Spalvos:** žmogus ar grupė visur rodomi užpildytu ženkliuku (jo spalva, jei nustatyta, kitaip mėlynas), o proga – violetiniu rėmeliu. Taip iškart matosi, kas yra kam, o kas – kokia proga.
+- **Viena vieta idėjai įrašyti** – mygtukas **＋ Idėja** (žmogaus lange tas žmogus pažymimas iš karto). Ten pat **📋 Sąrašas** daug idėjų iš karto. Idėjų skilties ir žmogaus lango įvedimo laukeliai nebereikalingi.
+- **Vienas idėjos langas:** paspaudus idėją atsidaro tas pats langas (kam, kuriai progai tinka, „Daugiau“ – kaina, parduotuvė, nuoroda, nuotrauka, pastaba), apačioje „Ištrinti“, „→ Proga“, „Išsaugoti“.
+- Gavėjai visur renkami ženkliukais (galima keli). Laisvo teksto laukas „Kam (laisvai)“ panaikintas – vietoj jo grupė.
+- Progoje nenupirkta dovana dabar **🛒 Reikia nupirkti**; 💡 – tik laukiančios idėjos.
+- **Naujos būsenos:** 📦 Užsakyta ir 🎀 Supakuota. Paspaudus ženkliuką: 🛒 → ✓ → 🎀 → 🎁 ir ties „Įteikta“ sustoja (nebegrįžta į pradžią).
+- Archyvuoti – tik mygtuku 🗄 žmogaus lange.
+- Progoje „＋ Gavėjas“ galima iškart sukurti grupę.
+- Pataisytas importo patarimas: žmonės sujungiami per **Žmonės → 🔗 Sujungti**.
+- **🔔 Priminimai telefone** prieš gimtadienius ir šventes (⚙️ Nustatymai): kiek dienų prieš, kuriuo metu, į kuriuos telefonus. Pranešime – kiek jau nupirkta.
+- **🛒 Pirkiniai:** kas dar nenupirkta artėjančioms progoms, sugrupuota pagal parduotuves; paspaudus 🛒 pažymima „Nupirkta“. Atskirai – užsakytos.
+- **Žmogaus profilis:** drabužių, avalynės ir žiedo dydis, ką mėgsta, ko nedovanoti, ką jau turi.
+- **Nuoroda → pavadinimas, kaina, nuotrauka:** įklijavus parduotuvės nuorodą (ir į ＋ Idėja), laukai užpildomi patys (jei parduotuvė tai leidžia).
+- **Nuotrauka** dovanai ir idėjai (telefone – kamera arba galerija).
+- **📥 Gautos dovanos:** kas ir nuo ko gauta (progos lange ir žmogaus lange).
+- **Statistika:** išleista, dovanų skaičius, vidutinė dovana, dar suplanuota, gauta dovanų; biudžetas ir išleista kiekvienai progai su biudžetu.
+
 ## 1.10.3
 - Visi iššokantys langai dabar vienodi visuose prieduose: šiek tiek kitokio atspalvio nei puslapis, su plonu kontūru ir šešėliu, o fonas už jų labiau pritemdytas – iškart matosi, kad atsidarė naujas langas.
 
