@@ -86,6 +86,29 @@ final class Duomenys {
         int ml;
         boolean tikslui;
         int siandien;
+        /** Grupė (pvz. Kava), kuriai priklauso ši rūšis; 0 – atskiras gėrimas. */
+        int grupe;
+        /** Ar tai grupė su rūšimis (paspaudus – pasirinkimas). */
+        boolean turiRusiu;
+    }
+
+    /** Mygtukai pagrindiniame ekrane: atskiri gėrimai ir grupės (be rūšių). */
+    static java.util.List<Gerimas> virsutiniai(Suvestine s) {
+        java.util.List<Gerimas> o = new java.util.ArrayList<>();
+        for (Gerimas x : s.gerimai) if (x.grupe == 0) o.add(x);
+        return o;
+    }
+
+    /** Grupės rūšys (pvz. Kava → Americano, Cappuccino). */
+    static java.util.List<Gerimas> rusys(Suvestine s, int grupe) {
+        java.util.List<Gerimas> o = new java.util.ArrayList<>();
+        for (Gerimas x : s.gerimai) if (x.grupe == grupe && grupe != 0) o.add(x);
+        return o;
+    }
+
+    static Gerimas pagalId(Suvestine s, int id) {
+        for (Gerimas x : s.gerimai) if (x.id == id) return x;
+        return null;
     }
 
     static final class Suvestine {
@@ -135,6 +158,7 @@ final class Duomenys {
                 x.ml = o.optInt("ml", 250);
                 x.tikslui = o.optInt("g", 1) != 0;
                 x.siandien = siand ? o.optInt("s") : 0;
+                x.grupe = o.optInt("k", 0);
                 s.gerimai[i] = x;
                 pagalId.put(x.id, x);
             }
@@ -155,6 +179,14 @@ final class Duomenys {
             if (x != null) x.siandien += zenklas * ml;
         }
         if (s.viso < 0) s.viso = 0;
+        // grupės (Kava) kiekis = jos rūšių suma; rūšis be esamos grupės rodoma kaip atskiras gėrimas
+        for (Gerimas x : s.gerimai) {
+            if (x.grupe == 0) continue;
+            Gerimas gr = pagalId.get(x.grupe);
+            if (gr == null || gr.grupe != 0) { x.grupe = 0; continue; }
+            gr.turiRusiu = true;
+            gr.siandien += x.siandien;
+        }
 
         JSONObject sk = l.optJSONObject("s");
         if (sk != null && siandienArVakar(sk.optString("d"))) {
@@ -213,7 +245,9 @@ final class Duomenys {
     static synchronized int prideti(Context c, int tipas, int ml) {
         Suvestine s = suvestine(c);
         Gerimas g = null;
-        for (Gerimas x : s.gerimai) if (x.id == tipas || (tipas < 0 && g == null)) g = x;
+        for (Gerimas x : s.gerimai)
+            if (x.id == tipas || (tipas < 0 && g == null && x.grupe == 0 && !x.turiRusiu)) g = x;
+        if (g != null && g.turiRusiu) return 0;  // grupei reikia pasirinkti rūšį
         if (g == null && tipas < 0) {
             g = new Gerimas();
             g.id = -1;

@@ -2,6 +2,7 @@ package lt.namai.sveikata;
 
 import android.app.Activity;
 import android.content.Context;
+import android.content.Intent;
 import android.content.SharedPreferences;
 import android.graphics.Canvas;
 import android.graphics.Color;
@@ -70,8 +71,26 @@ public class MainActivity extends Activity {
     @Override
     protected void onCreate(Bundle b) {
         super.onCreate(b);
-        if (Duomenys.susietas(this)) rodytiPagrindini(true);
-        else rodytiSusiejima();
+        if (Duomenys.susietas(this)) {
+            rodytiPagrindini(true);
+            atidarytiGrupe(getIntent());
+        } else rodytiSusiejima();
+    }
+
+    @Override
+    protected void onNewIntent(Intent i) {
+        super.onNewIntent(i);
+        setIntent(i);
+        if (Duomenys.susietas(this)) atidarytiGrupe(i);
+    }
+
+    /** Iš plytelės paspaudus grupę (pvz. Kava) – iškart rodomas rūšių pasirinkimas. */
+    private void atidarytiGrupe(Intent i) {
+        int id = i != null ? i.getIntExtra("grupe", 0) : 0;
+        if (id == 0) return;
+        i.removeExtra("grupe");
+        Duomenys.Gerimas g = Duomenys.pagalId(Duomenys.suvestine(this), id);
+        if (g != null && g.turiRusiu) rodytiRusis(g);
     }
 
     @Override
@@ -211,28 +230,31 @@ public class MainActivity extends Activity {
                     lp(ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT, 8));
         }
         // gėrimų mygtukai po du eilutėje
+        List<Duomenys.Gerimas> virsus = Duomenys.virsutiniai(s);
         LinearLayout eile = null;
-        for (int i = 0; i < s.gerimai.length; i++) {
-            final Duomenys.Gerimas g = s.gerimai[i];
+        for (int i = 0; i < virsus.size(); i++) {
+            final Duomenys.Gerimas g = virsus.get(i);
             if (i % 2 == 0) {
                 eile = new LinearLayout(this);
                 eile.setOrientation(LinearLayout.HORIZONTAL);
                 eile.setGravity(Gravity.CENTER);
                 l.addView(eile, lp(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT, 6));
             }
-            TextView t = mygtukas(g.emoji + " " + g.pav + "\n+" + g.ml + " ml" + (g.siandien > 0 ? " · " + Duomenys.ml(g.siandien) : ""), MYGTUKAS, Color.WHITE);
+            TextView t = mygtukas(g.emoji + " " + g.pav + "\n" + (g.turiRusiu ? "pasirinkti ›" : "+" + g.ml + " ml") + (g.siandien > 0 ? " · " + Duomenys.ml(g.siandien) : ""), MYGTUKAS, Color.WHITE);
             t.setTextSize(13);
             t.setMaxLines(2);
             t.setOnClickListener(new View.OnClickListener() {
                 @Override
                 public void onClick(View v) {
-                    gerti(g.id, 0);
+                    if (g.turiRusiu) rodytiRusis(g);
+                    else gerti(g.id, 0);
                 }
             });
             t.setOnLongClickListener(new View.OnLongClickListener() {
                 @Override
                 public boolean onLongClick(View v) {
-                    rodytiKieki(g);
+                    if (g.turiRusiu) rodytiRusis(g);
+                    else rodytiKieki(g);
                     return true;
                 }
             });
@@ -341,6 +363,34 @@ public class MainActivity extends Activity {
             }
         });
         l.addView(a, lp(ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT, 0));
+    }
+
+    /** Grupės (pvz. Kava) rūšių pasirinkimas. */
+    private void rodytiRusis(final Duomenys.Gerimas gr) {
+        LinearLayout l = naujasEkranas("rusys");
+        atgal(l);
+        l.addView(tekstas(gr.emoji + " " + gr.pav, 15, Color.WHITE, true), lp(ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT, 2));
+        for (final Duomenys.Gerimas g : Duomenys.rusys(Duomenys.suvestine(this), gr.id)) {
+            TextView t = mygtukas(g.pav + "\n+" + g.ml + " ml" + (g.siandien > 0 ? " · " + Duomenys.ml(g.siandien) : ""), MYGTUKAS, Color.WHITE);
+            t.setTextSize(13);
+            t.setMaxLines(2);
+            t.setOnClickListener(new View.OnClickListener() {
+                @Override
+                public void onClick(View v) {
+                    gerti(g.id, 0);
+                }
+            });
+            t.setOnLongClickListener(new View.OnLongClickListener() {
+                @Override
+                public boolean onLongClick(View v) {
+                    rodytiKieki(g);
+                    return true;
+                }
+            });
+            l.addView(t, lp(ViewGroup.LayoutParams.MATCH_PARENT, dp(52), 6));
+        }
+        l.addView(tekstas("Ilgai palaikius – kitas kiekis", 10, PILKA, false),
+                lp(ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT, 4));
     }
 
     private void rodytiKieki(final Duomenys.Gerimas g) {

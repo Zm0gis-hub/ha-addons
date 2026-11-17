@@ -1,5 +1,10 @@
 # Pakeitimai
 
+## 1.1.0
+- **☕ Kavos rūšys:** paspaudus „Kava“ iššoka pasirinkimas – Americano viengubas (150 ml), Americano dvigubas (250 ml), Cappuccino dvigubas (250 ml). Telefone ir laikrodyje (programėlėje ir plytelėje).
+- Rūšis galima pridėti bet kuriam gėrimui: Nustatymai → Gėrimai → gėrimas → „Rodyti kaip rūšį po“. Kiekiai ir kofeinas keičiami kiekvienai rūšiai atskirai.
+- Laikrodžio programėlė 1.1 (reikia įdiegti iš naujo tuo pačiu failu).
+
 ## 1.0.0
 - Pirmoji versija.
 - **Profiliai:** kiekvienas žmogus turi savo profilį ir mato tik savo duomenis. Atidarius per Home Assistant profilis parenkamas pagal prisijungusį HA naudotoją.

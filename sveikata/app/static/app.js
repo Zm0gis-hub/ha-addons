@@ -196,6 +196,12 @@ const segVal = el => $('button.on', el)?.dataset.v ?? null;
 
 // ============================================================ duomenų išvestinės
 const drinkTypes = () => S.drink_types.filter(t => !t.archived);
+// rūšys (pvz. Kava → Americano, Cappuccino): t.parent = grupės id
+const kidsOf = id => drinkTypes().filter(t => t.parent === id);
+const parentOf = t => (t && t.parent && I.drink_types[t.parent] && !I.drink_types[t.parent].archived) ? I.drink_types[t.parent] : null;
+const topTypes = () => drinkTypes().filter(t => !parentOf(t));
+const isGroup = t => kidsOf(t.id).length > 0;
+const leafTypes = () => drinkTypes().filter(t => !isGroup(t));
 const meds = () => S.meds.filter(m => !m.archived);
 const activeEp = () => S.episodes.find(e => !e.ended);
 const dosesOf = eid => S.doses.filter(d => d.episode_id === eid);
@@ -246,7 +252,7 @@ VIEWS.vanduo = () => {
           ${drinkSummary(list)}
         </div>
       </div>
-      <div class="dgrid">${drinkTypes().map(dt => `<button class="dbtn" data-dt="${dt.id}"><span class="e">${esc(dt.emoji)}</span><span class="n">${esc(dt.name)}</span><span class="m">+${dt.ml} ml</span></button>`).join('')}
+      <div class="dgrid">${topTypes().map(dt => `<button class="dbtn" data-dt="${dt.id}"><span class="e">${esc(dt.emoji)}</span><span class="n">${esc(dt.name)}</span><span class="m">${isGroup(dt) ? 'pasirinkti ›' : `+${dt.ml} ml`}</span></button>`).join('')}
         <button class="dbtn other" id="d-other"><span class="e">＋</span><span class="n">Kitas kiekis</span><span class="m">ar laikas</span></button></div>
     </div>
     <div>
@@ -257,14 +263,14 @@ VIEWS.vanduo = () => {
     </div>
   </div>`;
   bindBanner();
-  $$('[data-dt]').forEach(b => b.onclick = () => quickDrink(+b.dataset.dt));
+  $$('[data-dt]').forEach(b => b.onclick = () => { const t = I.drink_types[b.dataset.dt]; isGroup(t) ? pickSheet(t) : quickDrink(t.id); });
   $('#d-other').onclick = () => drinkSheet();
   bindDrinkRows();
 };
 
 function drinkSummary(list) {
   const per = {};
-  list.forEach(d => per[d.type_id] = (per[d.type_id] || 0) + d.ml);
+  list.forEach(d => { const t = I.drink_types[d.type_id], k = parentOf(t)?.id || d.type_id; per[k] = (per[k] || 0) + d.ml; });
   const parts = Object.entries(per).map(([tid, ml]) => { const t = I.drink_types[tid]; return `<span class="pill">${esc(t?.emoji || '🥤')} ${fmtMl(ml)}</span>`; });
   return parts.length ? `<div class="chips">${parts.join('')}</div>` : '';
 }
@@ -288,9 +294,20 @@ async function quickDrink(tid, ml) {
   toast(`+${ml || t.ml} ml ${t.emoji} ${t.name}`, { label: 'Atšaukti', fn: () => delRow('drinks', r.id) });
 }
 
-function drinkSheet(d) {
-  const types = drinkTypes();
-  let tid = d ? d.type_id : (types[0]?.id || 0);
+function pickSheet(g) {
+  openSheet(`<h3>${esc(g.emoji)} ${esc(g.name)}</h3><div class="stack">
+    <div class="dgrid pick">${kidsOf(g.id).map(t => `<button class="dbtn" data-k="${t.id}"><span class="e">${esc(t.emoji)}</span><span class="n">${esc(t.name)}</span><span class="m">+${t.ml} ml</span></button>`).join('')}</div>
+    <div class="sheet-actions"><button class="btn" data-x>Atšaukti</button><button class="btn" id="pk-o">Kitas kiekis ar laikas</button></div></div>`, el => {
+    $('[data-x]', el).onclick = closeSheet;
+    $('#pk-o', el).onclick = () => { closeSheet(); drinkSheet(null, kidsOf(g.id)[0]?.id); };
+    $$('[data-k]', el).forEach(b => b.onclick = () => { closeSheet(); quickDrink(+b.dataset.k); });
+  });
+}
+
+function drinkSheet(d, preset) {
+  const types = leafTypes();
+  if (d && !types.some(t => t.id === d.type_id) && I.drink_types[d.type_id]) types.push(I.drink_types[d.type_id]);
+  let tid = d ? d.type_id : (preset || types[0]?.id || 0);
   const amounts = [100, 150, 200, 250, 300, 330, 400, 500, 750, 1000];
   openSheet(`<h3>${d ? 'Gėrimas' : 'Įrašyti gėrimą'}</h3><div class="stack">
     <div class="chips" id="ds-t">${types.map(t => `<button type="button" class="chip ${t.id === tid ? 'on' : ''}" data-t="${t.id}">${esc(t.emoji)} ${esc(t.name)}</button>`).join('')}</div>
@@ -793,8 +810,7 @@ VIEWS.nustatymai = () => {
 
     <div class="card pad stack"><div class="row"><b class="grow">🥤 Gėrimai</b><button class="btn small" id="dt-add">＋ Gėrimas</button></div>
       <div class="small muted">Mygtukai skiltyje Vanduo (ir laikrodyje). Rodyklėmis – tvarka.</div>
-      <div class="card list">${drinkTypes().map((t, i, a) => `<div class="li" data-dt="${t.id}"><span class="ico">${esc(t.emoji)}</span><div class="grow"><b>${esc(t.name)}</b> <span class="small muted">${t.ml} ml${t.in_goal ? '' : ' · neįskaičiuojama į tikslą'}${t.caffeine ? ` · ☕ ${t.caffeine} mg` : ''}</span></div>
-        <button class="x" data-up="${t.id}" ${i === 0 ? 'disabled style="opacity:.3"' : ''}>↑</button><button class="x" data-dn="${t.id}" ${i === a.length - 1 ? 'disabled style="opacity:.3"' : ''}>↓</button></div>`).join('')}</div></div>
+      <div class="card list">${topTypes().map((t, i, a) => dtRow(t, i, a) + (isGroup(t) ? kidsOf(t.id).map((k, j, b) => dtRow(k, j, b, true)).join('') + `<div class="li sub" data-addk="${t.id}"><span class="ico">＋</span><div class="grow small muted">Pridėti rūšį: ${esc(t.name)}</div></div>` : '')).join('')}</div></div>
 
     <div class="card pad stack"><div class="row"><b class="grow">💊 Mano vaistai</b><button class="btn small" id="m-add">＋ Vaistas</button></div>
       <div class="small muted">Vaistai nuo galvos skausmo – kad pažymėti užtektų vieno paspaudimo. Rūšis svarbi ataskaitai gydytojui.</div>
@@ -839,7 +855,8 @@ VIEWS.nustatymai = () => {
   });
   $('#dt-add').onclick = () => drinkTypeSheet(null);
   $$('[data-dt]').forEach(r => r.onclick = e => { if (e.target.closest('[data-up],[data-dn]')) return; drinkTypeSheet(I.drink_types[r.dataset.dt]); });
-  const move = async (id, dir) => { const ids = drinkTypes().map(t => t.id); const i = ids.indexOf(id), j = i + dir; if (j < 0 || j >= ids.length) return; [ids[i], ids[j]] = [ids[j], ids[i]]; await act('order', { t: 'drink_types', ids }); };
+  $$('[data-addk]').forEach(r => r.onclick = () => drinkTypeSheet(null, +r.dataset.addk));
+  const move = async (id, dir) => { const t0 = I.drink_types[id], p0 = parentOf(t0); const ids = (p0 ? kidsOf(p0.id) : topTypes()).map(t => t.id); const i = ids.indexOf(id), j = i + dir; if (j < 0 || j >= ids.length) return; [ids[i], ids[j]] = [ids[j], ids[i]]; await act('order', { t: 'drink_types', ids }); };
   $$('[data-up]').forEach(b => b.onclick = () => move(+b.dataset.up, -1));
   $$('[data-dn]').forEach(b => b.onclick = () => move(+b.dataset.dn, 1));
   $('#m-add').onclick = () => medSheet(null);
@@ -864,12 +881,19 @@ VIEWS.nustatymai = () => {
   };
 };
 
-function drinkTypeSheet(t) {
-  let emoji = t ? t.emoji : '🥤';
+function dtRow(t, i, a, sub) {
+  return `<div class="li${sub ? ' sub' : ''}" data-dt="${t.id}"><span class="ico">${esc(t.emoji)}</span><div class="grow"><b>${esc(t.name)}</b> <span class="small muted">${isGroup(t) ? 'paspaudus – pasirinkimas' : `${t.ml} ml${t.in_goal ? '' : ' · neįskaičiuojama į tikslą'}${t.caffeine ? ` · ☕ ${t.caffeine} mg` : ''}`}</span></div>
+        <button class="x" data-up="${t.id}" ${i === 0 ? 'disabled style="opacity:.3"' : ''}>↑</button><button class="x" data-dn="${t.id}" ${i === a.length - 1 ? 'disabled style="opacity:.3"' : ''}>↓</button></div>`;
+}
+function drinkTypeSheet(t, parent) {
+  let emoji = t ? t.emoji : (parent ? I.drink_types[parent].emoji : '🥤');
+  const par = t ? (parentOf(t)?.id || 0) : (parent || 0);
+  const groupOpts = t && isGroup(t) ? null : topTypes().filter(g => !t || g.id !== t.id);
   openSheet(`<h3>${t ? 'Gėrimas' : 'Naujas gėrimas'}</h3><div class="stack">
     <div class="fgrid"><label class="field"><span>Pavadinimas</span><input type="text" id="t-n" value="${esc(t?.name || '')}" placeholder="pvz. Mineralinis"></label>
       <label class="field"><span>Įprastas kiekis, ml</span><input type="number" inputmode="numeric" id="t-ml" value="${t?.ml || 250}"></label></div>
     <div><span class="lbl-s">Ženkliukas</span><div class="emojis" id="t-e">${DRINK_EMOJIS.map(e => `<button type="button" class="${e === emoji ? 'on' : ''}">${e}</button>`).join('')}</div></div>
+    ${groupOpts ? `<label class="field"><span>Rodyti kaip rūšį po (paspaudus jį – iššoka pasirinkimas)</span><select id="t-p"><option value="0">– atskiras mygtukas –</option>${groupOpts.map(g => `<option value="${g.id}" ${g.id === par ? 'selected' : ''}>${esc(g.emoji)} ${esc(g.name)}</option>`).join('')}</select></label>` : '<div class="small muted">Šis gėrimas turi rūšių – paspaudus iššoka pasirinkimas. Kiekis ir kofeinas imami iš rūšių.</div>'}
     <label class="check"><input type="checkbox" id="t-g" ${!t || t.in_goal ? 'checked' : ''}> Skaičiuoti į vandens tikslą</label>
     <label class="field"><span>Kofeino viename įprastame kiekyje, mg (kava ~80, arbata ~40, 0 – nėra)</span><input type="number" inputmode="numeric" id="t-c" value="${t?.caffeine || 0}"></label>
     <div class="sheet-actions">${t ? '<button class="btn danger" id="t-del">Pašalinti</button>' : '<button class="btn" data-x>Atšaukti</button>'}<button class="btn primary" id="t-ok">Išsaugoti</button></div></div>`, el => {
@@ -878,6 +902,7 @@ function drinkTypeSheet(t) {
     $('#t-del', el) && ($('#t-del', el).onclick = async () => { closeSheet(); await delRow('drink_types', t.id); toast('Pašalinta'); });
     $('#t-ok', el).onclick = async () => {
       const row = { name: $('#t-n', el).value, emoji, ml: +$('#t-ml', el).value || 250, in_goal: $('#t-g', el).checked ? 1 : 0, caffeine: +$('#t-c', el).value || 0 };
+      if ($('#t-p', el)) row.parent = +$('#t-p', el).value || 0;
       if (!row.name.trim()) return toast('Įrašykite pavadinimą');
       if (t) row.id = t.id;
       closeSheet(); await saveRow('drink_types', row);

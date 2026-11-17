@@ -197,10 +197,17 @@ details.more summary { cursor: pointer; font-size: 14px; font-weight: 700; color
 .dbtn .plus { position: absolute; }
 .dbtn.other { border-style: dashed; background: transparent; box-shadow: none; color: var(--muted); justify-content: center; }
 .dbtn.other .e { font-size: 24px; }
+.dgrid.pick { grid-template-columns: 1fr; margin: 0; }
+.dgrid.pick .dbtn { flex-direction: row; gap: 12px; padding: 12px 16px; text-align: left; }
+.dgrid.pick .dbtn .e { font-size: 26px; }
+.dgrid.pick .dbtn .n { flex: 1; font-size: 16px; white-space: normal; }
+.dgrid.pick .dbtn .m { font-size: 14px; }
 .list { padding: 0; overflow: hidden; }
 .list > .li { display: flex; align-items: center; gap: 10px; padding: 9px 14px; border-top: 1px solid var(--line); cursor: pointer; }
 .list > .li:first-child { border-top: 0; }
 .list > .li:hover { background: var(--chip); }
+.list > .li.sub { padding-left: 36px; }
+.list > .li.sub .ico { font-size: .9em; }
 .li .ico { font-size: 20px; width: 28px; text-align: center; flex: none; }
 .li .tm { font-variant-numeric: tabular-nums; color: var(--muted); font-size: 14px; width: 44px; flex: none; }
 .li .v { font-weight: 700; white-space: nowrap; font-variant-numeric: tabular-nums; }

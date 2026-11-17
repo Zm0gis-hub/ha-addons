@@ -68,7 +68,8 @@ CREATE TABLE IF NOT EXISTS profiles (id INTEGER PRIMARY KEY, name TEXT, emoji TE
   pin TEXT DEFAULT '', goal_ml INTEGER DEFAULT 2000, settings TEXT DEFAULT '{}', archived INTEGER DEFAULT 0, created TEXT);
 CREATE TABLE IF NOT EXISTS links (ha_user TEXT PRIMARY KEY, profile_id INTEGER, ha_name TEXT DEFAULT '', created TEXT);
 CREATE TABLE IF NOT EXISTS drink_types (id INTEGER PRIMARY KEY, profile_id INTEGER, name TEXT, emoji TEXT DEFAULT '🥤',
-  ml INTEGER DEFAULT 250, in_goal INTEGER DEFAULT 1, caffeine INTEGER DEFAULT 0, pos INTEGER DEFAULT 0, archived INTEGER DEFAULT 0);
+  ml INTEGER DEFAULT 250, in_goal INTEGER DEFAULT 1, caffeine INTEGER DEFAULT 0, pos INTEGER DEFAULT 0, archived INTEGER DEFAULT 0,
+  parent INTEGER DEFAULT 0);
 CREATE TABLE IF NOT EXISTS drinks (id INTEGER PRIMARY KEY, profile_id INTEGER, type_id INTEGER, ml INTEGER, ts TEXT,
   day TEXT, uid TEXT, src TEXT DEFAULT 'app');
 CREATE INDEX IF NOT EXISTS drinks_pd ON drinks(profile_id, day);
@@ -85,13 +86,13 @@ CREATE TABLE IF NOT EXISTS doses (id INTEGER PRIMARY KEY, profile_id INTEGER, ep
 
 # lentelė -> stulpeliai, kuriuos galima keisti per bendrą „save“ veiksmą
 TABLES = {
-    "drink_types": ["name", "emoji", "ml", "in_goal", "caffeine", "pos", "archived"],
+    "drink_types": ["name", "emoji", "ml", "in_goal", "caffeine", "pos", "archived", "parent"],
     "drinks": ["type_id", "ml", "ts"],
     "meds": ["name", "dose", "kind", "pos", "archived"],
     "episodes": ["start", "ended", "intensity", "kind", "locs", "chars", "symptoms", "triggers", "relief", "impact", "notes"],
     "doses": ["episode_id", "med_id", "ts", "amount", "effect", "note"],
 }
-NUMERIC = {"ml", "in_goal", "caffeine", "pos", "archived", "type_id", "intensity", "episode_id", "med_id"}
+NUMERIC = {"ml", "in_goal", "caffeine", "pos", "archived", "parent", "type_id", "intensity", "episode_id", "med_id"}
 LISTS = {"locs", "chars", "symptoms", "triggers", "relief"}
 EFFECTS = {"", "padejo", "is_dalies", "nepadejo"}
 MED_KINDS = {"triptanas", "analgetikas", "nvnu", "kombinuotas", "profilaktinis", "kita"}
@@ -102,6 +103,12 @@ DEFAULT_DRINKS = [
     ("Arbata", "🍵", 250, 1, 0),
     ("Limonadas", "🍋", 330, 1, 0),
     ("Sultys", "🧃", 250, 1, 0),
+]
+# „Kava“ – grupė: paspaudus iššoka pasirinkimas iš šių rūšių
+KAVA_VARIANTS = [
+    ("Americano viengubas", "☕", 150, 1, 80),
+    ("Americano dvigubas", "☕", 250, 1, 150),
+    ("Cappuccino dvigubas", "☕", 250, 1, 150),
 ]
 
 PROFILE_DEFAULTS = {
@@ -159,6 +166,15 @@ def init_db():
             meta_set("version", 1)
         if not meta_get("secret"):
             meta_set("secret", secrets.token_hex(16))
+        cols = {c["name"] for c in DB.execute("PRAGMA table_info(drink_types)").fetchall()}
+        if "parent" not in cols:
+            DB.execute("ALTER TABLE drink_types ADD COLUMN parent INTEGER DEFAULT 0")
+        if not meta_get("kava_variants"):
+            # 1.1.0: esamiems profiliams „Kava“ tampa grupe su kavos rūšimis
+            for k in rows("SELECT * FROM drink_types WHERE name='Kava' AND archived=0 AND COALESCE(parent,0)=0"):
+                if not DB.execute("SELECT 1 FROM drink_types WHERE parent=?", (k["id"],)).fetchone():
+                    add_variants(k["profile_id"], k["id"])
+            meta_set("kava_variants", 1)
         DB.commit()
 
 
@@ -304,6 +320,15 @@ def clean_row(t, row, pid):
             raise ValueError("Įrašykite pavadinimą")
         if "ml" in out and (not out["ml"] or out["ml"] <= 0):
             out["ml"] = 250
+        if out.get("parent"):
+            par = DB.execute("SELECT profile_id, parent FROM drink_types WHERE id=?", (out["parent"],)).fetchone()
+            if not par or par["profile_id"] != pid or (par["parent"] or 0):
+                raise ValueError("Netinkama grupė")
+            rid = num(row.get("id"))
+            if rid and (rid == out["parent"] or DB.execute("SELECT 1 FROM drink_types WHERE parent=? AND archived=0", (rid,)).fetchone()):
+                raise ValueError("Gėrimas, turintis rūšių, negali būti kito rūšimi")
+        elif "parent" in out:
+            out["parent"] = 0
     if t == "meds":
         if "name" in out and not out["name"]:
             raise ValueError("Įrašykite vaisto pavadinimą")
@@ -379,6 +404,7 @@ def act_delete(d, pid):
         # epizodo vaistai lieka kaip atskiri įrašai (be epizodo)
         DB.execute("UPDATE doses SET episode_id=NULL WHERE episode_id=?", (rid,))
     if t == "drink_types":
+        DB.execute("UPDATE drink_types SET parent=0 WHERE parent=?", (rid,))  # rūšys tampa atskirais gėrimais
         if DB.execute("SELECT 1 FROM drinks WHERE type_id=? LIMIT 1", (rid,)).fetchone():
             DB.execute("UPDATE drink_types SET archived=1 WHERE id=?", (rid,))
             return {"archived": True}
@@ -528,14 +554,25 @@ ACTIONS = {
 NO_LOCK = {"notify_test"}
 
 
+def add_variants(pid, parent):
+    base = DB.execute("SELECT COALESCE(MAX(pos),0)+1 FROM drink_types WHERE profile_id=?", (pid,)).fetchone()[0]
+    for i, (n, e, ml, g, caf) in enumerate(KAVA_VARIANTS):
+        insert("drink_types", {"profile_id": pid, "name": n, "emoji": e, "ml": ml, "in_goal": g, "caffeine": caf,
+                               "pos": base + i, "parent": parent})
+
+
 def create_profile(name, emoji="🙂", color=""):
     name = (name or "").strip()[:40]
     if not name:
         raise ValueError("Įrašykite vardą")
     pid = insert("profiles", {"name": name, "emoji": (emoji or "🙂")[:8], "color": color or "", "goal_ml": 2000,
                               "settings": "{}", "created": now()})
+    kava = None
     for i, (n, e, ml, g, caf) in enumerate(DEFAULT_DRINKS):
-        insert("drink_types", {"profile_id": pid, "name": n, "emoji": e, "ml": ml, "in_goal": g, "caffeine": caf, "pos": i})
+        tid = insert("drink_types", {"profile_id": pid, "name": n, "emoji": e, "ml": ml, "in_goal": g, "caffeine": caf, "pos": i})
+        kava = tid if n == "Kava" else kava
+    if kava:
+        add_variants(pid, kava)
     return pid
 
 
@@ -818,7 +855,9 @@ def today_total(pid, day=None):
 
 def drink_actions(pid, n=2):
     out = []
-    for t in rows("SELECT * FROM drink_types WHERE profile_id=? AND archived=0 ORDER BY pos, id LIMIT ?", (pid, n)):
+    for t in rows("""SELECT * FROM drink_types t WHERE profile_id=? AND archived=0 AND COALESCE(parent,0)=0
+                     AND NOT EXISTS (SELECT 1 FROM drink_types c WHERE c.parent=t.id AND c.archived=0)
+                     ORDER BY pos, id LIMIT ?""", (pid, n)):
         out.append({"action": f"SVK_G_{pid}_{t['id']}_{t['ml']}", "title": f"+{t['ml']} ml {t['name'].lower()}"})
     return out
 
@@ -961,7 +1000,7 @@ def sensor_payload(p):
         "tikslas": goal, "procentai": int(round(100 * total / goal)) if goal else 0, "diena": t0,
         "kofeinas_mg": int(round(caf)), "skauda_galva": bool(a), "profilis": p["name"],
         "laikrodis": {
-            "g": [{"i": t["id"], "n": t["name"], "e": t["emoji"], "ml": t["ml"], "g": t["in_goal"], "s": per.get(t["id"]) or 0} for t in types],
+            "g": [{"i": t["id"], "n": t["name"], "e": t["emoji"], "ml": t["ml"], "g": t["in_goal"], "s": per.get(t["id"]) or 0, "k": t["parent"] or 0} for t in types],
             "u": uids,
             "s": {"i": a["id"], "nuo": a["start"][11:16], "d": a["start"][:10], "st": a["intensity"]} if a else None,
             "v": [{"i": m["id"], "n": m["name"]} for m in meds],
@@ -1019,7 +1058,7 @@ def handle_stdin(obj):
             if v == "gerti":
                 t = num(obj.get("t"))
                 if not t or t < 0:  # laikrodis dar nežino gėrimų – pirmasis sąraše (vanduo)
-                    r = DB.execute("SELECT id FROM drink_types WHERE profile_id=? AND archived=0 ORDER BY pos, id LIMIT 1", (pid,)).fetchone()
+                    r = DB.execute("SELECT id FROM drink_types WHERE profile_id=? AND archived=0 AND COALESCE(parent,0)=0 ORDER BY pos, id LIMIT 1", (pid,)).fetchone()
                     t = r["id"] if r else None
                 add_drink(pid, t, obj.get("ml"), ts, uid, src="laikrodis")
             elif v == "atsaukti":

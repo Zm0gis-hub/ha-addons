@@ -88,7 +88,10 @@ public class VandensPlytele extends TileService {
                 .setHorizontalAlignment(LayoutElementBuilders.HORIZONTAL_ALIGN_CENTER)
                 .setVerticalAlignment(LayoutElementBuilders.VERTICAL_ALIGN_CENTER)
                 .setModifiers(new ModifiersBuilders.Modifiers.Builder()
-                        .setClickable(paspaudimas("g:" + g.id))
+                        .setClickable(g.turiRusiu ? new ModifiersBuilders.Clickable.Builder()
+                                .setId("r:" + g.id)
+                                .setOnClick(atidaryti(g.id))
+                                .build() : paspaudimas("g:" + g.id))
                         .setBackground(new ModifiersBuilders.Background.Builder()
                                 .setColor(ColorBuilders.argb(MYGTUKAS))
                                 .setCorner(new ModifiersBuilders.Corner.Builder().setRadius(dp(26)).build())
@@ -97,7 +100,7 @@ public class VandensPlytele extends TileService {
                 .addContent(new LayoutElementBuilders.Column.Builder()
                         .setHorizontalAlignment(LayoutElementBuilders.HORIZONTAL_ALIGN_CENTER)
                         .addContent(tekstas(g.emoji, 18, 0xFFFFFFFF, false))
-                        .addContent(tekstas("+" + g.ml, 10, PILKA, false))
+                        .addContent(tekstas(g.turiRusiu ? "›" : "+" + g.ml, 10, PILKA, false))
                         .build())
                 .build();
     }
@@ -138,7 +141,7 @@ public class VandensPlytele extends TileService {
         LayoutElementBuilders.Row.Builder eile = new LayoutElementBuilders.Row.Builder()
                 .setVerticalAlignment(LayoutElementBuilders.VERTICAL_ALIGN_CENTER);
         int n = 0;
-        for (Duomenys.Gerimas g : s.gerimai) {
+        for (Duomenys.Gerimas g : Duomenys.virsutiniai(s)) {
             if (n == 3) break;
             if (n > 0) eile.addContent(new LayoutElementBuilders.Spacer.Builder().setWidth(dp(6)).build());
             eile.addContent(mygtukas(g));
@@ -177,11 +180,15 @@ public class VandensPlytele extends TileService {
     }
 
     private ActionBuilders.LaunchAction atidaryti() {
-        return new ActionBuilders.LaunchAction.Builder()
-                .setAndroidActivity(new ActionBuilders.AndroidActivity.Builder()
-                        .setPackageName(getPackageName())
-                        .setClassName(MainActivity.class.getName())
-                        .build())
-                .build();
+        return atidaryti(0);
+    }
+
+    /** Atidaro programėlę; grupe != 0 – iškart rodomas tos grupės (pvz. Kavos) rūšių pasirinkimas. */
+    private ActionBuilders.LaunchAction atidaryti(int grupe) {
+        ActionBuilders.AndroidActivity.Builder a = new ActionBuilders.AndroidActivity.Builder()
+                .setPackageName(getPackageName())
+                .setClassName(MainActivity.class.getName());
+        if (grupe != 0) a.addKeyToExtraMapping("grupe", new ActionBuilders.AndroidIntExtra.Builder().setValue(grupe).build());
+        return new ActionBuilders.LaunchAction.Builder().setAndroidActivity(a.build()).build();
     }
 }
