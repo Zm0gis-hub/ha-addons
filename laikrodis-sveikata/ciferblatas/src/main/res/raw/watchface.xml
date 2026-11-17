@@ -1,0 +1,172 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  Ciferblatas „Sveikata – vanduo“ (Watch Face Format 1).
+  Viduryje laikas ir data, kraštu – šiandien išgerto vandens žiedas,
+  apačioje – kiek išgerta ir „+“ mygtukas. Vandens duomenis ir „+“ veiksmą
+  teikia laikrodžio programėlės „Sveikata“ komplikacija „Vanduo ＋“.
+-->
+<WatchFace width="450" height="450">
+  <Metadata key="CLOCK_TYPE" value="DIGITAL" />
+  <Metadata key="PREVIEW_TIME" value="10:08:32" />
+  <Scene backgroundColor="#FF000000">
+
+    <!-- data -->
+    <PartText x="45" y="72" width="360" height="40">
+      <Text align="CENTER" ellipsis="TRUE">
+        <Font family="SYNC_TO_DEVICE" size="28" color="#FFB0BEC5">
+          <Template>%s, %s<Parameter expression="[DAY_OF_WEEK_F]" /><Parameter expression="[DAY]" /></Template>
+        </Font>
+      </Text>
+    </PartText>
+
+    <!-- laikas -->
+    <DigitalClock x="25" y="112" width="400" height="140">
+      <TimeText format="HH:mm" align="CENTER" x="0" y="0" width="400" height="140">
+        <Font family="SYNC_TO_DEVICE" size="124" weight="BOLD" color="#FFFFFFFF" />
+      </TimeText>
+    </DigitalClock>
+
+    <!-- kairė mažoji komplikacija (numatytai – žingsniai) -->
+    <ComplicationSlot slotId="1" x="88" y="258" width="130" height="58" supportedTypes="SHORT_TEXT RANGED_VALUE" isCustomizable="TRUE">
+      <DefaultProviderPolicy defaultSystemProvider="STEP_COUNT" defaultSystemProviderType="SHORT_TEXT" />
+      <BoundingBox x="0" y="0" width="130" height="58" />
+      <Complication type="SHORT_TEXT">
+        <PartText x="0" y="0" width="130" height="34">
+          <Text align="CENTER" ellipsis="TRUE">
+            <Font family="SYNC_TO_DEVICE" size="27" weight="BOLD" color="#FFFFFFFF">
+              <Template>%s<Parameter expression="[COMPLICATION.TEXT]" /></Template>
+            </Font>
+          </Text>
+        </PartText>
+        <PartText x="0" y="33" width="130" height="24">
+          <Text align="CENTER" ellipsis="TRUE">
+            <Font family="SYNC_TO_DEVICE" size="17" color="#FF9AA0A6">
+              <Template>%s<Parameter expression="[COMPLICATION.TITLE]" /></Template>
+            </Font>
+          </Text>
+        </PartText>
+      </Complication>
+      <Complication type="RANGED_VALUE">
+        <PartText x="0" y="0" width="130" height="34">
+          <Text align="CENTER" ellipsis="TRUE">
+            <Font family="SYNC_TO_DEVICE" size="27" weight="BOLD" color="#FFFFFFFF">
+              <Template>%s<Parameter expression="[COMPLICATION.TEXT]" /></Template>
+            </Font>
+          </Text>
+        </PartText>
+        <PartText x="0" y="33" width="130" height="24">
+          <Text align="CENTER" ellipsis="TRUE">
+            <Font family="SYNC_TO_DEVICE" size="17" color="#FF9AA0A6">
+              <Template>%s<Parameter expression="[COMPLICATION.TITLE]" /></Template>
+            </Font>
+          </Text>
+        </PartText>
+      </Complication>
+    </ComplicationSlot>
+
+    <!-- dešinė mažoji komplikacija (numatytai – baterija) -->
+    <ComplicationSlot slotId="2" x="232" y="258" width="130" height="58" supportedTypes="SHORT_TEXT RANGED_VALUE" isCustomizable="TRUE">
+      <DefaultProviderPolicy defaultSystemProvider="WATCH_BATTERY" defaultSystemProviderType="SHORT_TEXT" />
+      <BoundingBox x="0" y="0" width="130" height="58" />
+      <Complication type="SHORT_TEXT">
+        <PartText x="0" y="0" width="130" height="34">
+          <Text align="CENTER" ellipsis="TRUE">
+            <Font family="SYNC_TO_DEVICE" size="27" weight="BOLD" color="#FFFFFFFF">
+              <Template>%s<Parameter expression="[COMPLICATION.TEXT]" /></Template>
+            </Font>
+          </Text>
+        </PartText>
+        <PartText x="0" y="33" width="130" height="24">
+          <Text align="CENTER" ellipsis="TRUE">
+            <Font family="SYNC_TO_DEVICE" size="17" color="#FF9AA0A6">
+              <Template>%s<Parameter expression="[COMPLICATION.TITLE]" /></Template>
+            </Font>
+          </Text>
+        </PartText>
+      </Complication>
+      <Complication type="RANGED_VALUE">
+        <PartText x="0" y="0" width="130" height="34">
+          <Text align="CENTER" ellipsis="TRUE">
+            <Font family="SYNC_TO_DEVICE" size="27" weight="BOLD" color="#FFFFFFFF">
+              <Template>%s<Parameter expression="[COMPLICATION.TEXT]" /></Template>
+            </Font>
+          </Text>
+        </PartText>
+        <PartText x="0" y="33" width="130" height="24">
+          <Text align="CENTER" ellipsis="TRUE">
+            <Font family="SYNC_TO_DEVICE" size="17" color="#FF9AA0A6">
+              <Template>%s<Parameter expression="[COMPLICATION.TITLE]" /></Template>
+            </Font>
+          </Text>
+        </PartText>
+      </Complication>
+    </ComplicationSlot>
+
+    <!-- vanduo: žiedas kraštu + kiekis + „+“ (paspaudus pridedama) -->
+    <ComplicationSlot slotId="0" x="0" y="0" width="450" height="450" supportedTypes="RANGED_VALUE SHORT_TEXT EMPTY" isCustomizable="TRUE">
+      <DefaultProviderPolicy defaultSystemProvider="EMPTY" defaultSystemProviderType="EMPTY"
+          primaryProvider="lt.namai.sveikata/lt.namai.sveikata.VandensKomplikacija" primaryProviderType="RANGED_VALUE" />
+      <BoundingBox x="125" y="318" width="200" height="112" />
+      <Complication type="RANGED_VALUE">
+        <PartDraw x="0" y="0" width="450" height="450">
+          <Arc centerX="225" centerY="225" width="428" height="428" startAngle="0" endAngle="360">
+            <Stroke color="#FF16303F" thickness="12" />
+          </Arc>
+          <Arc centerX="225" centerY="225" width="428" height="428" startAngle="0" endAngle="0">
+            <Transform target="endAngle" value="360 * clamp([COMPLICATION.RANGED_VALUE_VALUE] / [COMPLICATION.RANGED_VALUE_MAX], 0, 1)" />
+            <Stroke color="#FF4FB3F0" thickness="12" cap="ROUND" />
+          </Arc>
+        </PartDraw>
+        <PartText x="125" y="318" width="200" height="40">
+          <Text align="CENTER" ellipsis="TRUE">
+            <Font family="SYNC_TO_DEVICE" size="30" weight="BOLD" color="#FF4FB3F0">
+              <Template>%s ml<Parameter expression="[COMPLICATION.TEXT]" /></Template>
+            </Font>
+          </Text>
+        </PartText>
+        <PartDraw x="196" y="362" width="58" height="58">
+          <Variant mode="AMBIENT" target="alpha" value="0" />
+          <Ellipse x="0" y="0" width="58" height="58">
+            <Fill color="#FF1E88E5" />
+          </Ellipse>
+          <Line startX="29" startY="16" endX="29" endY="42">
+            <Stroke color="#FFFFFFFF" thickness="6" cap="ROUND" />
+          </Line>
+          <Line startX="16" startY="29" endX="42" endY="29">
+            <Stroke color="#FFFFFFFF" thickness="6" cap="ROUND" />
+          </Line>
+        </PartDraw>
+      </Complication>
+      <Complication type="SHORT_TEXT">
+        <PartText x="125" y="318" width="200" height="40">
+          <Text align="CENTER" ellipsis="TRUE">
+            <Font family="SYNC_TO_DEVICE" size="30" weight="BOLD" color="#FF4FB3F0">
+              <Template>%s ml<Parameter expression="[COMPLICATION.TEXT]" /></Template>
+            </Font>
+          </Text>
+        </PartText>
+        <PartDraw x="196" y="362" width="58" height="58">
+          <Variant mode="AMBIENT" target="alpha" value="0" />
+          <Ellipse x="0" y="0" width="58" height="58">
+            <Fill color="#FF1E88E5" />
+          </Ellipse>
+          <Line startX="29" startY="16" endX="29" endY="42">
+            <Stroke color="#FFFFFFFF" thickness="6" cap="ROUND" />
+          </Line>
+          <Line startX="16" startY="29" endX="42" endY="29">
+            <Stroke color="#FFFFFFFF" thickness="6" cap="ROUND" />
+          </Line>
+        </PartDraw>
+      </Complication>
+      <Complication type="EMPTY">
+        <PartText x="105" y="330" width="240" height="70">
+          <Text align="CENTER">
+            <Font family="SYNC_TO_DEVICE" size="20" color="#FF9AA0A6">
+              <Template>Vanduo: nustatykite</Template>
+            </Font>
+          </Text>
+        </PartText>
+      </Complication>
+    </ComplicationSlot>
+  </Scene>
+</WatchFace>

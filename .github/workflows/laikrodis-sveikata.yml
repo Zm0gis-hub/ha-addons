@@ -1,0 +1,68 @@
+name: Laikrodžio programėlė „Sveikata“
+
+on:
+  push:
+    paths:
+      - "laikrodis-sveikata/**"
+      - ".github/workflows/laikrodis-sveikata.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  apk:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: "8.10.2"
+
+      - name: Patikrinti ciferblato XML (Watch Face Format)
+        continue-on-error: true
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          mkdir -p /tmp/wff && cd /tmp/wff
+          gh release list --repo google/watchface --limit 10 || true
+          for tag in $(gh release list --repo google/watchface --limit 10 --json tagName -q '.[].tagName'); do
+            gh release view "$tag" --repo google/watchface --json assets -q '.assets[].name' || true
+            if gh release download "$tag" --repo google/watchface --pattern '*validator*.jar' --clobber; then break; fi
+          done
+          ls -la
+          JAR=$(ls *validator*.jar | head -1)
+          java -jar "$JAR" 1 "$GITHUB_WORKSPACE/laikrodis-sveikata/ciferblatas/src/main/res/raw/watchface.xml"
+
+      - name: Surinkti APK
+        working-directory: laikrodis-sveikata
+        run: |
+          gradle --no-daemon assembleRelease
+          cp app/build/outputs/apk/release/app-release.apk "$GITHUB_WORKSPACE/sveikata-laikrodis.apk"
+          cp ciferblatas/build/outputs/apk/release/ciferblatas-release.apk "$GITHUB_WORKSPACE/sveikata-ciferblatas.apk"
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: sveikata-laikrodis
+          path: |
+            sveikata-laikrodis.apk
+            sveikata-ciferblatas.apk
+
+      - name: Paskelbti atsisiuntimui
+        if: github.ref == 'refs/heads/main'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          if gh release view sveikata-laikrodis >/dev/null 2>&1; then
+            gh release upload sveikata-laikrodis sveikata-laikrodis.apk sveikata-ciferblatas.apk --clobber
+          else
+            gh release create sveikata-laikrodis sveikata-laikrodis.apk sveikata-ciferblatas.apk \
+              --title "Sveikata laikrodžiui (Wear OS)" \
+              --notes "Laikrodžio programėlė ir ciferblatas priedui Sveikata. Diegimo instrukcija – Sveikata priedo skirtuke Dokumentacija."
+          fi

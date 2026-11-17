@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">Sveikata</string>
+    <string name="kompl_plius">Vanduo ＋ (paspaudus pridedama)</string>
+    <string name="kompl_atidaryti">Vanduo (atidaro programėlę)</string>
+    <string name="plytele">Vanduo</string>
+</resources>

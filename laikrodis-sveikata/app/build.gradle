@@ -1,0 +1,51 @@
+plugins {
+    id "com.android.application"
+}
+
+android {
+    namespace "lt.namai.sveikata"
+    compileSdk 35
+
+    defaultConfig {
+        applicationId "lt.namai.sveikata"
+        minSdk 30
+        targetSdk 34
+        versionCode 1
+        versionName "1.0"
+    }
+
+    signingConfigs {
+        // Pastovus raktas, kad naują versiją būtų galima įdiegti ant senos.
+        pastovus {
+            storeFile file("../sveikata.keystore")
+            storePassword "sveikata"
+            keyAlias "sveikata"
+            keyPassword "sveikata"
+        }
+    }
+
+    buildTypes {
+        release {
+            minifyEnabled false
+            signingConfig signingConfigs.pastovus
+        }
+    }
+
+    compileOptions {
+        sourceCompatibility JavaVersion.VERSION_17
+        targetCompatibility JavaVersion.VERSION_17
+    }
+
+    lint {
+        checkReleaseBuilds false
+        abortOnError false
+    }
+}
+
+dependencies {
+    implementation "androidx.wear.tiles:tiles:1.4.1"
+    implementation "androidx.wear.protolayout:protolayout:1.2.1"
+    implementation "androidx.wear.watchface:watchface-complications-data-source:1.2.1"
+    implementation "androidx.concurrent:concurrent-futures:1.2.0"
+    implementation "com.google.guava:listenablefuture:1.0"
+}

@@ -961,7 +961,7 @@ def sensor_payload(p):
         "tikslas": goal, "procentai": int(round(100 * total / goal)) if goal else 0, "diena": t0,
         "kofeinas_mg": int(round(caf)), "skauda_galva": bool(a), "profilis": p["name"],
         "laikrodis": {
-            "g": [{"i": t["id"], "n": t["name"], "e": t["emoji"], "ml": t["ml"], "s": per.get(t["id"]) or 0} for t in types],
+            "g": [{"i": t["id"], "n": t["name"], "e": t["emoji"], "ml": t["ml"], "g": t["in_goal"], "s": per.get(t["id"]) or 0} for t in types],
             "u": uids,
             "s": {"i": a["id"], "nuo": a["start"][11:16], "d": a["start"][:10], "st": a["intensity"]} if a else None,
             "v": [{"i": m["id"], "n": m["name"]} for m in meds],
