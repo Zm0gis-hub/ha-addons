@@ -1017,7 +1017,11 @@ def handle_stdin(obj):
             return
         try:
             if v == "gerti":
-                add_drink(pid, num(obj.get("t")), obj.get("ml"), ts, uid, src="laikrodis")
+                t = num(obj.get("t"))
+                if not t or t < 0:  # laikrodis dar nežino gėrimų – pirmasis sąraše (vanduo)
+                    r = DB.execute("SELECT id FROM drink_types WHERE profile_id=? AND archived=0 ORDER BY pos, id LIMIT 1", (pid,)).fetchone()
+                    t = r["id"] if r else None
+                add_drink(pid, t, obj.get("ml"), ts, uid, src="laikrodis")
             elif v == "atsaukti":
                 DB.execute("DELETE FROM drinks WHERE uid=? AND profile_id=?", (uid, pid))
             elif v == "skausmas":

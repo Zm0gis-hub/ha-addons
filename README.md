@@ -8,6 +8,7 @@ Paprastos lietuviškos programos (priedai), veikiančios Home Assistant viduje. 
 | 🐶 **Rodukas** | Augintinio priežiūra: maistas, svoris, skiepai, vizitai, dokumentai, procedūros, priminimai |
 | 🏡 **Ūkis** | Namų užduotys kaip paprasta Asana: sekcijos, datos, pasikartojimai, HA kortelė ir kalendorius |
 | 🎁 **Dovanos** | Dovanų idėjos, progos (Kalėdos, gimtadieniai, šventės), gavėjai, išlaidos ir istorija |
+| 💧 **Sveikata** | Galvos skausmų (migrenos) dienoraštis su ataskaita gydytojui ir išgerto vandens sekimas; kiekvienam savo profilis |
 
 ## Įdiegimas
 
@@ -17,6 +18,8 @@ Paprastos lietuviškos programos (priedai), veikiančios Home Assistant viduje. 
 3. Perkraukite puslapį, pasirinkite norimą programą ir spauskite **Įdiegti**.
 
 Aplanke `laikrodis/` yra Wear OS laikrodžio programėlė **Pirkiniai** (pirkinių sąrašas iš Receptų). Paruoštas failas: [pirkiniai-laikrodis.apk](https://github.com/Zm0gis-hub/ha-addons/releases/download/laikrodis/pirkiniai-laikrodis.apk), diegimas aprašytas Receptų dokumentacijoje.
+
+Aplanke `laikrodis-sveikata/` – Wear OS programėlė ir ciferblatas **Sveikata** (vandens „+“, galvos skausmo žymėjimas). Diegimas aprašytas Sveikatos dokumentacijoje.
 
 Išsamios instrukcijos – kiekvienos programos skirtuke **Dokumentacija**.
 
