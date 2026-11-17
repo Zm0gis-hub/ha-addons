@@ -1,0 +1,27 @@
+name: "Sveikata"
+version: "1.0.0"
+slug: "sveikata"
+description: "Galvos skausmų (migrenos) dienoraštis ir išgerto vandens sekimas – kiekvienam savo profilis"
+arch:
+  - aarch64
+  - amd64
+  - armv7
+init: true
+startup: application
+boot: auto
+ingress: true
+ingress_port: 8099
+panel_icon: "mdi:heart-pulse"
+panel_title: "Sveikata"
+panel_admin: false
+homeassistant_api: true
+hassio_api: true
+stdin: true
+ports:
+  8099/tcp: 8769
+ports_description:
+  8099/tcp: "Tiesioginė prieiga (naršyklė kompiuteryje, laikrodžio susiejimas)"
+options:
+  pin: ""
+schema:
+  pin: "str?"
