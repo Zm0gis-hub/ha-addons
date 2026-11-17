@@ -1,5 +1,16 @@
 # Pakeitimai
 
+## 1.8.0
+- 🏠 Naujas skirtukas **Namas** – namo pabaigimo skiltis (kaip Gręžinys). Darbai ir pirkiniai skirstomi į **❗ Būtina pridavimui** ir **🛋️ Kita (nebūtina)**.
+- Viena bendra pridavimo (bankui) data: „liko X d.“ ir įspėjimas, jei būtinų darbų tempas nespėja iki datos.
+- Didelė progreso juosta būtiniems darbams (sub-užduotys skaičiuojamos dalimis), atskiros juostos kitiems darbams ir pirkiniams. Pridavimo juosta rodoma ir Užduočių bei Artimiausių viršuje.
+- Patalpos su filtru ir progresu pagal patalpą; patalpų sąrašą galima keisti (⚙️ skirtuke Namas).
+- Biudžetas: planuota ir faktinė kaina kiekvienai užduočiai, sumos atskirai Būtina / Kita.
+- Užduotis su data matoma Artimiausiuose ir HA kalendoriuje, pridavimo data – taip pat HA kalendoriuje.
+- Esamą užduotį perkelsite atidarę ją → **Sekcija** → **🏠 Namo pabaigimas** (paklausia, ar būtina).
+- HA jutiklis `sensor.ukis_pridavimas` ir paruošta kortelė pagrindiniam langui.
+- 📅 Termino langas kompaktiškesnis: kalendorius mažesnis, greiti mygtukai vienoje eilutėje, „Atlikta“ visada matomas apačioje.
+
 ## 1.7.2
 - ⚙️ Nustatymuose naujas laukas **Užduoties laikas** (iš karto 09:00): toks laikas nustatomas, kai užduoties termino lange išjungiate „Visa diena“. Pabaiga – valanda vėliau.
 

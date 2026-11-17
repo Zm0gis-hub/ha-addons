@@ -54,6 +54,15 @@ Pakeitus datą, programa paklaus: **Tik šį kartą** (pvz. per šventes išvež
 
 ---
 
+## 4a. Namo pabaigimas (skirtukas 🏠 Namas)
+
+Atskira skiltis darbams ir pirkiniams iki namo pridavimo bankui.
+- **⚙️ (skirtuke Namas)** – pridavimo data, pavadinimas ir patalpų sąrašas.
+- Užduotys skirstomos į **❗ Būtina pridavimui** ir **🛋️ Kita**. Būtinų progresas rodomas didele juosta ir Užduočių / Artimiausių viršuje.
+- Užduoties lange, skiltyje **🏠 Namo pabaigimas**: Būtina / Nebūtina, Darbas / Pirkinys, patalpa, planuota ir faktinė kaina.
+- Esamą užduotį perkelsite: atidarykite ją → **Sekcija** → **🏠 Namo pabaigimas**.
+- HA kortelė: **🏠 Namas → ⚙️ → Kortelė pagrindiniam langui** (jutiklis `sensor.ukis_pridavimas`).
+
 ## 5. Home Assistant
 
 **Kortelė pagrindiniame lange.** Programa sukuria jutiklį `sensor.ukis_artimiausi` su artimiausiomis užduotimis (kiek dienų į priekį – ⚙️ → Home Assistant). Kortelės kodą rasite **⚙️ → Home Assistant → Kortelė pagrindiniam langui**: nukopijuokite ir HA skydelyje **✏️ Redaguoti → ＋ Pridėti kortelę → Žymėjimas (Markdown) → Rodyti kodo redaktorių**, įklijuokite.

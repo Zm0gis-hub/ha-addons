@@ -139,8 +139,8 @@ function render() {
   const h = (location.hash || '#list').slice(1).split('/');
   route = { name: h[0] || 'list', arg: h[1] };
   const fn = routes[route.name] || routes.list;
-  const tab = { soon: 'soon', find: 'find', list: 'list', well: 'well', wellset: 'well' }[route.name] || UI.lastTab || 'list';
-  if (['list', 'soon', 'find', 'well'].includes(route.name)) { UI.lastTab = route.name; saveUI(); }
+  const tab = { soon: 'soon', find: 'find', list: 'list', well: 'well', wellset: 'well', house: 'house', houseset: 'house' }[route.name] || UI.lastTab || 'list';
+  if (['list', 'soon', 'find', 'well', 'house'].includes(route.name)) { UI.lastTab = route.name; saveUI(); }
   $$('#tabs a').forEach(a => a.classList.toggle('on', a.dataset.tab === tab));
   fn(route.arg);
   $$('[data-go]').forEach(el => el.onclick = e => { e.stopPropagation(); go(el.dataset.go); });
@@ -154,6 +154,10 @@ function taskRow(t, o = {}) {
   const tags = t.tagIds.map(id => I.tags[id]).filter(Boolean);
   const meta = [];
   if (o.section) meta.push(`<span class="tk-sec">${esc(secLabel(I.sections[t.section_id]))}</span>`);
+  const inHouse = isHouse(t);
+  if (inHouse && t.hc === 'butina' && !o.house) meta.push('<span class="tg must">❗ Būtina</span>');
+  if (inHouse && t.kind === 'pirkinys') meta.push('<span class="ico">🛒</span>');
+  if (inHouse && t.zone && !(o.house && UI.hZone)) meta.push(`<span class="ico">📍 ${esc(t.zone)}</span>`);
   if (di) meta.push(`<span class="due ${di.cls}">📅 ${esc(di.txt)}${t.time ? ' ' + esc(t.time) : ''}</span>`);
   if (t.rem && t.rem.length && !t.done) meta.push('<span class="ico">🔔</span>');
   else if (t.due && t.done) meta.push(`<span class="due">📅 ${esc(shortDate(t.due))}</span>`);
@@ -162,6 +166,7 @@ function taskRow(t, o = {}) {
   if (t.rep) meta.push(`<span class="ico" title="${esc(repText(t.rep))}">🔁</span>`);
   if (nf) meta.push(`<span class="ico">📎 ${nf}</span>`);
   if (nc) meta.push(`<span class="ico">💬 ${nc}</span>`);
+  if (inHouse && (t.cost_real != null || t.cost_plan != null)) meta.push(`<span class="ico">💶 ${t.cost_real != null ? eurR(t.cost_real) : '~' + eurR(t.cost_plan)}</span>`);
   const pc = subs.length ? Math.round(sd / subs.length * 100) : 0;
   const bar = subs.length ? `<div class="tk-pb ${pc === 100 ? 'full' : ''}" title="${sd}/${subs.length}"><span><i style="width:${pc}%"></i></span><b>${pc}%</b></div>` : '';
   return `<div class="tk ${t.done ? 'done' : ''} ${di ? 'd-' + di.cls : ''} ${subs.length ? 'has-pb' : ''}" ${o.sortable ? 'data-sort' : ''} data-task="${t.id}">
@@ -196,6 +201,7 @@ routes.list = () => {
   let h = UI.sortMode ? `<div class="sortbar"><span class="grow">↕️ <b>Tvarkos keitimas</b><br><span class="small">▲ ▼ perkelia užduotį; iš sekcijos krašto – į kaimyninę sekciją</span></span><button class="btn small primary" id="sort-done">Baigti</button></div><div id="tlist" class="sorting">` : `<form id="qa" class="qa" autocomplete="off"><input type="text" id="qa-in" placeholder="＋ Nauja užduotis…" enterkeyhint="done">
     <button type="button" class="qa-sec" id="qa-sec">${esc(secLabel(I.sections[UI.qaSec]))} ▾</button></form>
     <div id="tlist">`;
+  if (!UI.sortMode) h = houseBanner() + h;
   for (const s of secs) {
     const all = tasksOf(s.id), vis = all.filter(t => UI.showDone[s.id] || doneVisible(t));
     const open = all.filter(t => !t.done).length, hidden = all.length - vis.length;
@@ -301,7 +307,7 @@ function sectionMenu(s) {
     <div class="li" id="sm-edit"><span class="ic">✏️</span><span class="grow t">Pervadinti</span></div>
     ${i > 0 ? '<div class="li" id="sm-up"><span class="ic">⬆️</span><span class="grow t">Perkelti aukščiau</span></div>' : ''}
     ${i < secs.length - 1 ? '<div class="li" id="sm-down"><span class="ic">⬇️</span><span class="grow t">Perkelti žemiau</span></div>' : ''}
-    ${secs.length > 1 ? '<div class="li" id="sm-del" style="color:var(--danger)"><span class="ic">🗑️</span><span class="grow t">Ištrinti sekciją</span></div>' : ''}
+    ${secs.length > 1 && s.id !== houseSid() ? '<div class="li" id="sm-del" style="color:var(--danger)"><span class="ic">🗑️</span><span class="grow t">Ištrinti sekciją</span></div>' : ''}
   </div>`, () => {
     $('#sm-add').onclick = () => { closeSheet(); UI.col[s.id] = false; saveUI(); addingIn = s.id; render(); };
     $('#sm-edit').onclick = () => sectionSheet(s);
@@ -371,7 +377,7 @@ routes.soon = () => {
     h += `<h2 class="grp-${cls}">${esc(name)}${cls === 'today' || cls === 'soon' ? ` <span class="muted small" style="font-weight:600">${esc(longDate(cls === 'today' ? t0 : addDays(t0, 1)))}</span>` : ''}</h2>
       <div class="tk-card">${list.map(t => taskRow(t, { section: true })).join('')}</div>`;
   }
-  view.innerHTML = h || `<div class="empty"><span class="big">🌤️</span>Nėra užduočių su data.<br><span class="small">Užduotys be datos čia nerodomos – jos lieka tik sąraše.</span></div>`;
+  view.innerHTML = houseBanner() + (h || `<div class="empty"><span class="big">🌤️</span>Nėra užduočių su data.<br><span class="small">Užduotys be datos čia nerodomos – jos lieka tik sąraše.</span></div>`);
   bindTaskRows();
 };
 
@@ -435,6 +441,7 @@ routes.task = id => {
   <div class="td-tags" id="td-tags">${tags.map(g => `<span class="chip on">${esc(tagLabel(g))}</span>`).join('')}<span class="chip add">🏷️ ${tags.length ? '＋' : 'Pridėti žymą'}</span></div>
   ${t.rep ? `<div class="row" style="margin-top:12px"><button class="btn primary grow" id="td-done-rep">✓ Atlikta</button><button class="btn grow" id="td-skip">⏭ Praleisti šį kartą</button></div>` : ''}
 
+  ${isHouse(t) ? houseCard(t) : ''}
   <h2>📝 Aprašymas</h2>
   <div class="card"><textarea id="td-notes" class="plain" placeholder="Smulkesnė informacija, telefonai, matmenys…">${esc(t.notes || '')}</textarea></div>
 
@@ -465,7 +472,14 @@ routes.task = id => {
   ti.onblur = async () => { const v = ti.value.trim(); if (!v) { ti.value = t.title; return; } if (v !== t.title) { await saveRow('tasks', { id: t.id, title: v }, true); } };
   $('#td-ck').onclick = () => toggleDone(t);
   $('#tk-menu').onclick = () => taskMenu(t);
-  $('#td-sec').onclick = () => pickSection(t.section_id, async sid => { if (sid === t.section_id) return; await saveRow('tasks', { id: t.id, section_id: sid, pos: '' }); });
+  $('#td-sec').onclick = () => pickSection(t.section_id, async sid => {
+    if (sid === t.section_id) return;
+    if (sid !== houseSid()) return saveRow('tasks', { id: t.id, section_id: sid, pos: '' });
+    // perkeliant į namo pabaigimą – paklausti, ar būtina pridavimui
+    const kind = t.kind || (/pirk/i.test(I.sections[t.section_id]?.name || '') ? 'pirkinys' : 'darbas');
+    hcAskSheet(hc => saveRow('tasks', { id: t.id, section_id: sid, pos: '', hc, kind }));
+  });
+  bindHouseCard(t);
   // terminas, laikas, kartojimas, priminimai – atskirame lange
   $('#td-date').onclick = () => dateSheet(t);
   if ($('#td-extra')) $('#td-extra').onclick = () => dateSheet(t);
@@ -560,7 +574,7 @@ function dateSheet(t, d) {
     const timed = !!d.time;
     $('#sheet').innerHTML = `<div class="grab"></div>
     <div class="dp-top"><button type="button" class="link" id="dp-cancel">Atšaukti</button><b>Terminas</b><span style="width:70px"></span></div>
-    <div class="qdates">${quick.map(([l, x]) => `<button type="button" class="chip ${d.due === x ? 'on' : ''}" data-qd="${x}">${l}</button>`).join('')}</div>
+    <div class="qdates chips">${quick.map(([l, x]) => `<button type="button" class="chip ${d.due === x ? 'on' : ''}" data-qd="${x}">${l}</button>`).join('')}</div>
     <div class="dp">${calHtml()}</div>
     <div class="dp-sum ${di ? di.cls : ''}">${d.due ? `${esc(longDate(d.due))} · ${esc(di.txt)}` : 'Data nepasirinkta'}</div>
     <div class="card list" style="margin-top:12px">
@@ -572,7 +586,7 @@ function dateSheet(t, d) {
         <button type="button" class="chip" id="rem-add" style="margin-top:8px">＋ Pridėti priminimą</button>
         ${S.settings.notify_services?.length ? '' : '<div class="s" style="margin-top:6px">Telefonas dar nepasirinktas – ⚙️ Nustatymai → Priminimai telefone</div>'}</div></div>` : ''}
     </div>
-    <div class="sheet-actions">${d.due ? '<button type="button" class="btn danger" id="dp-clear">Be datos</button>' : ''}<button type="button" class="btn primary" id="dp-ok">Atlikta</button></div>`;
+    <div class="sheet-actions sticky">${d.due ? '<button type="button" class="btn danger" id="dp-clear">Be datos</button>' : ''}<button type="button" class="btn primary" id="dp-ok">Atlikta</button></div>`;
     const keep = () => { const y = $('#sheet').scrollTop; draw(); $('#sheet').scrollTop = y; };
     $$('[data-qd]', $('#sheet')).forEach(b => b.onclick = () => { d.due = b.dataset.qd; vy = pd(d.due).getFullYear(); vm = pd(d.due).getMonth(); keep(); });
     $$('[data-dd]').forEach(b => b.onclick = () => { d.due = b.dataset.dd; keep(); });
@@ -1045,6 +1059,205 @@ function meterSheet(m) {
   });
 }
 
+// ============================================================ NAMO PABAIGIMAS
+// Atskira sekcija (kaip Gręžinys): užduotys ir pirkiniai su kategorija (Būtina pridavimui / Kita),
+// patalpa ir kaina. Viena bendra pridavimo data visai skilčiai.
+const houseSid = () => S.house && S.house.section;
+const isHouse = t => !!t && t.section_id === houseSid() && !!I.sections[houseSid()];
+const eurR = n => Math.round(+n || 0).toLocaleString('lt-LT').replace(/ |,/g, ' ') + ' €';
+const hcOf = t => t.hc === 'butina' ? 'butina' : 'kita';
+const HC = { butina: ['❗', 'Būtina pridavimui'], kita: ['🛋️', 'Kita (nebūtina)'] };
+const KIND = { darbas: ['🔨', 'Darbas'], pirkinys: ['🛒', 'Pirkinys'] };
+const zonesList = () => S.settings.house_zones || [];
+const houseTasks = () => houseSid() ? tasksOf(houseSid()) : [];
+// užduoties dalis: atlikta = 1, kitaip – atliktų sub-užduočių dalis
+const taskFrac = t => { if (t.done) return 1; const s = subsOf(t.id); return s.length ? s.filter(x => x.done).length / s.length : 0; };
+function hStat(list) {
+  const n = list.length, done = list.filter(t => t.done).length, f = list.reduce((a, t) => a + taskFrac(t), 0);
+  const plan = list.reduce((a, t) => a + (+t.cost_plan || 0), 0), real = list.reduce((a, t) => a + (+t.cost_real || 0), 0);
+  const left = list.filter(t => !t.done).reduce((a, t) => a + (t.cost_real != null ? 0 : (+t.cost_plan || 0)), 0);
+  return { n, done, pc: n ? Math.round(f / n * 100) : 0, plan, real, left };
+}
+// pridavimo būklė: liko dienų ir tempas
+function housePace() {
+  const due = S.settings.house_due || '', all = houseTasks().filter(t => hcOf(t) === 'butina');
+  const st = hStat(all), left = due ? diffDays(T(), due) : null, rest = st.n - st.done;
+  const lim = addDays(T(), -28);
+  const rate = all.filter(t => t.done && t.done_at && t.done_at.slice(0, 10) > lim).length / 4; // per savaitę, paskutinės 4 sav.
+  const need = left != null && left >= 0 ? rest / Math.max(left / 7, 1 / 7) : 0;
+  const late = due ? all.filter(t => !t.done && t.due && t.due > due) : [];
+  let warn = '';
+  if (due && rest > 0) {
+    if (left < 0) warn = `Pridavimo data praėjo prieš ${-left} d., liko ${rest} būtin${rest === 1 ? 'as darbas' : 'i darbai'}.`;
+    else if (rate < need) warn = `Tokiu tempu nespėsite: reikia ~${fmtN(need, 1)} per savaitę, o per 4 sav. vidutiniškai ${fmtN(rate)}.`;
+  }
+  return { due, left, st, rest, rate, need, warn, late };
+}
+const fmtN = (n, up) => ((up ? Math.ceil : Math.floor)(n * 10 + (up ? -1e-9 : 1e-9)) / 10).toString().replace('.', ',');
+const leftTxt = n => n == null ? '' : n > 0 ? `liko ${n} d.` : n === 0 ? 'šiandien!' : `praėjo ${-n} d.`;
+function hBar(pc, cls = '') { return `<div class="h-bar ${cls} ${pc >= 100 ? 'full' : ''}"><i style="width:${pc}%"></i></div>`; }
+
+// juosta Užduočių ir Artimiausių viršuje
+function houseBanner() {
+  if (!S.settings.house_banner || !I.sections[houseSid()]) return '';
+  const P = housePace();
+  if (!P.st.n && !P.due) return '';
+  return `<div class="card h-banner ${P.warn ? 'warn' : ''}" data-go="#house">
+    <div class="row"><b class="grow">🏠 ${esc(S.settings.house_name || 'Pridavimas')}</b><span class="h-left">${esc(leftTxt(P.left))}</span></div>
+    <div class="row h-line">${hBar(P.st.pc)}<b>${P.st.pc}%</b></div>
+    <div class="s">Būtina: ${P.st.done}/${P.st.n}${P.warn ? ' · ⚠️ tempas per lėtas' : ''}</div></div>`;
+}
+
+routes.house = () => {
+  setTop('🏠 Namo pabaigimas', { actions: `<button class="icon-btn" data-go="#houseset" aria-label="Nustatymai">⚙️</button>` });
+  const sid = houseSid();
+  if (!I.sections[sid]) { view.innerHTML = `<div class="empty"><span class="big">🏠</span>Skilties sekcija nerasta.</div>`; return; }
+  const P = housePace(), all = houseTasks();
+  const zones = zonesList();
+  if (UI.hZone && !zones.includes(UI.hZone)) UI.hZone = '';
+  const kf = UI.hKind || '', zf = UI.hZone || '';
+  const match = t => (!kf || (t.kind || 'darbas') === kf) && (!zf || t.zone === zf);
+  const B = all.filter(t => hcOf(t) === 'butina'), K = all.filter(t => hcOf(t) === 'kita');
+  const sB = hStat(B), sK = hStat(K);
+  const kindSt = (list, k) => hStat(list.filter(t => (t.kind || 'darbas') === k));
+  let h = `<div class="card pad h-top ${P.warn ? 'warn' : ''}" id="h-due">
+    <div class="row"><div class="grow"><div class="k">🏦 ${esc(S.settings.house_name || 'Pridavimas')}</div>
+      <div class="t">${P.due ? esc(longDate(P.due)) : '<span class="muted">Data nenustatyta – paspauskite</span>'}</div></div>
+      ${P.due ? `<div class="h-days ${P.left < 0 ? 'over' : P.left <= 14 ? 'soon' : ''}"><b>${P.left < 0 ? -P.left : P.left}</b><span>${P.left < 0 ? 'd. praėjo' : 'd. liko'}</span></div>` : ''}</div>
+    <div class="h-big"><div class="row"><span class="grow">Būtini darbai ir pirkiniai</span><b>${sB.pc}%</b></div>${hBar(sB.pc, 'big')}
+      <div class="s">Atlikta ${sB.done} iš ${sB.n}${P.due && P.rest ? ` · reikia ~${fmtN(P.need, 1)}/sav., dabar ${fmtN(P.rate)}/sav.` : ''}</div></div>
+    ${P.warn ? `<div class="h-warn">⚠️ ${esc(P.warn)}</div>` : P.due && P.st.n && !P.rest ? '<div class="h-ok">✓ Visi būtini darbai atlikti</div>' : ''}
+    ${P.late.length ? `<div class="h-warn">📅 ${P.late.length} būtin${P.late.length === 1 ? 'os užduoties' : 'ų užduočių'} terminas vėlesnis nei pridavimas</div>` : ''}
+  </div>
+  <div class="stats">
+    ${[['butina', '🔨 Būtini darbai', kindSt(B, 'darbas')], ['butina', '🛒 Būtini pirkiniai', kindSt(B, 'pirkinys')], ['kita', '🔨 Kiti darbai', kindSt(K, 'darbas')], ['kita', '🛒 Kiti pirkiniai', kindSt(K, 'pirkinys')]]
+      .map(([c, l, x]) => `<div class="card stat h-st ${c}"><div class="k">${l}</div><div class="v">${x.done}/${x.n}</div>${hBar(x.pc, c === 'kita' ? 'alt' : '')}</div>`).join('')}
+  </div>
+  <div class="seg" id="h-kind" style="margin-top:14px">${[['', 'Visi'], ['darbas', '🔨 Darbai'], ['pirkinys', '🛒 Pirkiniai']].map(([v, l]) => `<button data-hk="${v}" class="${kf === v ? 'on' : ''}">${l}</button>`).join('')}</div>
+  <div class="chips">${['', ...zones].map(z => { const x = z ? hStat(all.filter(t => t.zone === z)) : null; return `<button class="chip ${zf === z ? 'on' : ''}" data-hz="${esc(z)}">${z ? '📍 ' + esc(z) + (x.n ? ` <span class="n">${x.pc}%</span>` : '') : 'Visos patalpos'}</button>`; }).join('')}</div>`;
+  for (const [c, list, st] of [['butina', B, sB], ['kita', K, sK]]) {
+    const vis = list.filter(match), shown = vis.filter(t => UI.showDone['h' + c] || doneVisible(t)), hidden = vis.length - shown.length;
+    h += `<h2>${HC[c][0]} ${HC[c][1]} <span class="muted small">${st.done}/${st.n}</span></h2>
+    ${c === 'kita' && st.n ? `<div class="h-sub">${hBar(st.pc, 'alt')}<b>${st.pc}%</b></div>` : ''}
+    <div class="tk-card">${shown.map(t => taskRow(t, { house: true })).join('')}
+      <form class="tk-new h-add" data-hadd="${c}"><span class="ck ghost"></span><input type="text" placeholder="＋ ${kf === 'pirkinys' ? 'Pirkinys' : 'Darbas'}${zf ? ' · ' + esc(zf) : ''}" enterkeyhint="done"></form>
+      ${hidden || UI.showDone['h' + c] ? `<div class="tk-more" data-hsd="${c}">${UI.showDone['h' + c] ? 'Slėpti senas atliktas' : `✓ Rodyti atliktas (${hidden})`}</div>` : ''}</div>`;
+  }
+  // patalpos
+  const zs = zones.map(z => [z, hStat(all.filter(t => t.zone === z)), hStat(B.filter(t => t.zone === z))]).filter(([, x]) => x.n);
+  const noz = all.filter(t => !t.zone || !zones.includes(t.zone));
+  if (zs.length) h += `<h2>📍 Pagal patalpas</h2><div class="card list">${zs.map(([z, x, b]) => `<div class="li" data-hz="${esc(z)}"><div class="grow"><div class="row"><span class="t grow">${esc(z)}</span><b>${x.pc}%</b></div>${hBar(x.pc)}<div class="s">${x.done}/${x.n} atlikta${b.n ? ` · būtina ${b.done}/${b.n}` : ''}</div></div></div>`).join('')}
+    ${noz.length ? `<div class="li"><div class="grow"><div class="t muted">Be patalpos: ${noz.length}</div></div></div>` : ''}</div>`;
+  // biudžetas
+  const sT = hStat(all);
+  const brow = (l, x) => `<tr><td>${l}</td><td>${eurR(x.plan)}</td><td>${eurR(x.real)}</td><td>${eurR(x.left)}</td></tr>`;
+  h += `<h2>💶 Biudžetas</h2><div class="card pad"><table class="w-tbl"><thead><tr><td></td><td>Planuota</td><td>Išleista</td><td>Dar reikės</td></tr></thead>
+    <tbody>${brow('❗ Būtina', sB)}${brow('🛋️ Kita', sK)}</tbody><tfoot>${brow('Iš viso', sT)}</tfoot></table>
+    <div class="muted small" style="margin-top:8px">Kainos įrašomos užduoties lange. „Dar reikės“ – neatliktų užduočių planuota kaina (jei faktinė dar neįrašyta).</div></div>
+    <p class="muted small center" style="margin-top:16px">Esamą užduotį ar pirkinį čia perkelsite atidarę jį ir paspaudę <b>Sekcija</b> → <b>🏠 Namo pabaigimas</b>.</p>`;
+  view.innerHTML = h;
+  bindTaskRows();
+  $('#h-due').onclick = () => go('#houseset');
+  $$('[data-hk]').forEach(b => b.onclick = () => { UI.hKind = b.dataset.hk; saveUI(); render(); });
+  $$('[data-hz]').forEach(b => b.onclick = () => { UI.hZone = UI.hZone === b.dataset.hz ? '' : b.dataset.hz; saveUI(); render(); if (b.classList.contains('li')) scrollTo(0, 0); });
+  $$('[data-hsd]').forEach(b => b.onclick = () => { const k = 'h' + b.dataset.hsd; UI.showDone[k] = !UI.showDone[k]; saveUI(); render(); });
+  $$('[data-hadd]').forEach(f => f.onsubmit = async e => {
+    e.preventDefault();
+    const inp = $('input', f), title = inp.value.trim(); if (!title) return;
+    inp.value = '';
+    const y = scrollY;
+    await saveRow('tasks', { title, section_id: sid, hc: f.dataset.hadd, kind: kf || 'darbas', zone: zf }, true);
+    render(); scrollTo(0, y); $(`[data-hadd="${f.dataset.hadd}"] input`).focus();
+  });
+};
+
+// užduoties lange – namo pabaigimo laukai
+function houseCard(t) {
+  const zones = zonesList(), z = t.zone && !zones.includes(t.zone) ? [...zones, t.zone] : zones;
+  const n = v => v == null ? '' : fmt(v, 2).replace(/,00$/, '');
+  return `<h2>🏠 Namo pabaigimas</h2><div class="card pad stack" id="hc-card">
+    <div class="seg" id="hc-hc">${Object.entries(HC).map(([k, [e, l]]) => `<button type="button" data-v="${k}" class="${hcOf(t) === k ? 'on' : ''}">${e} ${k === 'butina' ? 'Būtina' : 'Nebūtina'}</button>`).join('')}</div>
+    <div class="seg" id="hc-kind">${Object.entries(KIND).map(([k, [e, l]]) => `<button type="button" data-v="${k}" class="${(t.kind || 'darbas') === k ? 'on' : ''}">${e} ${l}</button>`).join('')}</div>
+    <label class="field"><span>Patalpa</span><select id="hc-zone"><option value="">—</option>${z.map(x => `<option ${x === t.zone ? 'selected' : ''}>${esc(x)}</option>`).join('')}</select></label>
+    <div class="row"><label class="field grow"><span>Planuota kaina, €</span><input type="text" inputmode="decimal" id="hc-plan" value="${esc(n(t.cost_plan))}" placeholder="0"></label>
+      <label class="field grow"><span>Faktinė kaina, €</span><input type="text" inputmode="decimal" id="hc-real" value="${esc(n(t.cost_real))}" placeholder="0"></label></div>
+  </div>`;
+}
+function bindHouseCard(t) {
+  if (!$('#hc-card')) return;
+  const seg = (id, k) => $$(`#${id} button`).forEach(b => b.onclick = () => { $$(`#${id} button`).forEach(x => x.classList.toggle('on', x === b)); saveRow('tasks', { id: t.id, [k]: b.dataset.v }, true); });
+  seg('hc-hc', 'hc'); seg('hc-kind', 'kind');
+  $('#hc-zone').onchange = e => saveRow('tasks', { id: t.id, zone: e.target.value }, true);
+  [['hc-plan', 'cost_plan'], ['hc-real', 'cost_real']].forEach(([id, k]) => $('#' + id).onchange = e => {
+    const v = e.target.value.trim(), x = numIn(v);
+    if (v && (x == null || x < 0)) return toast('Bloga suma');
+    saveRow('tasks', { id: t.id, [k]: v ? x : '' }, true).then(() => toast('Išsaugota'));
+  });
+}
+function hcAskSheet(cb) {
+  sheet(`<h3>🏠 Ar tai būtina pridavimui?</h3><div class="card list">
+    <div class="li" data-hca="butina"><span class="ic">❗</span><div class="grow"><div class="t">Būtina</div><div class="s">Įskaičiuojama į pridavimo progresą</div></div></div>
+    <div class="li" data-hca="kita"><span class="ic">🛋️</span><div class="grow"><div class="t">Nebūtina</div><div class="s">Plintusai, užuolaidos, įrenginiai ir pan.</div></div></div></div>`, () => {
+    $$('[data-hca]').forEach(el => el.onclick = () => { closeSheet(); cb(el.dataset.hca); });
+  });
+}
+
+// ---- namo pabaigimo nustatymai
+routes.houseset = () => {
+  setTop('Namo pabaigimas', { back: '#house' });
+  const s = S.settings, zones = zonesList();
+  view.innerHTML = `<h2>🏦 Pridavimas</h2>
+  <div class="card pad stack">
+    <label class="field"><span>Pavadinimas</span><input type="text" id="hs-name" value="${esc(s.house_name || '')}" placeholder="Pridavimas bankui"></label>
+    <div class="field"><span>Data</span><div class="row"><input type="date" id="hs-due" class="grow" value="${esc(s.house_due || '')}" style="min-width:0">${s.house_due ? '<button class="icon-btn" id="hs-due-x" aria-label="Pašalinti datą">✕</button>' : ''}</div></div>
+    <div class="muted small">Viena data visai skilčiai. Ji matoma ir HA kalendoriuje.</div>
+    <label class="row"><span class="grow"><b>Rodyti juostą visur</b><br><span class="muted small">Užduočių ir Artimiausių viršuje</span></span><span class="switch"><input type="checkbox" id="hs-banner" ${s.house_banner ? 'checked' : ''}><i></i></span></label>
+  </div>
+  <h2>📍 Patalpos <button class="btn small" id="hs-znew">＋ Nauja</button></h2>
+  <div class="card list">${zones.map((z, i) => `<div class="li"><span class="grow t" data-zedit="${i}">${esc(z)} <span class="muted small">${houseTasks().filter(t => t.zone === z).length}</span></span>
+    <button class="icon-btn mv" data-zmv="${i}:-1" ${i === 0 ? 'disabled style="opacity:.25"' : ''}>▲</button><button class="icon-btn mv" data-zmv="${i}:1" ${i === zones.length - 1 ? 'disabled style="opacity:.25"' : ''}>▼</button></div>`).join('') || '<div class="empty" style="padding:16px">Patalpų nėra</div>'}</div>
+  <h2>🏠 Home Assistant</h2>
+  <div class="card pad stack"><div class="muted small">Jutiklis <b>sensor.ukis_pridavimas</b> rodo būtinų darbų procentą, likusias dienas ir biudžetą.</div>
+    <button class="btn block" id="hs-card">📋 Kortelė pagrindiniam langui</button></div>`;
+  const save = o => act('settings_save', o).then(() => toast('Išsaugota'));
+  $('#hs-name').onchange = e => save({ house_name: e.target.value.trim() || 'Pridavimas bankui' });
+  $('#hs-due').onchange = e => save({ house_due: e.target.value || '' });
+  if ($('#hs-due-x')) $('#hs-due-x').onclick = () => save({ house_due: '' });
+  $('#hs-banner').onchange = e => save({ house_banner: e.target.checked });
+  const zsave = (list, rename) => act('house_zones', { zones: list, rename });
+  $('#hs-znew').onclick = () => zoneSheet(null);
+  $$('[data-zedit]').forEach(el => el.onclick = () => zoneSheet(+el.dataset.zedit));
+  $$('[data-zmv]').forEach(b => b.onclick = () => { const [i, d] = b.dataset.zmv.split(':').map(Number), l = [...zones]; const [x] = l.splice(i, 1); l.splice(i + d, 0, x); zsave(l); });
+  $('#hs-card').onclick = () => copySheet('Kortelė pagrindiniam langui', `HA skydelyje: <b>✏️ Redaguoti → ＋ Pridėti kortelę → Žymėjimas (Markdown) → Rodyti kodo redaktorių</b>, ištrinkite viską ir įklijuokite:`, HOUSE_CARD);
+  function zoneSheet(i) {
+    const old = i == null ? '' : zones[i];
+    formSheet({
+      title: i == null ? 'Nauja patalpa' : 'Patalpa', values: { name: old },
+      fields: [{ k: 'name', label: 'Pavadinimas', ph: 'pvz. Vaikų kambarys' }],
+      bind: f => setTimeout(() => f.elements.name.focus(), 50),
+      onSave: async v => {
+        const n = v.name.trim(); if (!n) { toast('Įrašykite pavadinimą'); return false; }
+        const l = [...zones]; if (i == null) l.push(n); else l[i] = n;
+        await zsave(l, i != null && n !== old ? { [old]: n } : null);
+      },
+      onDelete: i != null ? async () => { const l = [...zones]; l.splice(i, 1); await zsave(l); } : null,
+    });
+  }
+};
+const HOUSE_CARD = `type: markdown
+title: 🏠 Namo pabaigimas
+content: |
+  {% set a = states.sensor.ukis_pridavimas.attributes %}
+  {% set p = states('sensor.ukis_pridavimas') | int(0) %}
+  **{{ a.pavadinimas }}**{% if a.data %} · {{ a.data }} · {% if a.liko_dienu >= 0 %}liko **{{ a.liko_dienu }} d.**{% else %}praėjo {{ -a.liko_dienu }} d.{% endif %}{% endif %}
+
+  {{ '🟩' * (p // 10) }}{{ '⬜' * (10 - p // 10) }} **{{ p }} %**
+
+  Būtina: {{ a.butina_atlikta }}/{{ a.butina_viso }} · Kita: {{ a.kita_atlikta }}/{{ a.kita_viso }}
+  {% if a.nespeja %}
+
+  ⚠️ **Tempas per lėtas** – reikia ~{{ a.reikia_per_sav }} per savaitę{% endif %}`;
+
 // ============================================================ NUSTATYMAI
 routes.settings = () => {
   setTop('Nustatymai', { back: true });
@@ -1090,7 +1303,7 @@ routes.settings = () => {
     <label class="li go"><span class="ic">♻️</span><div class="grow"><div class="t">Atkurti iš kopijos</div><div class="s">Dabartiniai duomenys bus pakeisti</div></div><input type="file" id="st-restore" accept=".zip" hidden></label>
     <label class="li go"><span class="ic">📥</span><div class="grow"><div class="t">Importuoti užduotis (.json)</div><div class="s">Tik papildo, nieko netrina</div></div><input type="file" id="st-import" accept=".json,application/json" hidden></label>
   </div>
-  <p class="muted small center" style="margin-top:18px">Ūkis 1.4.1 · Duomenys patenka į Home Assistant atsargines kopijas</p>`;
+  <p class="muted small center" style="margin-top:18px">Ūkis 1.8.0 · Duomenys patenka į Home Assistant atsargines kopijas</p>`;
   $('#st-sec-new').onclick = () => sectionSheet();
   $('#st-tag-new').onclick = () => tagSheet();
   $$('[data-sedit]').forEach(el => el.onclick = () => sectionMenu(I.sections[el.dataset.sedit]));

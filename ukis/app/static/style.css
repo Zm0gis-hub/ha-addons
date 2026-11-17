@@ -685,3 +685,52 @@ button.link { border: 0; background: transparent; color: var(--accent); font: in
 .sheet-actions .btn { flex: 1; min-height: 50px; }
 .sheet-actions .btn.primary { flex: 1.4; }
 #td-sec { padding-left: 14px; }
+
+/* 1.8: kompaktiškas termino kalendorius – mygtukai matomi be slinkimo */
+.qdates.chips { flex-wrap: nowrap; margin-top: 0; }
+.qdates.chips .chip { flex: none; padding: 5px 11px; font-size: 13.5px; }
+.dp { margin-top: 6px; max-width: 340px; margin-left: auto; margin-right: auto; }
+.dp-head { padding: 0 2px 2px; }
+.dp-head .icon-btn { min-width: 36px; min-height: 36px; }
+.dp-grid { gap: 0; }
+.dp-wd span { padding: 1px 0; font-size: 11.5px; }
+.dp-grid button { aspect-ratio: auto; width: 36px; height: 34px; max-height: none; margin: 1px auto; font-size: 14.5px; }
+.dp-sum { margin-top: 4px; }
+.dp ~ .card.list { margin-top: 8px !important; }
+.dp ~ .card.list .li { padding-top: 8px; padding-bottom: 8px; }
+#sheet:has(.sheet-actions.sticky) { padding-bottom: 0; }
+.sheet-actions.sticky { position: sticky; bottom: 0; margin: 12px -14px 0; padding: 10px 14px calc(12px + env(safe-area-inset-bottom)); background: var(--sheet-bg); border-top: 1px solid var(--sheet-line); z-index: 2; }
+
+/* 1.8: namo pabaigimas */
+.h-bar { flex: 1; height: 8px; border-radius: 6px; background: var(--chip); overflow: hidden; margin-top: 6px; }
+.h-bar i { display: block; height: 100%; border-radius: 6px; background: var(--accent); transition: width .3s; }
+.h-bar.big { height: 14px; border-radius: 8px; }
+.h-bar.alt i { background: #4f8fd6; }
+.h-bar.full i { background: var(--ok); }
+.h-top .k { font-size: 12px; color: var(--muted); text-transform: uppercase; letter-spacing: .04em; font-weight: 700; }
+.h-top .t { font-weight: 700; font-size: 16px; }
+.h-top { cursor: pointer; }
+.h-days { text-align: center; min-width: 64px; padding: 4px 8px; border-radius: 12px; background: var(--chip); }
+.h-days b { display: block; font-size: 24px; line-height: 1.1; font-variant-numeric: tabular-nums; }
+.h-days span { font-size: 11.5px; color: var(--muted); font-weight: 700; }
+.h-days.soon { background: var(--warn-soft); color: var(--warn); }
+.h-days.over { background: var(--danger-soft); color: var(--danger); }
+.h-big { margin-top: 12px; }
+.h-big .row b { font-size: 20px; font-variant-numeric: tabular-nums; }
+.h-big .s, .h-banner .s { font-size: 13px; color: var(--muted); margin-top: 4px; }
+.h-warn { margin-top: 10px; padding: 8px 10px; border-radius: 10px; background: var(--warn-soft); color: var(--warn); font-weight: 700; font-size: 14px; }
+.h-ok { margin-top: 10px; color: var(--ok); font-weight: 700; }
+.h-top.warn, .h-banner.warn { box-shadow: 0 0 0 1.5px var(--warn); }
+.h-st .v { font-size: 20px; }
+.h-sub { display: flex; align-items: center; gap: 8px; margin: -4px 4px 8px; }
+.h-sub .h-bar { margin-top: 0; }
+.h-sub b { font-size: 13px; color: var(--muted); }
+.h-banner { padding: 10px 14px; margin-bottom: 12px; cursor: pointer; }
+.h-banner .h-left { font-size: 13px; font-weight: 700; color: var(--muted); }
+.h-banner .h-line { gap: 8px; }
+.h-banner .h-line .h-bar { margin-top: 0; }
+.h-banner .h-line b { font-size: 14px; min-width: 36px; text-align: right; }
+.tk .tg.must { background: var(--danger-soft); color: var(--danger); font-weight: 700; }
+.card.list .li .h-bar { margin-top: 4px; }
+#hc-card .seg { margin-bottom: 0; }
+#hc-card .row .field { min-width: 0; }

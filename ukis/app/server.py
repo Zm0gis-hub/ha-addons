@@ -59,7 +59,8 @@ AUTH_TOKEN = hashlib.sha256(("ukis:" + PIN).encode()).hexdigest() if PIN else ""
 # lentelė -> stulpeliai, kuriuos galima keisti per bendrą „save“ veiksmą
 TABLES = {
     "sections": ["name", "emoji", "pos", "collapsed"],
-    "tasks": ["section_id", "title", "notes", "due", "done", "done_at", "pos", "tags", "created", "repeat", "notify", "time", "end_time", "remind"],
+    "tasks": ["section_id", "title", "notes", "due", "done", "done_at", "pos", "tags", "created", "repeat", "notify", "time", "end_time", "remind",
+              "hc", "zone", "kind", "cost_plan", "cost_real"],
     "subtasks": ["task_id", "title", "done", "pos"],
     "comments": ["task_id", "text", "created"],
     "files": ["task_id", "filename", "orig_name", "mime", "size", "created", "round_id"],
@@ -72,7 +73,7 @@ TABLES = {
     "well_costs": ["date", "type", "amount", "note", "split"],
 }
 NUMERIC = {"pos", "collapsed", "section_id", "done", "task_id", "size", "notify", "active", "price", "round_id",
-           "meter_id", "value", "amount"}
+           "meter_id", "value", "amount", "cost_plan", "cost_real"}
 POS_GROUP = {"sections": None, "tags": None, "tasks": "section_id", "subtasks": "task_id", "well_meters": None}
 
 SCHEMA = """
@@ -107,6 +108,11 @@ DEFAULT_SETTINGS = {
     "well_neighbor": "Kaimynas",
     "well_nb_from": "",     # nuo kada kaimynas naudoja gręžinį (YYYY-MM-DD); iki tol viskas tenka man
     "well_split": {"druska": "m3", "aptarnavimas": "half", "remontas": "half", "dalys": "half", "kita": "half"},
+    # namo pabaigimas
+    "house_due": "",                      # pridavimo (bankui) data
+    "house_name": "Pridavimas bankui",
+    "house_zones": ["Bendra", "Virtuvė", "Svetainė", "Vonia", "Miegamasis", "Koridorius", "Lauke"],
+    "house_banner": True,                 # rodyti pridavimo juostą Užduotyse ir Artimiausiuose
 }
 DEFAULT_SECTIONS = [("Darbai", "🔨"), ("Pirkiniai", "🛒"), ("Kada nors", "💡")]
 DEFAULT_TAGS = [("Senukai", "🏬"), ("Ermitažas", "🏬")]
@@ -183,7 +189,9 @@ def init_db():
     with LOCK:
         DB.executescript(SCHEMA)
         have = {r["name"] for r in DB.execute("PRAGMA table_info(tasks)")}
-        for col, typ in (("notify", "INTEGER DEFAULT 1"), ("time", "TEXT"), ("end_time", "TEXT"), ("remind", "TEXT DEFAULT '[]'")):
+        for col, typ in (("notify", "INTEGER DEFAULT 1"), ("time", "TEXT"), ("end_time", "TEXT"), ("remind", "TEXT DEFAULT '[]'"),
+                         ("hc", "TEXT DEFAULT ''"), ("zone", "TEXT DEFAULT ''"), ("kind", "TEXT DEFAULT ''"),
+                         ("cost_plan", "REAL"), ("cost_real", "REAL")):
             if col not in have:
                 DB.execute(f"ALTER TABLE tasks ADD COLUMN {col} {typ}")
         have_f = {r["name"] for r in DB.execute("PRAGMA table_info(files)")}
@@ -204,6 +212,10 @@ def init_db():
         if meta_get("well_seeded") is None:
             seed_well()
             meta_set("well_seeded", True)
+        if meta_get("house_section") is None:
+            r = DB.execute("SELECT id FROM sections WHERE lower(name)=lower(?)", ("Namo pabaigimas",)).fetchone()
+            meta_set("house_section", r["id"] if r else DB.execute(
+                "INSERT INTO sections(name, emoji, pos) VALUES(?,?,?)", ("Namo pabaigimas", "🏠", next_pos("sections"))).lastrowid)
         if not meta_get("ics_token"):
             meta_set("ics_token", secrets.token_hex(12))
         DB.commit()
@@ -244,7 +256,7 @@ def clean_date(v):
 def full_state():
     out = {"version": version(), "today": today(), "settings": meta_get("settings") or DEFAULT_SETTINGS,
            "well": {k: meta_get(k) for k in ("well_section", "well_read_task", "well_salt_buy")},
-           "well_paid": meta_get("well_paid") or {}}
+           "well_paid": meta_get("well_paid") or {}, "house": {"section": meta_get("house_section")}}
     for t in TABLES:
         out[t] = rows(f"SELECT * FROM {t} ORDER BY id")
     return out
@@ -309,6 +321,10 @@ def act_save(d):
         raise ValueError("Įrašykite pavadinimą")
     if t == "tasks" and "title" in row and not str(row.get("title") or "").strip():
         raise ValueError("Įrašykite pavadinimą")
+    if t == "tasks" and "hc" in row and row["hc"] not in ("butina", "kita"):
+        row["hc"] = ""
+    if t == "tasks" and "kind" in row and row["kind"] not in ("darbas", "pirkinys"):
+        row["kind"] = ""
     if t == "tasks" and "done" in row:
         row["done_at"] = now() if num(row["done"]) else None
     cols = [c for c in TABLES[t] if c in row]
@@ -424,12 +440,12 @@ def act_settings_save(d):
                 v = num(v)
                 v = dflt if v is None else int(v)
             elif isinstance(dflt, list):
-                v = [str(x).strip() for x in (v if isinstance(v, list) else []) if str(x).strip()]
+                v = list(dict.fromkeys(str(x).strip() for x in (v if isinstance(v, list) else []) if str(x).strip()))
             else:
                 v = str(v or "").strip()
                 if k.endswith("_time"):
                     v = hm(v, dflt)
-                if k == "well_nb_from" and v:
+                if k in ("well_nb_from", "house_due") and v:
                     v = dt.date.fromisoformat(v).isoformat()
             s[k] = v
     meta_set("settings", s)
@@ -488,6 +504,16 @@ def act_import(d):
 
 
 # ---------------------------------------------------------------- gręžinys
+
+def act_house_zones(d):
+    """Patalpų sąrašas; pervadinus – pakeičiama ir užduotyse."""
+    s = meta_get("settings") or dict(DEFAULT_SETTINGS)
+    zones = list(dict.fromkeys(str(x).strip() for x in (d.get("zones") or []) if str(x).strip()))
+    for old, new in (d.get("rename") or {}).items():
+        DB.execute("UPDATE tasks SET zone=? WHERE zone=?", (str(new).strip(), old))
+    s["house_zones"] = zones
+    meta_set("settings", s)
+
 
 def act_well_round(d):
     """Skaitiklių nurašymas: data, kaina ir visų skaitiklių rodmenys vienu kartu."""
@@ -689,16 +715,53 @@ def sensor_payload():
         "atnaujinta": now()}}
 
 
+def house_stats():
+    """Namo pabaigimo progresas (tas pats skaičiavimas kaip programoje)."""
+    st = meta_get("settings") or {}
+    sid = meta_get("house_section")
+    tasks = rows("SELECT id, done, done_at, hc, cost_plan, cost_real FROM tasks WHERE section_id=?", (sid,))
+    subs = {}
+    for r in rows("SELECT task_id, done FROM subtasks"):
+        s = subs.setdefault(r["task_id"], [0, 0])
+        s[0] += 1
+        s[1] += 1 if r["done"] else 0
+    out = {}
+    for key in ("butina", "kita"):
+        ts = [t for t in tasks if (t["hc"] or "kita") == key]
+        frac = sum(1 if t["done"] else (subs[t["id"]][1] / subs[t["id"]][0] if t["id"] in subs else 0) for t in ts)
+        out[key] = {"viso": len(ts), "atlikta": len([t for t in ts if t["done"]]),
+                    "proc": round(frac / len(ts) * 100) if ts else 0,
+                    "planuota": round(sum(t["cost_plan"] or 0 for t in ts), 2),
+                    "islaidos": round(sum(t["cost_real"] or 0 for t in ts), 2)}
+    due = st.get("house_due") or ""
+    left = (dt.date.fromisoformat(due) - dt.date.today()).days if due else None
+    lim = (dt.datetime.now() - dt.timedelta(days=28)).isoformat()
+    b = out["butina"]
+    rate = len([t for t in tasks if (t["hc"] or "kita") == "butina" and t["done"] and (t["done_at"] or "") >= lim]) / 4
+    need = (b["viso"] - b["atlikta"]) / max(left / 7, 1 / 7) if left is not None and left >= 0 else 0
+    return {"state": b["proc"], "attributes": {
+        "friendly_name": "Ūkis – " + (st.get("house_name") or "pridavimas"), "icon": "mdi:home-city",
+        "unit_of_measurement": "%", "pavadinimas": st.get("house_name") or "", "data": due,
+        "liko_dienu": left, "butina_atlikta": b["atlikta"], "butina_viso": b["viso"], "butina_proc": b["proc"],
+        "kita_atlikta": out["kita"]["atlikta"], "kita_viso": out["kita"]["viso"], "kita_proc": out["kita"]["proc"],
+        "tempas_per_sav": rate, "reikia_per_sav": round(need, 1),
+        "nespeja": bool(left is not None and b["atlikta"] < b["viso"] and (left < 0 or rate < need)),
+        "planuota": round(b["planuota"] + out["kita"]["planuota"], 2),
+        "islaidos": round(b["islaidos"] + out["kita"]["islaidos"], 2)}}
+
+
 def sensor_loop():
     last = None
     while True:
         try:
             with LOCK:
                 p = sensor_payload()
-            key = json.dumps({**p, "attributes": {**p["attributes"], "atnaujinta": ""}}, sort_keys=True)
+                hp = house_stats()
+            key = json.dumps([p["state"], p["attributes"]["items"], hp], sort_keys=True)
             # HA perkrovus būsena dingsta, todėl kas 10 min. siunčiama iš naujo
             if key != last or time.time() - HA_STATE.get("ts", 0) > 600:
                 ha_request("POST", "/states/sensor.ukis_artimiausi", p)
+                ha_request("POST", "/states/sensor.ukis_pridavimas", hp)
                 last, HA_STATE["ts"], HA_STATE["last"], HA_STATE["error"] = key, time.time(), now(), ""
         except Exception as e:  # noqa
             HA_STATE["error"] = str(e)
@@ -748,6 +811,13 @@ def build_ics():
                     break
                 if d != due:
                     ev(t, d, f"t{t['id']}-{d.isoformat()}")
+    st = meta_get("settings") or {}
+    if st.get("house_due"):
+        hd = dt.date.fromisoformat(st["house_due"])
+        lines.extend(["BEGIN:VEVENT", f"UID:house-{hd.isoformat()}@ukis", f"DTSTAMP:{stamp}",
+                      f"DTSTART;VALUE=DATE:{hd.strftime('%Y%m%d')}",
+                      f"DTEND;VALUE=DATE:{(hd + dt.timedelta(days=1)).strftime('%Y%m%d')}",
+                      f"SUMMARY:{ics_escape('🏠 ' + (st.get('house_name') or 'Pridavimas'))}", "END:VEVENT"])
     lines.append("END:VCALENDAR")
     return "\r\n".join(lines) + "\r\n"
 
@@ -1134,6 +1204,7 @@ ACTIONS = {
     "save": act_save, "delete": act_delete, "order_tasks": act_order_tasks, "order": act_order,
     "file_add": act_file_add, "task_complete": act_task_complete, "task_undo": act_task_undo, "notify_test": act_notify_test, "settings_save": act_settings_save, "import": act_import, "restore": act_restore,
     "well_round": act_well_round, "well_round_delete": act_well_round_delete, "well_paid": act_well_paid,
+    "house_zones": act_house_zones,
 }
 
 MIME = {".html": "text/html; charset=utf-8", ".js": "application/javascript; charset=utf-8",
