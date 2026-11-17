@@ -26,19 +26,13 @@ jobs:
           gradle-version: "8.10.2"
 
       - name: Patikrinti ciferblato XML (Watch Face Format)
-        continue-on-error: true
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
           mkdir -p /tmp/wff && cd /tmp/wff
-          gh release list --repo google/watchface --limit 10 || true
-          for tag in $(gh release list --repo google/watchface --limit 10 --json tagName -q '.[].tagName'); do
-            gh release view "$tag" --repo google/watchface --json assets -q '.assets[].name' || true
-            if gh release download "$tag" --repo google/watchface --pattern '*validator*.jar' --clobber; then break; fi
-          done
-          ls -la
-          JAR=$(ls *validator*.jar | head -1)
-          java -jar "$JAR" 1 "$GITHUB_WORKSPACE/laikrodis-sveikata/ciferblatas/src/main/res/raw/watchface.xml"
+          gh release download latest --repo google/watchface --pattern 'wff-validator.jar' --clobber
+          java -jar wff-validator.jar 1 "$GITHUB_WORKSPACE/laikrodis-sveikata/ciferblatas/src/main/res/raw/watchface.xml" | tee out.txt
+          ! grep -q "FAILED" out.txt
 
       - name: Surinkti APK
         working-directory: laikrodis-sveikata

@@ -21,7 +21,7 @@
 
     <!-- laikas -->
     <DigitalClock x="25" y="112" width="400" height="140">
-      <TimeText format="HH:mm" align="CENTER" x="0" y="0" width="400" height="140">
+      <TimeText format="hh:mm" hourFormat="24" align="CENTER" x="0" y="0" width="400" height="140">
         <Font family="SYNC_TO_DEVICE" size="124" weight="BOLD" color="#FFFFFFFF" />
       </TimeText>
     </DigitalClock>
