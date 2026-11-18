@@ -25,7 +25,7 @@ Kiekvienas žmogus turi **savo profilį** ir mato tik savo duomenis.
 | Skiltis | Kas ten |
 |---|---|
 | 💧 **Vanduo** | Paspauskite gėrimą – pridedamas įprastas kiekis (pvz. +250 ml). **Kava** turi rūšis: paspaudus iššoka pasirinkimas (Americano, Cappuccino). **Kitas kiekis** – pasirinkti kiekį ar laiką. Žiedas rodo dienos tikslą. Įrašą ištrinti – ✕. **📈 Istorija** – 7/30/90 dienų. |
-| 🤕 **Galva** | **Skauda galvą** – vienas paspaudimas + stiprumas. Kol skauda, viršuje juosta: **💊 Vaistai**, **✏️ Pildyti** (simptomai, provokatoriai ir kt.), **✔ Praėjo**. Kalendoriuje dienos nuspalvintos pagal stiprumą, 💊 – vartoti vaistai. **Įrašyti praėjusį** – jei pamiršote įrašyti. |
+| 🤕 **Galva** | **＋ Galvos skausmas** – pildoma žingsniais: stiprumas (slankiklis), vieta (paspaudžiama ant galvos piešinio), pobūdis, simptomai, provokatoriai, vaistai, kas padėjo. Bet kurį žingsnį galima praleisti, **Išsaugoti** – bet kada. Kol skauda, viršuje juosta: **💊 Vaistai**, **✏️ Pildyti**, **✔ Praėjo**. Kalendoriuje dienos nuspalvintos pagal stiprumą, 💊 – vartoti vaistai. **Įrašyti praėjusį** – jei pamiršote įrašyti. |
 | 📋 **Ataskaita** | Ataskaita gydytojui už 1/3/6/12 mėn. ar savo laikotarpį. **🖨 Spausdinti / PDF** (patogiausia kompiuteryje → „Išsaugoti kaip PDF“) ir **CSV** Excel'iui. Apačioje – „Klausimai gydytojui“. |
 | ⚙️ **Nustatymai** | Vardas, vandens tikslas, gėrimai (pavadinimas, kiekis, ar skaičiuoti į tikslą, kofeinas, rūšys – pvz. Kava → Americano / Cappuccino), **mano vaistai** (rūšis svarbi ataskaitai), pranešimai, laikrodis, duomenų atsisiuntimas. |
 
@@ -71,7 +71,7 @@ Failus galima atsisiųsti ir ranka: [programėlė](https://github.com/Zm0gis-hub
 
 - **Komplikacija bet kuriam ciferblatui** (pvz. OnePlus): redaguojant ciferblatą pasirinkite **Sveikata → Vanduo ＋** (paspaudus pridedama) arba **Vanduo (atidaro programėlę)**.
 - **Plytelė**: braukite ciferblatą į kairę → ilgai palaikykite plytelę → **＋** → **Vanduo**. Trys greiti mygtukai (pirmi trys gėrimai sąraše).
-- **Programėlė Sveikata**: visi gėrimai (ilgai palaikius – kitas kiekis; Kava – rūšių pasirinkimas), **↶ Atšaukti paskutinį**, **🤕 Skauda galvą** su stiprumu, **💊 Išgėriau vaistų**, **✔ Praėjo**.
+- **Programėlė Sveikata**: visi gėrimai (ilgai palaikius – kitas kiekis; Kava – rūšių pasirinkimas), **↶ Atšaukti paskutinį**, **＋ Galvos skausmas** su stiprumu, **💊 Išgėriau vaistų**, **✔ Praėjo**.
 
 Be ryšio įrašai išsaugomi laikrodyje ir išsiunčiami, kai ryšys atsiranda.
 

@@ -146,38 +146,6 @@ function confirmSheet(text, okLabel, fn, sub = '') {
   });
 }
 
-// chips: daugybinis pasirinkimas + „＋ Kita“
-function chipsHtml(id, options, selected) {
-  const all = [...options];
-  selected.forEach(s => { if (!all.includes(s)) all.push(s); });
-  return `<div class="chips" id="${id}">${all.map(o => `<button type="button" class="chip ${selected.includes(o) ? 'on' : ''}" data-v="${esc(o)}">${esc(o)}</button>`).join('')}<button type="button" class="chip add" data-add>＋ Kita</button></div>`;
-}
-function bindChips(el) {
-  el.onclick = e => {
-    const b = e.target.closest('.chip');
-    if (!b) return;
-    if (b.hasAttribute('data-add')) {
-      if ($('input', el)) return;
-      const inp = document.createElement('input');
-      inp.type = 'text'; inp.placeholder = 'Įrašykite ir spauskite ✓'; inp.style.cssText = 'flex:1 1 160px;min-height:32px;padding:4px 10px;border-radius:99px';
-      const ok = document.createElement('button'); ok.type = 'button'; ok.className = 'chip on'; ok.textContent = '✓';
-      const addIt = () => {
-        const v = inp.value.trim();
-        if (v && !$$('.chip[data-v]', el).some(c => c.dataset.v.toLowerCase() === v.toLowerCase())) {
-          const c = document.createElement('button'); c.type = 'button'; c.className = 'chip on'; c.dataset.v = v; c.textContent = v;
-          el.insertBefore(c, b);
-        }
-        inp.remove(); ok.remove();
-      };
-      ok.onclick = addIt;
-      inp.onkeydown = ev => { if (ev.key === 'Enter') { ev.preventDefault(); addIt(); } };
-      el.appendChild(inp); el.appendChild(ok); inp.focus();
-      return;
-    }
-    b.classList.toggle('on');
-  };
-}
-const chipVals = el => { const pend = $('input', el); if (pend && pend.value.trim()) $('button.chip.on:last-child', el)?.click(); return $$('.chip.on[data-v]', el).map(c => c.dataset.v); };
 // anksčiau naudoti savi pasirinkimai – kad liktų sąraše
 const usedVals = (col, base) => { const s = new Set(); S.episodes.forEach(e => (e[col] || []).forEach(v => { if (!base.includes(v)) s.add(v); })); return [...base, ...s]; };
 
@@ -219,13 +187,13 @@ function banner() {
   const a = activeEp();
   if (!a) return '';
   const ds_ = dosesOf(a.id);
-  return `<div class="card banner"><div class="t"><b>🤕 Skauda galvą ${ilvl(a.intensity)}</b><span class="small muted">nuo ${esc(tsNice(a.start))} · ${durTxt(a.start, nowLocal())}${ds_.length ? ' · 💊 ' + ds_.map(d => esc(I.meds[d.med_id]?.name || '?') + ' ' + hhmm(d.ts)).join(', ') : ''}</span></div>
+  return `<div class="card banner"><div class="t"><b>Galvos skausmas ${ilvl(a.intensity)}</b><span class="small muted">nuo ${esc(tsNice(a.start))} · ${durTxt(a.start, nowLocal())}${ds_.length ? ' · 💊 ' + ds_.map(d => esc(I.meds[d.med_id]?.name || '?') + ' ' + hhmm(d.ts)).join(', ') : ''}</span></div>
     <div class="btns"><button class="btn small" data-bmed>💊 Vaistai</button><button class="btn small" data-bedit>✏️ Pildyti</button><button class="btn small primary" data-bend>✔ Praėjo</button></div></div>`;
 }
 function bindBanner() {
   const a = activeEp(); if (!a) return;
   $('[data-bmed]') && ($('[data-bmed]').onclick = () => medQuickSheet(a.id));
-  $('[data-bedit]') && ($('[data-bedit]').onclick = () => episodeSheet(a));
+  $('[data-bedit]') && ($('[data-bedit]').onclick = () => episodeSheet(a, null, { step: a.intensity == null ? 0 : 1 }));
   $('[data-bend]') && ($('[data-bend]').onclick = () => endSheet(a));
 }
 
@@ -233,7 +201,31 @@ function bindBanner() {
 function ringSvg(val, max, color = 'var(--water)') {
   const r = 54, c = 2 * Math.PI * r, p = Math.min(1, max ? val / max : 0);
   return `<svg viewBox="0 0 128 128"><circle cx="64" cy="64" r="${r}" fill="none" stroke="var(--water-soft)" stroke-width="12"/>
-    ${p > 0 ? `<circle cx="64" cy="64" r="${r}" fill="none" stroke="${color}" stroke-width="12" stroke-linecap="round" stroke-dasharray="${(c * p).toFixed(1)} ${c.toFixed(1)}"/>` : ''}</svg>`;
+    <circle class="rp" cx="64" cy="64" r="${r}" fill="none" stroke="${color}" stroke-width="12" stroke-linecap="round" style="stroke-dasharray:${(c * p).toFixed(1)} ${c.toFixed(1)};opacity:${p > 0 ? 1 : 0}"/></svg>`;
+}
+// žiedas sklandžiai „prisipildo“ nuo ankstesnio kiekio iki naujo, skaičius keičiasi palaipsniui
+let ringShown = null;
+function animRing(total, g) {
+  const el = $('.wtop .ring .rp'), num = $('.wtop .ring .c b');
+  if (!el) return;
+  const from = ringShown == null ? 0 : ringShown;
+  ringShown = total;
+  if (from === total || matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+  const c = 2 * Math.PI * 54, pf = Math.min(1, from / g), pt = Math.min(1, total / g);
+  el.style.transition = 'none';
+  el.style.strokeDasharray = `${(c * pf).toFixed(1)} ${c.toFixed(1)}`;
+  el.style.opacity = pf > 0 ? 1 : 0;
+  el.getBoundingClientRect();
+  el.style.transition = 'stroke-dasharray .8s cubic-bezier(.22,.9,.3,1), opacity .2s';
+  requestAnimationFrame(() => { el.style.strokeDasharray = `${(c * pt).toFixed(1)} ${c.toFixed(1)}`; el.style.opacity = pt > 0 ? 1 : 0; });
+  const t0 = performance.now();
+  const tick = t => {
+    const k = Math.min(1, (t - t0) / 800), e = 1 - Math.pow(1 - k, 3);
+    num.textContent = fmtMl(Math.round((from + (total - from) * e) / 10) * 10);
+    if (k < 1) requestAnimationFrame(tick); else num.textContent = fmtMl(total);
+  };
+  requestAnimationFrame(tick);
+  if (total > from) { const rg = $('.wtop .ring'); rg.classList.remove('pulse'); rg.getBoundingClientRect(); rg.classList.add('pulse'); }
 }
 
 VIEWS.vanduo = () => {
@@ -266,6 +258,7 @@ VIEWS.vanduo = () => {
   $$('[data-dt]').forEach(b => b.onclick = () => { const t = I.drink_types[b.dataset.dt]; isGroup(t) ? pickSheet(t) : quickDrink(t.id); });
   $('#d-other').onclick = () => drinkSheet();
   bindDrinkRows();
+  animRing(total, g);
 };
 
 function drinkSummary(list) {
@@ -383,14 +376,14 @@ function daySheet(day) {
 
 // ============================================================ GALVA
 VIEWS.galva = () => {
-  setTop('Galvos skausmai', `<button class="btn small" id="g-med">💊 Vaistai</button>`);
+  setTop('Galvos skausmai');
   const a = activeEp();
   const m = UI.calM || T().slice(0, 7);
   const mStats = monthStats(m);
   const eps = S.episodes.slice(0, UI.epN || 25);
   let lastM = '';
   view.innerHTML = `${banner()}
-  ${a ? '' : `<button class="btn primary bigbtn" id="g-start">🤕 Skauda galvą</button>`}
+  <div class="row wrap g-acts">${a ? '' : '<button class="btn primary" id="g-start">＋ Galvos skausmas</button>'}<button class="btn" id="g-med">💊 Išgėriau vaistų</button></div>
   <div class="grid" style="margin-top:12px">
     <div>
       <div class="card cal">${calendarHtml(m, true)}</div>
@@ -403,14 +396,14 @@ VIEWS.galva = () => {
     </div>
     <div>
       <h2>Įrašai<button class="btn small" id="g-new">＋ Įrašyti praėjusį</button></h2>
-      ${eps.map(e => { const mm = e.start.slice(0, 7); const h = mm !== lastM ? `<div class="month-h">${MONTHS[+mm.slice(5) - 1]} ${mm.slice(0, 4)}</div>` : ''; lastM = mm; return h + epCard(e); }).join('') || '<div class="card empty">Įrašų dar nėra. Kai skaudės galvą – spauskite „🤕 Skauda galvą“.</div>'}
+      ${eps.map(e => { const mm = e.start.slice(0, 7); const h = mm !== lastM ? `<div class="month-h">${MONTHS[+mm.slice(5) - 1]} ${mm.slice(0, 4)}</div>` : ''; lastM = mm; return h + epCard(e); }).join('') || '<div class="card empty">Įrašų dar nėra. Kai skaudės galvą – spauskite „＋ Galvos skausmas“.</div>'}
       ${S.episodes.length > eps.length ? '<button class="btn block" id="g-more" style="margin-top:10px">Rodyti daugiau</button>' : ''}
       ${looseDoses()}
     </div>
   </div>`;
   bindBanner();
   $('#g-start') && ($('#g-start').onclick = () => startSheet());
-  $('#g-new').onclick = () => episodeSheet(null);
+  $('#g-new').onclick = () => episodeSheet(null, null, { past: true });
   $('#g-med').onclick = () => medQuickSheet(a ? a.id : null);
   $('#g-more') && ($('#g-more').onclick = () => { UI.epN = (UI.epN || 25) + 50; saveUI(); render(); });
   bindCalendar();
@@ -523,25 +516,8 @@ function bindInts(el, onPick) {
 }
 const intVal = el => { const b = $('#e-int button.on', el); return b ? +b.dataset.i : null; };
 
-// greitas pradžios langas – kuo mažiau paspaudimų
-function startSheet() {
-  openSheet(`<h3>🤕 Skauda galvą</h3><div class="stack">
-    <div><span class="lbl-s">Kaip stipriai? (galima pakeisti vėliau)</span>${intsHtml(null)}</div>
-    <label class="field"><span>Nuo kada</span><input type="datetime-local" id="s-ts" value="${nowLocal()}"></label>
-    ${meds().length ? `<div><span class="lbl-s">Išgėrėte vaistų? (nebūtina)</span><div class="chips" id="s-med">${meds().map(m => `<button type="button" class="chip" data-v="${m.id}">💊 ${esc(m.name)}</button>`).join('')}</div></div>` : ''}
-    <div class="sheet-actions"><button class="btn" id="s-more">Pildyti daugiau</button><button class="btn primary" id="s-ok">Įrašyti</button></div></div>`, el => {
-    bindInts(el);
-    $('#s-med', el) && ($('#s-med', el).onclick = e => { const b = e.target.closest('.chip'); if (b) b.classList.toggle('on'); });
-    const save = async () => {
-      const r = await act('episode_start', { intensity: intVal(el), start: $('#s-ts', el).value }, true);
-      for (const b of $$('#s-med .chip.on', el)) await api('api/do/dose', { med_id: +b.dataset.v, episode_id: r.id });
-      await load(true);
-      return I.episodes[r.id];
-    };
-    $('#s-ok', el).onclick = async () => { const e = await save(); closeSheet(); render(); toast('Įrašyta. Kai praeis – spauskite „✔ Praėjo“.', null, 4500); return e; };
-    $('#s-more', el).onclick = async () => { const e = await save(); render(); episodeSheet(e); };
-  });
-}
+// greitas pradžia – tas pats žingsninis langas
+function startSheet() { episodeSheet(null); }
 
 function endSheet(a) {
   openSheet(`<h3>✔ Galvos skausmas praėjo</h3><div class="stack">
@@ -558,99 +534,252 @@ function endSheet(a) {
       await load(true);
     };
     $('#x-ok', el).onclick = async () => { await save(); closeSheet(); render(); toast('Išsaugota. Sveikatos!'); };
-    $('#x-more', el).onclick = async () => { await save(); render(); episodeSheet(I.episodes[a.id]); };
+    $('#x-more', el).onclick = async () => { await save(); render(); episodeSheet(I.episodes[a.id], null, { step: 1 }); };
   });
 }
 
-function episodeSheet(e, day) {
-  const isNew = !e;
-  const start = e ? e.start : (day && day !== T() ? day + 'T09:00' : nowLocal());
-  const dz = e ? dosesOf(e.id).map(d => ({ ...d })) : [];
-  const medOpts = sel => `<option value="">— vaistas —</option>${S.meds.filter(m => !m.archived || m.id === sel).map(m => `<option value="${m.id}" ${m.id === sel ? 'selected' : ''}>${esc(m.name)}${m.dose ? ' ' + esc(m.dose) : ''}</option>`).join('')}<option value="new">＋ Naujas vaistas…</option>`;
-  const doseRow = (d, i) => `<div class="dose-row" data-di="${i}"><select data-k="med">${medOpts(d.med_id)}</select><input type="datetime-local" data-k="ts" value="${esc(d.ts)}"><button type="button" class="x" data-k="rm">✕</button>
-    <select data-k="effect" class="eff">${Object.entries(EFFECT).map(([k, v]) => `<option value="${k}" ${k === (d.effect || '') ? 'selected' : ''}>${v[0]} ${v[1]}</option>`).join('')}</select></div>`;
-  openSheet(`<h3>${isNew ? 'Galvos skausmas' : '🤕 ' + esc(dayRel(e.start.slice(0, 10)))}</h3><div class="stack">
-    <div class="fgrid"><label class="field"><span>Pradžia</span><input type="datetime-local" id="e-s" value="${esc(start)}"></label>
-      <label class="field"><span>Pabaiga</span><input type="datetime-local" id="e-e" value="${esc(e?.ended || '')}" ${e && !e.ended ? 'disabled' : ''}></label></div>
-    <label class="check"><input type="checkbox" id="e-on" ${e && !e.ended ? 'checked' : ''}> Dar skauda</label>
-    <div><span class="lbl-s">Stipriausias skausmas (0–10)</span>${intsHtml(e?.intensity ?? null)}</div>
-    <div><span class="lbl-s">Kaip manote, koks tai skausmas?</span>${segHtml('e-k', KIND, e?.kind ?? null)}</div>
-    <div><span class="lbl-s">💊 Vaistai</span><div class="dose-box"><div id="e-doses">${dz.map(doseRow).join('')}</div>
-      <button type="button" class="btn small" id="e-dadd" style="margin-top:8px">＋ Vaistas</button></div></div>
-    <div><span class="lbl-s">Kur skauda</span>${chipsHtml('e-l', usedVals('locs', LOCS), e?.locs || [])}</div>
-    <div><span class="lbl-s">Skausmo pobūdis</span>${chipsHtml('e-c', usedVals('chars', CHARS), e?.chars || [])}</div>
-    <div><span class="lbl-s">Kiti simptomai</span>${chipsHtml('e-y', usedVals('symptoms', SYMPTOMS), e?.symptoms || [])}</div>
-    <div><span class="lbl-s">Kas galėjo išprovokuoti</span>${chipsHtml('e-t', usedVals('triggers', TRIGGERS), e?.triggers || [])}</div>
-    <div><span class="lbl-s">Kas dar padėjo (be vaistų)</span>${chipsHtml('e-r', usedVals('relief', RELIEF), e?.relief || [])}</div>
-    <div><span class="lbl-s">Kaip paveikė dieną</span>${segHtml('e-i', IMPACT, e?.impact || '')}</div>
-    <label class="field"><span>Pastabos</span><textarea id="e-n" placeholder="pvz. ką valgėte, kaip miegojote, kas vyko">${esc(e?.notes || '')}</textarea></label>
-    <div class="sheet-actions">${isNew ? '<button class="btn" data-x>Atšaukti</button>' : '<button class="btn danger" id="e-del">Ištrinti</button>'}<button class="btn primary" id="e-ok">Išsaugoti</button></div></div>`, el => {
-    bindInts(el);
-    bindSeg($('#e-k', el), true); bindSeg($('#e-i', el), true);
-    ['#e-l', '#e-c', '#e-y', '#e-t', '#e-r'].forEach(s => bindChips($(s, el)));
-    $('#e-on', el).onchange = () => { $('#e-e', el).disabled = $('#e-on', el).checked; if (!$('#e-on', el).checked && !$('#e-e', el).value) $('#e-e', el).value = nowLocal(); };
-    const syncDoses = () => $$('#e-doses .dose-row', el).forEach(r => {
-      const d = dz[+r.dataset.di];
-      d.med_id = +$('[data-k=med]', r).value || null; d.ts = $('[data-k=ts]', r).value; d.effect = $('[data-k=effect]', r).value;
-    });
-    const drawDoses = () => {
-      $('#e-doses', el).innerHTML = dz.map((d, i) => d.removed ? '' : doseRow(d, i)).join('');
-      $$('#e-doses .dose-row', el).forEach(r => {
-        $('[data-k=rm]', r).onclick = () => { syncDoses(); dz[+r.dataset.di].removed = true; drawDoses(); };
-        $('[data-k=med]', r).onchange = async ev => {
-          if (ev.target.value !== 'new') return;
-          syncDoses();
-          dz[+r.dataset.di].med_id = null;
-          const box = document.createElement('div');
-          box.className = 'row'; box.style.cssText = 'grid-column:1/-1';
-          box.innerHTML = '<input type="text" placeholder="Vaisto pavadinimas, pvz. Ibuprofenas" style="min-height:38px"><input type="text" placeholder="Dozė" style="min-height:38px;max-width:90px"><button type="button" class="btn small primary">✓</button>';
-          r.appendChild(box); $('input', box).focus();
-          $('button', box).onclick = async () => {
-            const [n_, d_] = $$('input', box).map(x => x.value.trim());
-            if (!n_) return toast('Įrašykite pavadinimą');
-            const res = await api('api/do/save', { t: 'meds', row: { name: n_, dose: d_, kind: 'nvnu' } });
-            await load(true);
-            dz[+r.dataset.di].med_id = res.id;
-            drawDoses();
-          };
+// ============================================================ galvos skausmo pildymas žingsniais
+const ICON = {
+  'Pulsuojantis': '💓', 'Spaudžiantis': '🗜️', 'Duriantis': '📌', 'Maudžiantis': '〰️', 'Deginantis': '🔥',
+  'Pykinimas': '🤢', 'Vėmimas': '🤮', 'Jautrumas šviesai': '💡', 'Jautrumas garsui': '🔊', 'Jautrumas kvapams': '👃', 'Aura (regos)': '✨',
+  'Svaigulys': '💫', 'Nuovargis': '🥱', 'Kaklo įtampa': '🦴', 'Sunku susikaupti': '🧠', 'Ašarojimas / nosies užgulimas': '💧', 'Stiprėja judant': '🚶',
+  'Stresas': '😣', 'Per mažai miego': '🌙', 'Per daug miego': '🛌', 'Praleistas valgis': '🍽️', 'Per mažai vandens': '🚰', 'Kofeinas (daug ar trūko)': '☕',
+  'Alkoholis': '🍷', 'Oro pokyčiai': '🌦️', 'Menstruacijos': '🩸', 'Ekranas / kompiuteris': '💻', 'Ryški šviesa': '☀️', 'Triukšmas': '📢', 'Kvapai': '🌸',
+  'Fizinis krūvis': '🏋️', 'Kelionė': '🚗', 'Maistas': '🧀',
+  'Miegas / poilsis': '😴', 'Tamsus kambarys': '🌑', 'Šaltas kompresas': '🧊', 'Šiltas kompresas': '♨️', 'Vanduo': '💧', 'Kava': '☕', 'Gaivus oras': '🌬️',
+  'Masažas': '💆', 'Dušas': '🚿', 'Pakaušis': '🔙',
+};
+const KIND_ICON = { migrena: '⚡', itampos: '🪢', kita: '❔', '': '🤷' };
+const IMPACT_ICON = { nepaveike: '🙂', sumazejo: '😕', negalejo: '🛌' };
+const SIDES = ['Kairė pusė', 'Abi pusės', 'Dešinė pusė'];
+const HEAD_ZONES = ['Viršugalvis', 'Kakta', 'Smilkiniai', 'Už akies', 'Kaklas'];
+const iword = i => i == null ? 'Pasirinkite' : i === 0 ? 'Neskauda' : i <= 3 ? 'Lengvas' : i <= 6 ? 'Vidutinis' : i <= 8 ? 'Stiprus' : 'Labai stiprus';
+const plusMin = (ts, m) => { const d = new Date(ts); d.setMinutes(d.getMinutes() + m); return ds(d) + 'T' + String(d.getHours()).padStart(2, '0') + ':' + String(d.getMinutes()).padStart(2, '0'); };
+
+// dideli paspaudžiami žetonai (su ženkliuku); multi=false – tik vienas pasirinkimas
+function tilesHtml(id, opts, sel, multi = true, icons = ICON, add = true) {
+  const list = Array.isArray(opts) ? opts.map(o => [o, o]) : Object.entries(opts);
+  if (multi) sel.forEach(s => { if (!list.some(([k]) => k === s)) list.push([s, s]); });
+  return `<div class="wtiles" id="${id}" data-multi="${multi ? 1 : 0}">${list.map(([k, v]) => `<button type="button" class="wt ${(multi ? sel.includes(k) : sel === k) ? 'on' : ''}" data-v="${esc(k)}"><i>${icons[k] || '•'}</i><span>${esc(v)}</span></button>`).join('')}${add && multi ? '<button type="button" class="wt add" data-add><i>＋</i><span>Kita</span></button>' : ''}</div>`;
+}
+function bindTiles(el, onChange) {
+  el.onclick = ev => {
+    const b = ev.target.closest('.wt'); if (!b) return;
+    if (b.hasAttribute('data-add')) {
+      if ($('input', el)) return;
+      b.outerHTML = '<span class="wt-in"><input type="text" placeholder="Įrašykite…"><button type="button" class="btn small primary">✓</button></span>';
+      const box = $('.wt-in', el), inp = $('input', box);
+      inp.focus();
+      const ok = () => {
+        const v = inp.value.trim();
+        box.outerHTML = (v ? `<button type="button" class="wt on" data-v="${esc(v)}"><i>${ICON[v] || '•'}</i><span>${esc(v)}</span></button>` : '') + '<button type="button" class="wt add" data-add><i>＋</i><span>Kita</span></button>';
+        onChange && onChange();
+      };
+      $('button', box).onclick = ok;
+      inp.onkeydown = e2 => { if (e2.key === 'Enter') { e2.preventDefault(); ok(); } };
+      return;
+    }
+    if (el.dataset.multi === '1') b.classList.toggle('on');
+    else { const was = b.classList.contains('on'); $$('.wt', el).forEach(x => x.classList.remove('on')); if (!was) b.classList.add('on'); }
+    b.animate && b.animate([{ transform: 'scale(.92)' }, { transform: 'scale(1)' }], { duration: 160, easing: 'ease-out' });
+    onChange && onChange();
+  };
+}
+const tileVals = el => $$('.wt.on[data-v]', el).map(b => b.dataset.v);
+const tileVal = el => $('.wt.on[data-v]', el)?.dataset.v ?? null;
+
+function headSvg(sel) {
+  const on = v => sel.includes(v) ? ' on' : '';
+  return `<svg class="head" viewBox="0 0 200 240" aria-label="Galva">
+    <path class="hd" d="M100 14c-44 0-72 34-72 84 0 38 14 68 36 84 12 9 24 13 36 13s24-4 36-13c22-16 36-46 36-84 0-50-28-84-72-84z"/>
+    <path class="zone${on('Viršugalvis')}" data-z="Viršugalvis" d="M34 66C44 34 68 18 100 18s56 16 66 48c-20-10-42-15-66-15S54 56 34 66z"/>
+    <path class="zone${on('Kakta')}" data-z="Kakta" d="M32 72c20-11 43-16 68-16s48 5 68 16c2 8 3 16 3 24-21-9-45-13-71-13s-50 4-71 13c0-8 1-16 3-24z"/>
+    <ellipse class="zone${on('Smilkiniai')}" data-z="Smilkiniai" cx="35" cy="112" rx="11" ry="19"/>
+    <ellipse class="zone${on('Smilkiniai')}" data-z="Smilkiniai" cx="165" cy="112" rx="11" ry="19"/>
+    <ellipse class="zone${on('Už akies')}" data-z="Už akies" cx="73" cy="114" rx="18" ry="11"/>
+    <ellipse class="zone${on('Už akies')}" data-z="Už akies" cx="127" cy="114" rx="18" ry="11"/>
+    <path class="ft" d="M100 122v22l-7 6M88 166q12 7 24 0"/>
+    <path class="zone${on('Kaklas')}" data-z="Kaklas" d="M76 186c7 6 15 10 24 10s17-4 24-10v40H76z"/>
+  </svg>`;
+}
+
+function episodeSheet(e, day, opt = {}) {
+  const past = !e && (opt.past || (day && day !== T()));
+  const pStart = day && day !== T() ? day + 'T09:00' : plusMin(nowLocal(), -180);
+  const w = {
+    start: e ? e.start : (past ? pStart : nowLocal()),
+    still: e ? !e.ended : !past,
+    ended: e?.ended || (past ? plusMin(pStart, 120) : ''),
+    intensity: e?.intensity ?? null, kind: e?.kind ?? null,
+    locs: [...(e?.locs || [])], chars: [...(e?.chars || [])], symptoms: [...(e?.symptoms || [])],
+    triggers: [...(e?.triggers || [])], relief: [...(e?.relief || [])], impact: e?.impact || '', notes: e?.notes || '',
+    dz: e ? dosesOf(e.id).map(d => ({ ...d })) : [],
+  };
+  const quickStart = !e && !past;
+  let step = opt.step || 0, el;
+
+  const STEPS = [
+    {
+      t: 'Kaip stipriai skauda?', h: () => `
+      <div class="pain-big" id="wz-ib"><b>${w.intensity ?? '–'}</b><span>${iword(w.intensity)}</span></div>
+      <input type="range" min="0" max="10" step="1" id="wz-r" class="painrange${w.intensity == null ? ' unset' : ''}" value="${w.intensity ?? 5}">
+      <div class="ints-l"><span>0</span><span>5</span><span>10</span></div>
+      ${quickStart ? `<span class="lbl-s" style="margin-top:14px">Kada prasidėjo?</span>
+        <div class="chips" id="wz-when">${[[0, 'Dabar'], [30, 'Prieš 30 min'], [60, 'Prieš 1 val'], [120, 'Prieš 2 val'], [180, 'Prieš 3 val']].map(([m, l]) => `<button type="button" class="chip" data-m="${m}">${l}</button>`).join('')}</div>
+        <label class="field" style="margin-top:8px"><span>Pradžia</span><input type="datetime-local" id="wz-s" value="${esc(w.start)}"></label>`
+        : `<div class="fgrid" style="margin-top:14px"><label class="field"><span>Pradžia</span><input type="datetime-local" id="wz-s" value="${esc(w.start)}"></label>
+        <label class="field"><span>Pabaiga</span><input type="datetime-local" id="wz-e" value="${esc(w.ended)}" ${w.still ? 'disabled' : ''}></label></div>
+        <label class="check"><input type="checkbox" id="wz-on" ${w.still ? 'checked' : ''}> Dar skauda</label>`}`,
+      b: () => {
+        const r = $('#wz-r', el), big = $('#wz-ib', el);
+        const paint = () => { const i = w.intensity; big.style.setProperty('--c', icol(i)); $('b', big).textContent = i ?? '–'; $('span', big).textContent = iword(i); r.style.setProperty('--c', icol(i)); };
+        paint();
+        r.oninput = () => { w.intensity = +r.value; r.classList.remove('unset'); paint(); big.animate && big.animate([{ transform: 'scale(1.08)' }, { transform: 'scale(1)' }], { duration: 180 }); };
+        $('#wz-s', el).onchange = ev => { w.start = ev.target.value; $$('#wz-when .chip', el).forEach(c => c.classList.remove('on')); };
+        $('#wz-when', el) && ($('#wz-when', el).onclick = ev => { const c = ev.target.closest('[data-m]'); if (!c) return; w.start = plusMin(nowLocal(), -c.dataset.m); $('#wz-s', el).value = w.start; $$('#wz-when .chip', el).forEach(x => x.classList.toggle('on', x === c)); });
+        $('#wz-e', el) && ($('#wz-e', el).onchange = ev => { w.ended = ev.target.value; });
+        $('#wz-on', el) && ($('#wz-on', el).onchange = ev => { w.still = ev.target.checked; $('#wz-e', el).disabled = w.still; if (!w.still && !w.ended) { w.ended = nowLocal() > w.start ? nowLocal() : plusMin(w.start, 120); $('#wz-e', el).value = w.ended; } });
+      },
+    },
+    {
+      t: 'Kur skauda?', h: () => `<div class="headbox">${headSvg(w.locs)}</div>
+      <div class="small muted" style="text-align:center;margin:-4px 0 10px">Paspauskite vietą ant galvos</div>
+      ${tilesHtml('wz-side', SIDES, w.locs, true, { 'Kairė pusė': '⬅️', 'Abi pusės': '↔️', 'Dešinė pusė': '➡️' }, false)}
+      <div style="margin-top:8px">${tilesHtml('wz-lx', ['Pakaušis', ...usedVals('locs', LOCS).filter(v => !LOCS.includes(v))], w.locs.filter(v => !HEAD_ZONES.includes(v) && !SIDES.includes(v)))}</div>`,
+      b: () => {
+        $$('.zone', el).forEach(z => z.onclick = () => {
+          const v = z.dataset.z, i = w.locs.indexOf(v);
+          if (i >= 0) w.locs.splice(i, 1); else w.locs.push(v);
+          $$(`.zone[data-z="${v}"]`, el).forEach(x => x.classList.toggle('on', i < 0));
+        });
+        bindTiles($('#wz-side', el), () => {
+          // pusės – tik viena
+          const on = tileVals($('#wz-side', el));
+          if (on.length > 1) { const nw = on.find(v => !w.locs.includes(v)); $$('#wz-side .wt', el).forEach(x => x.classList.toggle('on', x.dataset.v === nw)); }
+          w.locs = w.locs.filter(v => !SIDES.includes(v)).concat(tileVals($('#wz-side', el)));
+        });
+        bindTiles($('#wz-lx', el), () => { w.locs = w.locs.filter(v => HEAD_ZONES.includes(v) || SIDES.includes(v)).concat(tileVals($('#wz-lx', el))); });
+      },
+    },
+    {
+      t: 'Koks tai skausmas?', h: () => `${tilesHtml('wz-c', usedVals('chars', CHARS), w.chars)}
+      <span class="lbl-s" style="margin-top:16px">Kaip manote, kas tai?</span>${tilesHtml('wz-k', KIND, w.kind, false, KIND_ICON)}`,
+      b: () => { bindTiles($('#wz-c', el), () => { w.chars = tileVals($('#wz-c', el)); }); bindTiles($('#wz-k', el), () => { w.kind = tileVal($('#wz-k', el)); }); },
+    },
+    {
+      t: 'Kiti simptomai', h: () => tilesHtml('wz-y', usedVals('symptoms', SYMPTOMS), w.symptoms),
+      b: () => bindTiles($('#wz-y', el), () => { w.symptoms = tileVals($('#wz-y', el)); }),
+    },
+    {
+      t: 'Kas galėjo išprovokuoti?', h: () => tilesHtml('wz-t', usedVals('triggers', TRIGGERS), w.triggers),
+      b: () => bindTiles($('#wz-t', el), () => { w.triggers = tileVals($('#wz-t', el)); }),
+    },
+    {
+      t: 'Vaistai', h: () => `
+      <div class="wtiles" id="wz-m">${meds().map(m => `<button type="button" class="wt" data-m="${m.id}"><i>💊</i><span>${esc(m.name)}${m.dose ? `<small>${esc(m.dose)}</small>` : ''}</span></button>`).join('')}<button type="button" class="wt add" data-new><i>＋</i><span>Naujas vaistas</span></button></div>
+      <div class="small muted" style="margin:6px 2px 10px">Paspauskite išgertą vaistą – bus pridėtas žemiau.</div>
+      <div id="wz-dz"></div>`,
+      b: () => {
+        const draw = () => {
+          const list = w.dz.map((d, i) => [d, i]).filter(([d]) => !d.removed);
+          $('#wz-dz', el).innerHTML = list.map(([d, i]) => `<div class="card wdose" data-i="${i}"><div class="row"><b class="grow">💊 ${esc(I.meds[d.med_id]?.name || '?')}</b><input type="time" value="${esc((d.ts || '').slice(11, 16))}" data-k="t"><button type="button" class="x" data-k="rm" aria-label="Pašalinti">✕</button></div>
+            <div class="seg sm" data-k="eff">${Object.entries(EFFECT).map(([k, v]) => `<button type="button" data-v="${k}" class="${(d.effect || '') === k ? 'on' : ''}">${v[0]} ${v[1]}</button>`).join('')}</div></div>`).join('') || '<div class="empty small">Vaistų nepažymėta</div>';
+          $$('.wdose', el).forEach(c => {
+            const d = w.dz[+c.dataset.i];
+            $('[data-k=rm]', c).onclick = () => { d.removed = true; draw(); };
+            $('[data-k=t]', c).onchange = ev => { d.ts = (d.ts || w.start).slice(0, 11) + ev.target.value; };
+            $('[data-k=eff]', c).onclick = ev => { const b = ev.target.closest('button'); if (!b) return; d.effect = b.dataset.v; $$('button', b.parentNode).forEach(x => x.classList.toggle('on', x === b)); };
+          });
         };
-      });
-    };
-    drawDoses();
-    $('#e-dadd', el).onclick = () => {
-      syncDoses();
-      const m = meds()[0];
-      dz.push({ med_id: m ? m.id : null, ts: dz.length ? dz[dz.length - 1].ts : ($('#e-s', el).value || nowLocal()), effect: '' });
-      drawDoses();
-    };
+        draw();
+        $('#wz-m', el).onclick = async ev => {
+          const b = ev.target.closest('.wt'); if (!b) return;
+          if (b.hasAttribute('data-new')) {
+            if ($('.wt-in', el)) return;
+            b.insertAdjacentHTML('afterend', '<span class="wt-in"><input type="text" placeholder="Pavadinimas"><input type="text" placeholder="Dozė" style="max-width:90px"><button type="button" class="btn small primary">✓</button></span>');
+            const box = $('.wt-in', el); $('input', box).focus();
+            $('button', box).onclick = async () => {
+              const [n_, d_] = $$('input', box).map(x => x.value.trim());
+              if (!n_) return toast('Įrašykite pavadinimą');
+              const res = await api('api/do/save', { t: 'meds', row: { name: n_, dose: d_, kind: 'nvnu' } });
+              await load(true);
+              w.dz.push({ med_id: res.id, ts: w.still ? nowLocal() : w.start, effect: '' });
+              render_();
+            };
+            return;
+          }
+          w.dz.push({ med_id: +b.dataset.m, ts: w.still ? nowLocal() : w.start, effect: '' });
+          b.animate && b.animate([{ transform: 'scale(.9)' }, { transform: 'scale(1)' }], { duration: 160 });
+          draw();
+        };
+      },
+    },
+    {
+      t: 'Kaip baigėsi?', h: () => `<span class="lbl-s">Kas padėjo (be vaistų)</span>${tilesHtml('wz-rl', usedVals('relief', RELIEF), w.relief)}
+      <span class="lbl-s" style="margin-top:16px">Kaip paveikė dieną</span>${tilesHtml('wz-i', IMPACT, w.impact, false, IMPACT_ICON)}
+      <label class="field" style="margin-top:14px"><span>Pastabos</span><textarea id="wz-n" placeholder="pvz. ką valgėte, kaip miegojote, kas vyko">${esc(w.notes)}</textarea></label>`,
+      b: () => {
+        bindTiles($('#wz-rl', el), () => { w.relief = tileVals($('#wz-rl', el)); });
+        bindTiles($('#wz-i', el), () => { w.impact = tileVal($('#wz-i', el)) || ''; });
+        $('#wz-n', el).oninput = ev => { w.notes = ev.target.value; };
+      },
+    },
+  ];
+  const filled = i => [w.intensity != null, w.locs.length, w.chars.length || w.kind != null, w.symptoms.length, w.triggers.length, w.dz.some(d => !d.removed), w.relief.length || w.impact || w.notes][i];
+
+  const save = async () => {
+    const s = w.start;
+    if (!s) { step = 0; render_(); return toast('Nurodykite pradžią'); }
+    const end = w.still ? '' : (w.ended || plusMin(s, 120));
+    if (end && end < s) { step = 0; render_(); return toast('Pabaiga ankstesnė už pradžią'); }
+    if (w.still && S.episodes.some(x => !x.ended && (!e || x.id !== e.id))) return toast('Jau yra nebaigtas įrašas – pirmiausia pažymėkite jį „Praėjo“');
+    const row = { start: s, ended: end, intensity: w.intensity, kind: w.kind ?? '', locs: w.locs, chars: w.chars, symptoms: w.symptoms,
+      triggers: w.triggers, relief: w.relief, impact: w.impact, notes: w.notes };
+    if (e) row.id = e.id;
+    const r = await api('api/do/save', { t: 'episodes', row });
+    const eid = e ? e.id : r.id;
+    for (const d of w.dz) {
+      if (d.removed) { if (d.id) await api('api/do/delete', { t: 'doses', id: d.id }); continue; }
+      if (!d.med_id) continue;
+      const dr = { episode_id: eid, med_id: d.med_id, ts: d.ts || s, effect: d.effect || '' };
+      if (d.id) dr.id = d.id; else dr.amount = I.meds[d.med_id]?.dose || '';
+      await api('api/do/save', { t: 'doses', row: dr });
+    }
+    closeSheet(); await load();
+    toast(w.still && !e ? 'Įrašyta. Kai praeis – spauskite „✔ Praėjo“.' : 'Išsaugota', null, 4000);
+  };
+
+  const render_ = () => {
+    const st = STEPS[step], last = step === STEPS.length - 1;
+    $('#wz', el).innerHTML = `<div class="wz-top"><div class="wz-dots">${STEPS.map((x, i) => `<button type="button" data-s="${i}" class="${i === step ? 'cur' : ''}${filled(i) ? ' ok' : ''}" aria-label="${esc(x.t)}"></button>`).join('')}</div>
+      <span class="small muted">${step + 1} / ${STEPS.length}</span></div>
+      <h3 class="wz-h">${esc(st.t)}</h3><div class="wz-body">${st.h()}</div>
+      <div class="sheet-actions">${step ? '<button class="btn" data-b>‹ Atgal</button>' : (e ? '<button class="btn danger" data-del>Ištrinti</button>' : '<button class="btn" data-x>Atšaukti</button>')}
+        ${last ? '' : `<button class="btn" data-ok>Išsaugoti</button>`}
+        <button class="btn primary" ${last ? 'data-ok' : 'data-n'}>${last ? 'Išsaugoti' : (filled(step) ? 'Toliau ›' : 'Praleisti ›')}</button></div>`;
+    st.b();
+    const body = $('.wz-body', el);
+    body.animate && body.animate([{ opacity: 0, transform: `translateX(${render_.dir * 24}px)` }, { opacity: 1, transform: 'none' }], { duration: 180, easing: 'ease-out' });
+    $('#sheet').scrollTop = 0;
+    const nb = $('[data-n]', el);
+    const upd = () => { if (nb) nb.textContent = filled(step) ? 'Toliau ›' : 'Praleisti ›'; $$('.wz-dots button', el).forEach((d, i) => d.classList.toggle('ok', !!filled(i))); };
+    $('.wz-body', el).addEventListener('click', () => setTimeout(upd, 0));
+    $('.wz-body', el).addEventListener('input', upd);
+    $$('.wz-dots button', el).forEach(d => d.onclick = () => go_(+d.dataset.s));
+    $('[data-b]', el) && ($('[data-b]', el).onclick = () => go_(step - 1));
+    $('[data-n]', el) && ($('[data-n]', el).onclick = () => go_(step + 1));
+    $$('[data-ok]', el).forEach(b => b.onclick = () => { commit(); setTimeout(save, 0); });
     $('[data-x]', el) && ($('[data-x]', el).onclick = closeSheet);
-    $('#e-del', el) && ($('#e-del', el).onclick = () => confirmSheet('Ištrinti šį įrašą?', 'Ištrinti', async () => {
+    $('[data-del]', el) && ($('[data-del]', el).onclick = () => confirmSheet('Ištrinti šį įrašą?', 'Ištrinti', async () => {
       for (const d of dosesOf(e.id)) await api('api/do/delete', { t: 'doses', id: d.id });
       await delRow('episodes', e.id); toast('Ištrinta');
     }));
-    $('#e-ok', el).onclick = async () => {
-      syncDoses();
-      const s = $('#e-s', el).value;
-      if (!s) return toast('Nurodykite pradžią');
-      const still = $('#e-on', el).checked;
-      const end = still ? '' : $('#e-e', el).value;
-      if (end && end < s) return toast('Pabaiga ankstesnė už pradžią');
-      if (still && S.episodes.some(x => !x.ended && (!e || x.id !== e.id))) return toast('Jau yra nebaigtas įrašas – pirmiausia pažymėkite jį „Praėjo“');
-      const row = { start: s, ended: end, intensity: intVal(el), kind: segVal($('#e-k', el)) ?? '', locs: chipVals($('#e-l', el)), chars: chipVals($('#e-c', el)),
-        symptoms: chipVals($('#e-y', el)), triggers: chipVals($('#e-t', el)), relief: chipVals($('#e-r', el)), impact: segVal($('#e-i', el)) ?? '', notes: $('#e-n', el).value };
-      if (e) row.id = e.id;
-      const r = await api('api/do/save', { t: 'episodes', row });
-      const eid = e ? e.id : r.id;
-      for (const d of dz) {
-        if (d.removed) { if (d.id) await api('api/do/delete', { t: 'doses', id: d.id }); continue; }
-        if (!d.med_id) continue;
-        const dr = { episode_id: eid, med_id: d.med_id, ts: d.ts || s, effect: d.effect || '' };
-        if (d.id) dr.id = d.id; else dr.amount = I.meds[d.med_id]?.dose || '';
-        await api('api/do/save', { t: 'doses', row: dr });
-      }
-      closeSheet(); await load(); toast('Išsaugota');
-    };
-  });
+  };
+  render_.dir = 1;
+  // neužbaigtas „Kita“ įvedimas – patvirtinti prieš einant toliau
+  const commit = () => $$('.wt-in', el).forEach(b => { if ($('input', b).value.trim()) $('button', b).click(); });
+  const go_ = i => { commit(); if (i < 0 || i >= STEPS.length) return; render_.dir = i > step ? 1 : -1; step = i; render_(); };
+  openSheet('<div id="wz" class="wz"></div>', x => { el = x; render_(); });
 }
 
 // greitas vaisto pažymėjimas

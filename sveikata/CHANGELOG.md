@@ -1,5 +1,12 @@
 # Pakeitimai
 
+## 1.2.0
+- **🤕 Galvos skausmo pildymas žingsniais:** po vieną klausimą – stiprumas slankikliu su spalva, vieta paspaudžiama ant galvos piešinio, pobūdis, simptomai ir provokatoriai dideliais mygtukais su ženkliukais, vaistai su „ar padėjo“, kas padėjo ir pastabos. Bet kurį žingsnį galima praleisti, išsaugoti – bet kada.
+- Mygtukas **＋ Galvos skausmas** – mažas ir kuklus (telefone ir laikrodyje), daugiau vietos vandeniui.
+- **💧 Žiedo animacija:** pridėjus gėrimą žiedas sklandžiai prisipildo, skaičius keičiasi palaipsniui (telefone ir laikrodžio programėlėje).
+- Pataisa: įrašant praėjusį skausmą jis nebelieka „dar skauda“.
+- Laikrodžio programėlė 1.2 (įdiegti iš naujo tuo pačiu failu).
+
 ## 1.1.0
 - **☕ Kavos rūšys:** paspaudus „Kava“ iššoka pasirinkimas – Americano viengubas (150 ml), Americano dvigubas (250 ml), Cappuccino dvigubas (250 ml). Telefone ir laikrodyje (programėlėje ir plytelėje).
 - Rūšis galima pridėti bet kuriam gėrimui: Nustatymai → Gėrimai → gėrimas → „Rodyti kaip rūšį po“. Kiekiai ir kofeinas keičiami kiekvienai rūšiai atskirai.

@@ -226,7 +226,52 @@ details.more summary { cursor: pointer; font-size: 14px; font-weight: 700; color
 .banner .t { flex: 1 1 180px; min-width: 0; }
 .banner .t b { display: block; }
 .banner .btns { display: flex; gap: 8px; flex-wrap: wrap; }
-.bigbtn { width: 100%; min-height: 64px; font-size: 18px; font-weight: 800; border-radius: 18px; }
+/* žiedo „pulsas“ pridėjus gėrimą */
+.ring.pulse::after { content: ''; position: absolute; inset: 6%; border-radius: 50%; border: 3px solid var(--water); animation: ring-pulse .9s ease-out forwards; pointer-events: none; }
+@keyframes ring-pulse { from { transform: scale(.92); opacity: .7; } to { transform: scale(1.12); opacity: 0; } }
+@media (prefers-reduced-motion: reduce) { .ring.pulse::after { animation: none; display: none; } }
+
+.g-acts { gap: 8px; }
+.g-acts .btn { flex: 0 1 auto; }
+
+/* galvos skausmo pildymas žingsniais */
+.wz-top { display: flex; align-items: center; gap: 10px; margin: 0 2px 6px; }
+.wz-dots { display: flex; gap: 6px; flex: 1; }
+.wz-dots button { flex: 1; height: 6px; border: 0; padding: 0; border-radius: 3px; background: var(--line); cursor: pointer; transition: background .2s; }
+.wz-dots button.ok { background: color-mix(in srgb, var(--accent) 45%, var(--line)); }
+.wz-dots button.cur { background: var(--accent); }
+#sheet h3.wz-h { margin: 10px 2px 14px; font-size: 22px; }
+.wz-body { min-height: 300px; }
+.pain-big { --c: var(--i0); width: 128px; height: 128px; margin: 4px auto 16px; border-radius: 50%; display: flex; flex-direction: column; align-items: center; justify-content: center;
+  background: color-mix(in srgb, var(--c) 22%, var(--card)); box-shadow: 0 0 0 6px color-mix(in srgb, var(--c) 55%, transparent) inset; transition: background .25s, box-shadow .25s; }
+.pain-big b { font-size: 48px; line-height: 1; font-weight: 800; }
+.pain-big span { font-size: 13px; font-weight: 700; color: var(--muted); margin-top: 4px; }
+.painrange { --c: var(--i0); width: 100%; appearance: none; -webkit-appearance: none; height: 34px; background: transparent; margin: 0; cursor: pointer; }
+.painrange::-webkit-slider-runnable-track { height: 12px; border-radius: 6px; background: linear-gradient(90deg, var(--i0), var(--i1) 30%, var(--i2) 60%, var(--i3)); }
+.painrange::-moz-range-track { height: 12px; border-radius: 6px; background: linear-gradient(90deg, var(--i0), var(--i1) 30%, var(--i2) 60%, var(--i3)); }
+.painrange::-webkit-slider-thumb { -webkit-appearance: none; width: 32px; height: 32px; margin-top: -10px; border-radius: 50%; background: var(--card); border: 4px solid var(--c); box-shadow: 0 2px 6px rgba(0, 0, 0, .25); transition: border-color .2s; }
+.painrange::-moz-range-thumb { width: 24px; height: 24px; border-radius: 50%; background: var(--card); border: 4px solid var(--c); box-shadow: 0 2px 6px rgba(0, 0, 0, .25); }
+.painrange.unset::-webkit-slider-thumb { opacity: .55; }
+.wtiles { display: grid; grid-template-columns: repeat(auto-fill, minmax(104px, 1fr)); gap: 8px; }
+.wt { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px; min-height: 76px; padding: 8px 6px; border-radius: 16px;
+  border: 1.5px solid var(--line); background: var(--card); cursor: pointer; text-align: center; color: var(--ink); transition: background .15s, border-color .15s; }
+.wt i { font-style: normal; font-size: 24px; line-height: 1; }
+.wt span { font-size: 13px; font-weight: 600; line-height: 1.2; }
+.wt small { display: block; font-size: 11.5px; color: var(--muted); font-weight: 500; }
+.wt.on { background: var(--accent-soft); border-color: var(--accent); color: var(--accent); box-shadow: 0 0 0 1px var(--accent) inset; }
+.wt.add { border-style: dashed; background: transparent; color: var(--muted); }
+.wt-in { grid-column: 1 / -1; display: flex; gap: 6px; align-items: center; }
+.wt-in input { flex: 1; min-height: 40px; }
+.headbox { display: flex; justify-content: center; }
+svg.head { width: 190px; height: auto; }
+svg.head .hd { fill: var(--card); stroke: var(--sheet-line, var(--line)); stroke-width: 2; }
+svg.head .ft { fill: none; stroke: var(--muted); stroke-width: 2; stroke-linecap: round; opacity: .55; pointer-events: none; }
+svg.head .zone { fill: color-mix(in srgb, var(--i3) 8%, transparent); stroke: color-mix(in srgb, var(--i3) 30%, transparent); stroke-width: 1.5; stroke-dasharray: 3 3; cursor: pointer; transition: fill .2s; }
+svg.head .zone:hover { fill: color-mix(in srgb, var(--i3) 18%, transparent); }
+svg.head .zone.on { fill: color-mix(in srgb, var(--i3) 62%, transparent); stroke: var(--i3); stroke-dasharray: none; }
+.wdose { padding: 10px 12px; margin-bottom: 8px; display: flex; flex-direction: column; gap: 8px; }
+.wdose input[type=time] { width: 104px; min-height: 36px; }
+.seg.sm button { font-size: 12.5px; padding: 7px 2px; }
 .ints { display: grid; grid-template-columns: repeat(11, 1fr); gap: 4px; }
 .ints button { border: 1px solid var(--line); background: var(--card); border-radius: 10px; min-height: 42px; cursor: pointer; font-weight: 800; padding: 0; font-size: 15px; }
 .ints button.on { color: #1d1d1d; border-color: transparent; box-shadow: 0 0 0 2px var(--ink) inset; }

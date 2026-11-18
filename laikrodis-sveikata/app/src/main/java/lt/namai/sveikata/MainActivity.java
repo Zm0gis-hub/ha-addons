@@ -1,5 +1,6 @@
 package lt.namai.sveikata;
 
+import android.animation.ValueAnimator;
 import android.app.Activity;
 import android.content.Context;
 import android.content.Intent;
@@ -17,6 +18,7 @@ import android.util.TypedValue;
 import android.view.Gravity;
 import android.view.View;
 import android.view.ViewGroup;
+import android.view.animation.DecelerateInterpolator;
 import android.widget.LinearLayout;
 import android.widget.ScrollView;
 import android.widget.TextView;
@@ -47,6 +49,9 @@ public class MainActivity extends Activity {
     private boolean matomas = false;
     private String ekranas = "";
     private ScrollView sv;
+    /** Paskutinis parodytas kiekis – žiedas sklandžiai pereina nuo jo iki naujo. */
+    private static float rodytaDalis = -1f;
+    private static int rodytasViso = -1;
 
     private final Runnable ciklas = new Runnable() {
         @Override
@@ -213,10 +218,33 @@ public class MainActivity extends Activity {
         Duomenys.Suvestine s = Duomenys.suvestine(this);
         LinearLayout l = naujasEkranas("pagr");
 
-        Ziedas z = new Ziedas(this);
-        z.dalis = s.tikslas > 0 ? (float) s.viso / s.tikslas : 0;
-        z.virsus = String.valueOf(s.viso);
+        final Ziedas z = new Ziedas(this);
+        final float iki = s.tikslas > 0 ? (float) s.viso / s.tikslas : 0;
+        final int ikiMl = s.viso;
+        final float nuo = rodytaDalis < 0 ? 0 : rodytaDalis;
+        final int nuoMl = rodytasViso < 0 ? 0 : rodytasViso;
+        rodytaDalis = iki;
+        rodytasViso = ikiMl;
+        z.dalis = iki;
+        z.virsus = String.valueOf(ikiMl);
         z.apacia = "iš " + s.tikslas + " ml";
+        if (nuo != iki || nuoMl != ikiMl) {
+            z.dalis = nuo;
+            z.virsus = String.valueOf(nuoMl);
+            ValueAnimator an = ValueAnimator.ofFloat(0f, 1f);
+            an.setDuration(750);
+            an.setInterpolator(new DecelerateInterpolator(2f));
+            an.addUpdateListener(new ValueAnimator.AnimatorUpdateListener() {
+                @Override
+                public void onAnimationUpdate(ValueAnimator a) {
+                    float k = (Float) a.getAnimatedValue();
+                    z.dalis = nuo + (iki - nuo) * k;
+                    z.virsus = String.valueOf(Math.round(nuoMl + (ikiMl - nuoMl) * k));
+                    z.invalidate();
+                }
+            });
+            an.start();
+        }
         l.addView(z, lp(dp(118), dp(118), 0));
 
         String b = s.klaida.isEmpty() ? (s.laukia ? "Siunčiama…" : (s.vardas.isEmpty() ? "" : s.vardas)) : s.klaida;
@@ -285,26 +313,29 @@ public class MainActivity extends Activity {
 
         // galvos skausmas
         if (s.skaudaNuo == null) {
-            TextView sk = mygtukas("🤕 Skauda galvą", 0xFF3A2420, 0xFFFFD2C8);
+            TextView sk = mygtukas("＋ Galvos skausmas", 0xFF262626, 0xFFBDBDBD);
+            sk.setTextSize(12);
             sk.setOnClickListener(new View.OnClickListener() {
                 @Override
                 public void onClick(View v) {
                     rodytiStipruma();
                 }
             });
-            l.addView(sk, lp(dp(170), dp(44), 14));
+            l.addView(sk, lp(dp(150), dp(34), 14));
         } else {
-            l.addView(tekstas("🤕 Skauda nuo " + s.skaudaNuo + (s.skaudaStipr >= 0 ? " (" + s.skaudaStipr + "/10)" : ""), 13, 0xFFFFB4A6, true),
+            l.addView(tekstas("Galvos skausmas nuo " + s.skaudaNuo + (s.skaudaStipr >= 0 ? " (" + s.skaudaStipr + "/10)" : ""), 12, 0xFFFFB4A6, false),
                     lp(ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT, 14));
             TextView vt = mygtukas("💊 Išgėriau vaistų", MYGTUKAS, Color.WHITE);
+            vt.setTextSize(13);
             vt.setOnClickListener(new View.OnClickListener() {
                 @Override
                 public void onClick(View v) {
                     rodytiVaistus();
                 }
             });
-            l.addView(vt, lp(dp(170), dp(42), 6));
+            l.addView(vt, lp(dp(150), dp(36), 6));
             TextView pr = mygtukas("✔ Praėjo", 0xFF1D3326, 0xFF6CC690);
+            pr.setTextSize(13);
             pr.setOnClickListener(new View.OnClickListener() {
                 @Override
                 public void onClick(View v) {
@@ -314,7 +345,7 @@ public class MainActivity extends Activity {
                     rodytiPagrindini(false);
                 }
             });
-            l.addView(pr, lp(dp(170), dp(42), 6));
+            l.addView(pr, lp(dp(150), dp(36), 6));
         }
 
         final TextView atsieti = tekstas("Susieti iš naujo", 11, PILKA, false);
@@ -424,7 +455,7 @@ public class MainActivity extends Activity {
     private void rodytiStipruma() {
         LinearLayout l = naujasEkranas("stiprumas");
         atgal(l);
-        l.addView(tekstas("Kaip stipriai skauda?", 14, Color.WHITE, true), lp(ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT, 2));
+        l.addView(tekstas("Galvos skausmas – kaip stipriai?", 14, Color.WHITE, true), lp(ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT, 2));
         String[] pav = {"Lengvai (3)", "Vidutiniškai (5)", "Stipriai (7)", "Labai stipriai (9)"};
         int[] reiksme = {3, 5, 7, 9};
         int[] spalva = {0xFFF2CD4A, 0xFFF29A3A, 0xFFE2533B, 0xFFB3261E};
