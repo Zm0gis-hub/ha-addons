@@ -552,7 +552,6 @@ const ICON = {
 const KIND_ICON = { migrena: '⚡', itampos: '🪢', kita: '❔', '': '🤷' };
 const IMPACT_ICON = { nepaveike: '🙂', sumazejo: '😕', negalejo: '🛌' };
 const SIDES = ['Kairė pusė', 'Abi pusės', 'Dešinė pusė'];
-const HEAD_ZONES = ['Viršugalvis', 'Kakta', 'Smilkiniai', 'Už akies', 'Kaklas'];
 const iword = i => i == null ? 'Pasirinkite' : i === 0 ? 'Neskauda' : i <= 3 ? 'Lengvas' : i <= 6 ? 'Vidutinis' : i <= 8 ? 'Stiprus' : 'Labai stiprus';
 const plusMin = (ts, m) => { const d = new Date(ts); d.setMinutes(d.getMinutes() + m); return ds(d) + 'T' + String(d.getHours()).padStart(2, '0') + ':' + String(d.getMinutes()).padStart(2, '0'); };
 
@@ -588,19 +587,41 @@ function bindTiles(el, onChange) {
 const tileVals = el => $$('.wt.on[data-v]', el).map(b => b.dataset.v);
 const tileVal = el => $('.wt.on[data-v]', el)?.dataset.v ?? null;
 
-function headSvg(sel) {
-  const on = v => sel.includes(v) ? ' on' : '';
-  return `<svg class="head" viewBox="0 0 200 240" aria-label="Galva">
-    <path class="hd" d="M100 14c-44 0-72 34-72 84 0 38 14 68 36 84 12 9 24 13 36 13s24-4 36-13c22-16 36-46 36-84 0-50-28-84-72-84z"/>
-    <path class="zone${on('Viršugalvis')}" data-z="Viršugalvis" d="M34 66C44 34 68 18 100 18s56 16 66 48c-20-10-42-15-66-15S54 56 34 66z"/>
-    <path class="zone${on('Kakta')}" data-z="Kakta" d="M32 72c20-11 43-16 68-16s48 5 68 16c2 8 3 16 3 24-21-9-45-13-71-13s-50 4-71 13c0-8 1-16 3-24z"/>
-    <ellipse class="zone${on('Smilkiniai')}" data-z="Smilkiniai" cx="35" cy="112" rx="11" ry="19"/>
-    <ellipse class="zone${on('Smilkiniai')}" data-z="Smilkiniai" cx="165" cy="112" rx="11" ry="19"/>
-    <ellipse class="zone${on('Už akies')}" data-z="Už akies" cx="73" cy="114" rx="18" ry="11"/>
-    <ellipse class="zone${on('Už akies')}" data-z="Už akies" cx="127" cy="114" rx="18" ry="11"/>
-    <path class="ft" d="M100 122v22l-7 6M88 166q12 7 24 0"/>
-    <path class="zone${on('Kaklas')}" data-z="Kaklas" d="M76 186c7 6 15 10 24 10s17-4 24-10v40H76z"/>
-  </svg>`;
+// galva iš priekio ir iš nugaros; zonos – paspaudžiamos sritys
+function headSvg(sel, back) {
+  const z = (v, tag) => `<${tag.replace('/>', '')} class="zone${sel.includes(v) ? ' on' : ''}" data-z="${v}"/>`;
+  const face = `
+    <path class="hd" d="M100 22c-38 0-64 28-64 72 0 30 9 54 22 70 11 14 26 22 42 22s31-8 42-22c13-16 22-40 22-70 0-44-26-72-64-72z"/>
+    <path class="hd" d="M36 104c-9-4-15 2-13 13 2 12 8 22 16 24M164 104c9-4 15 2 13 13-2 12-8 22-16 24"/>
+    <path class="ft" d="M70 116q11 6 22 0M108 116q11 6 22 0M100 120v26q-6 6-8 8M100 154q4 2 8 0M86 168q14 6 28 0"/>`;
+  const backHead = `
+    <path class="hd" d="M100 22c-38 0-64 28-64 72 0 34 12 60 28 76 11 11 23 16 36 16s25-5 36-16c16-16 28-42 28-76 0-44-26-72-64-72z"/>
+    <path class="hd" d="M36 104c-9-4-15 2-13 13 2 12 8 22 16 24M164 104c9-4 15 2 13 13-2 12-8 22-16 24"/>
+    <path class="ft" d="M100 30v60"/>`;
+  const neck = `<path class="hd" d="M74 172v24c0 8-26 14-46 22-8 3-12 10-12 22h168c0-12-4-19-12-22-20-8-46-14-46-22v-24"/>`;
+  const front = `${neck}${face}
+    ${z('Viršugalvis', '<path d="M38 82C42 46 66 26 100 26s58 20 62 56c-18-8-39-12-62-12s-44 4-62 12z"/>')}
+    ${z('Kakta', '<path d="M37 89c19-9 40-13 63-13s44 4 63 13c1 6 1 11 1 17-20-8-41-12-64-12s-44 4-64 12c0-6 0-11 1-17z"/>')}
+    ${z('Smilkiniai', '<ellipse cx="44" cy="124" rx="9" ry="17"/>')}${z('Smilkiniai', '<ellipse cx="156" cy="124" rx="9" ry="17"/>')}
+    ${z('Už akies', '<ellipse cx="81" cy="117" rx="15" ry="9"/>')}${z('Už akies', '<ellipse cx="119" cy="117" rx="15" ry="9"/>')}
+    ${z('Kaklas', '<path d="M76 184c7 2 15 4 24 4s17-2 24-4v26c-7 3-15 4-24 4s-17-1-24-4z"/>')}`;
+  const rear = `${neck}${backHead}
+    ${z('Viršugalvis', '<path d="M38 82C42 46 66 26 100 26s58 20 62 56c-18-8-39-12-62-12s-44 4-62 12z"/>')}
+    ${z('Pakaušis', '<path d="M40 128c18-8 38-12 60-12s42 4 60 12c-3 16-10 30-20 40-11 11-25 16-40 16s-29-5-40-16c-10-10-17-24-20-40z"/>')}
+    ${z('Kaklas', '<path d="M76 188c7 1 15 2 24 2s17-1 24-2v24c-7 3-15 4-24 4s-17-1-24-4z"/>')}`;
+  return `<svg class="head" viewBox="0 0 200 244" aria-label="Galva ${back ? 'iš nugaros' : 'iš priekio'}">${back ? rear : front}</svg>`;
+}
+// mažos galvutės mygtukams: kuri sritis paryškinta
+function miniHead(kind) {
+  const o = '<path class="mo" d="M18 4c-7 0-11 5-11 12 0 5 2 9 5 12 2 2 4 3 6 3s4-1 6-3c3-3 5-7 5-12 0-7-4-12-11-12z"/><path class="mo" d="M13 30v3M23 30v3"/>';
+  const f = {
+    'Kairė pusė': '<path class="mf" d="M18 4c-7 0-11 5-11 12 0 5 2 9 5 12 2 2 4 3 6 3z"/>',
+    'Dešinė pusė': '<path class="mf" d="M18 4c7 0 11 5 11 12 0 5-2 9-5 12-2 2-4 3-6 3z"/>',
+    'Abi pusės': '<path class="mf" d="M18 4c-7 0-11 5-11 12 0 5 2 9 5 12 2 2 4 3 6 3s4-1 6-3c3-3 5-7 5-12 0-7-4-12-11-12z"/>',
+    'Pakaušis': '<path class="mf" d="M7.6 19c3-1.4 6.6-2 10.4-2s7.4.6 10.4 2c-.6 3.4-2 6.6-4.4 9-2 2-4 3-6 3s-4-1-6-3c-2.4-2.4-3.8-5.6-4.4-9z"/>',
+    'Kaklas': '<path class="mf" d="M13 29c2 1.4 3.4 2 5 2s3-.6 5-2v6h-10z"/>',
+  }[kind] || '';
+  return `<svg class="mini" viewBox="0 0 36 36">${f}${o}</svg>`;
 }
 
 function episodeSheet(e, day, opt = {}) {
@@ -614,6 +635,7 @@ function episodeSheet(e, day, opt = {}) {
     locs: [...(e?.locs || [])], chars: [...(e?.chars || [])], symptoms: [...(e?.symptoms || [])],
     triggers: [...(e?.triggers || [])], relief: [...(e?.relief || [])], impact: e?.impact || '', notes: e?.notes || '',
     dz: e ? dosesOf(e.id).map(d => ({ ...d })) : [],
+    back: false,
   };
   const quickStart = !e && !past;
   let step = opt.step || 0, el;
@@ -642,23 +664,38 @@ function episodeSheet(e, day, opt = {}) {
       },
     },
     {
-      t: 'Kur skauda?', h: () => `<div class="headbox">${headSvg(w.locs)}</div>
-      <div class="small muted" style="text-align:center;margin:-4px 0 10px">Paspauskite vietą ant galvos</div>
-      ${tilesHtml('wz-side', SIDES, w.locs, true, { 'Kairė pusė': '⬅️', 'Abi pusės': '↔️', 'Dešinė pusė': '➡️' }, false)}
-      <div style="margin-top:8px">${tilesHtml('wz-lx', ['Pakaušis', ...usedVals('locs', LOCS).filter(v => !LOCS.includes(v))], w.locs.filter(v => !HEAD_ZONES.includes(v) && !SIDES.includes(v)))}</div>`,
+      t: 'Kur skauda?', h: () => {
+        const tile = v => `<button type="button" class="wt${w.locs.includes(v) ? ' on' : ''}" data-l="${esc(v)}"><i>${miniHead(v)}</i><span>${esc(v)}</span></button>`;
+        const extra = usedVals('locs', LOCS).filter(v => !LOCS.includes(v)).concat(w.locs.filter(v => !LOCS.includes(v)));
+        return `<div class="headbox">
+          <div class="head-view">${headSvg(w.locs, w.back)}</div>
+          <div class="head-side">
+            <button type="button" class="btn small" id="wz-rot">↻ ${w.back ? 'Iš priekio' : 'Iš nugaros'}</button>
+            <div class="legend"><span><i class="on"></i>Skauda</span><span><i></i>Kitos sritys</span></div>
+          </div></div>
+          <div class="small muted head-sel">${w.locs.length ? 'Pažymėta: ' + w.locs.map(esc).join(', ') : `Paspauskite vietą ant galvos${w.back ? '' : ' (pakaušis – apsukus galvą)'}`}</div>
+          <div class="wtiles">${SIDES.map(tile).join('')}${tile('Pakaušis')}${tile('Kaklas')}</div>
+          <div style="margin-top:8px">${tilesHtml('wz-lx', [...new Set(extra)], w.locs.filter(v => !LOCS.includes(v)))}</div>`;
+      },
       b: () => {
-        $$('.zone', el).forEach(z => z.onclick = () => {
-          const v = z.dataset.z, i = w.locs.indexOf(v);
-          if (i >= 0) w.locs.splice(i, 1); else w.locs.push(v);
-          $$(`.zone[data-z="${v}"]`, el).forEach(x => x.classList.toggle('on', i < 0));
-        });
-        bindTiles($('#wz-side', el), () => {
-          // pusės – tik viena
-          const on = tileVals($('#wz-side', el));
-          if (on.length > 1) { const nw = on.find(v => !w.locs.includes(v)); $$('#wz-side .wt', el).forEach(x => x.classList.toggle('on', x.dataset.v === nw)); }
-          w.locs = w.locs.filter(v => !SIDES.includes(v)).concat(tileVals($('#wz-side', el)));
-        });
-        bindTiles($('#wz-lx', el), () => { w.locs = w.locs.filter(v => HEAD_ZONES.includes(v) || SIDES.includes(v)).concat(tileVals($('#wz-lx', el))); });
+        const redraw = () => { $('.wz-body', el).innerHTML = STEPS[1].h(); STEPS[1].b(); };
+        const flip = v => {
+          const i = w.locs.indexOf(v);
+          if (i >= 0) w.locs.splice(i, 1);
+          else {
+            if (SIDES.includes(v)) w.locs = w.locs.filter(x => !SIDES.includes(x)); // pusė – tik viena
+            w.locs.push(v);
+          }
+          redraw();
+        };
+        $$('.zone', el).forEach(z => z.onclick = () => flip(z.dataset.z));
+        $$('[data-l]', el).forEach(b => b.onclick = () => flip(b.dataset.l));
+        $('#wz-rot', el).onclick = () => {
+          w.back = !w.back; redraw();
+          const h = $('.head-view svg', el);
+          h.animate && h.animate([{ transform: 'rotateY(90deg)', opacity: .3 }, { transform: 'rotateY(0)', opacity: 1 }], { duration: 260, easing: 'ease-out' });
+        };
+        bindTiles($('#wz-lx', el), () => { w.locs = w.locs.filter(v => LOCS.includes(v)).concat(tileVals($('#wz-lx', el))); });
       },
     },
     {

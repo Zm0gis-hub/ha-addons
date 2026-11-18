@@ -1,5 +1,10 @@
 # Pakeitimai
 
+## 1.2.1
+- **Kur skauda:** naujas galvos piešinys (pagal eskizą) su švytinčiomis pažymėtomis sritimis ir paaiškinimu. Galvą galima **apsukti** (↻ Iš nugaros / Iš priekio) – iš nugaros pažymimas pakaušis.
+- Mygtukai su mažomis galvutėmis: Kairė pusė, Abi pusės, Dešinė pusė (tik viena), Pakaušis, Kaklas – sutampa su piešiniu.
+- Po piešiniu rodoma, kas pažymėta.
+
 ## 1.2.0
 - **🤕 Galvos skausmo pildymas žingsniais:** po vieną klausimą – stiprumas slankikliu su spalva, vieta paspaudžiama ant galvos piešinio, pobūdis, simptomai ir provokatoriai dideliais mygtukais su ženkliukais, vaistai su „ar padėjo“, kas padėjo ir pastabos. Bet kurį žingsnį galima praleisti, išsaugoti – bet kada.
 - Mygtukas **＋ Galvos skausmas** – mažas ir kuklus (telefone ir laikrodyje), daugiau vietos vandeniui.

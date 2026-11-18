@@ -262,13 +262,25 @@ details.more summary { cursor: pointer; font-size: 14px; font-weight: 700; color
 .wt.add { border-style: dashed; background: transparent; color: var(--muted); }
 .wt-in { grid-column: 1 / -1; display: flex; gap: 6px; align-items: center; }
 .wt-in input { flex: 1; min-height: 40px; }
-.headbox { display: flex; justify-content: center; }
-svg.head { width: 190px; height: auto; }
-svg.head .hd { fill: var(--card); stroke: var(--sheet-line, var(--line)); stroke-width: 2; }
-svg.head .ft { fill: none; stroke: var(--muted); stroke-width: 2; stroke-linecap: round; opacity: .55; pointer-events: none; }
-svg.head .zone { fill: color-mix(in srgb, var(--i3) 8%, transparent); stroke: color-mix(in srgb, var(--i3) 30%, transparent); stroke-width: 1.5; stroke-dasharray: 3 3; cursor: pointer; transition: fill .2s; }
-svg.head .zone:hover { fill: color-mix(in srgb, var(--i3) 18%, transparent); }
-svg.head .zone.on { fill: color-mix(in srgb, var(--i3) 62%, transparent); stroke: var(--i3); stroke-dasharray: none; }
+.headbox { display: flex; align-items: center; justify-content: center; gap: 6px; position: relative; }
+.head-view { perspective: 600px; }
+svg.head { width: 200px; height: auto; display: block; }
+svg.head .hd { fill: color-mix(in srgb, var(--ink) 7%, var(--card)); stroke: color-mix(in srgb, var(--ink) 22%, transparent); stroke-width: 1.5; stroke-linejoin: round; }
+svg.head .ft { fill: none; stroke: color-mix(in srgb, var(--ink) 35%, transparent); stroke-width: 1.6; stroke-linecap: round; pointer-events: none; }
+svg.head .zone { fill: color-mix(in srgb, var(--accent) 7%, transparent); stroke: color-mix(in srgb, var(--accent) 45%, transparent); stroke-width: 1.2;
+  cursor: pointer; transition: fill .2s, filter .2s; }
+svg.head .zone:hover { fill: color-mix(in srgb, var(--accent) 18%, transparent); }
+svg.head .zone.on { fill: color-mix(in srgb, var(--accent) 70%, transparent); stroke: var(--accent); filter: drop-shadow(0 0 6px color-mix(in srgb, var(--accent) 70%, transparent)); }
+.head-side { position: absolute; right: 0; top: 0; bottom: 0; display: flex; flex-direction: column; justify-content: space-between; align-items: flex-end; }
+.legend { display: flex; flex-direction: column; gap: 6px; font-size: 12px; color: var(--muted); }
+.legend span { display: flex; align-items: center; gap: 6px; }
+.legend i { width: 12px; height: 12px; border-radius: 50%; background: color-mix(in srgb, var(--ink) 15%, var(--card)); }
+.legend i.on { background: var(--accent); box-shadow: 0 0 6px var(--accent); }
+.head-sel { text-align: center; margin: 4px 0 10px; min-height: 18px; }
+.wt svg.mini { width: 34px; height: 34px; display: block; }
+svg.mini .mo { fill: none; stroke: currentColor; stroke-width: 1.6; stroke-linecap: round; stroke-linejoin: round; }
+svg.mini .mf { fill: var(--accent); opacity: .85; }
+@media (max-width: 380px) { .head-side .legend { display: none; } }
 .wdose { padding: 10px 12px; margin-bottom: 8px; display: flex; flex-direction: column; gap: 8px; }
 .wdose input[type=time] { width: 104px; min-height: 36px; }
 .seg.sm button { font-size: 12.5px; padding: 7px 2px; }
