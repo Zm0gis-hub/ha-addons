@@ -263,8 +263,109 @@ function render() {
   $('#fab').hidden = !['soon', 'ideas', 'people', 'person'].includes(name);
   $('#fab-l').textContent = name === 'people' ? 'Žmogus' : 'Idėja';
   view.classList.toggle('wide', ['stats', 'settings', 'merge', 'occs'].includes(name));
+  view.classList.toggle('full', name === 'occ' && DESK());
   CL = [];
   VIEWS[name](route[1]);
+  sideEvents();
+}
+
+// ============================================================ KOMPIUTERIS (platus ekranas)
+// Kompiuteryje: kairėje – artėjančios progos, progos lange – lenta (gavėjai stulpeliais) ir idėjų skydelis.
+const DESK_MQ = matchMedia('(min-width: 1100px)');
+const DESK = () => DESK_MQ.matches;
+DESK_MQ.addEventListener?.('change', () => render());
+const MON_S = ['Sau', 'Vas', 'Kov', 'Bal', 'Geg', 'Bir', 'Lie', 'Rgp', 'Rgs', 'Spa', 'Lap', 'Grd'];
+const calTile = date => { const d = pd(date); return `<span class="calt"><small>${MON_S[d.getMonth()]}</small><b>${d.getDate()}</b></span>`; };
+function sideEvents() {
+  const box = $('#side-ev');
+  if (!box) return;
+  if (!DESK()) { box.innerHTML = ''; return; }
+  const ev = upcoming(S.settings.ahead_days || 60).slice(0, 12);
+  const cur = route[0] === 'occ' ? +route[1] : null;
+  box.innerHTML = ev.length ? `<div class="side-h">Artėja</div>` + ev.map((e, i) => {
+    const st = occStatus(e.occ, e.kind, e.person_id || e.occ?.person_id);
+    return `<div class="sev ${e.occ && e.occ.id === cur ? 'on' : ''}" data-sev="${i}" role="button" tabindex="0">${calTile(e.date)}
+      <span class="grow"><span class="t">${esc(eventName(e))}</span><span class="s">${until(e.date)}${st.todo ? ` · <b class="todo">nupirkti ${st.todo}</b>` : ''}</span></span></div>`;
+  }).join('') : '';
+  if ($('.sev.on', box)) $('#tabs a[data-tab="occs"]')?.classList.remove('on');  // atidaryta proga jau pažymėta „Artėja“ sąraše
+  $$('[data-sev]', box).forEach(a => {
+    a.onclick = () => openEvent(ev[+a.dataset.sev]);
+    a.onkeydown = e => { if (e.key === 'Enter') a.click(); };
+  });
+}
+// „Knyga 15“, „Knyga 15,90“, „Knyga 15 €“ → pavadinimas ir kaina (iki 4 skaitmenų, kad „Lego 42115“ liktų pavadinimu)
+function boardPrice(text) {
+  const m = text.trim().match(/^(.*?\S)\s+(\d{1,4}(?:[.,]\d{1,2})?)\s*€?$/);
+  return m ? { title: m[1], price: pnum(m[2]) } : { title: text.trim(), price: null };
+}
+function boardCol(o, r, list) {
+  const pid = r ? r.person_id : null;
+  const tot = list.reduce((s, g) => s + (g.price || 0), 0);
+  const canRemove = r && !(o.kind === 'birthday' && o.person_id === pid);
+  return `<div class="bcol" ${r ? `data-col="${pid}"` : ''}>
+    <div class="bh ${list.length ? '' : 'none'}">${r ? ava(pid, 'sm') : ''}${r ? `<a class="nm" href="#person/${pid}">${esc(pname(pid))}</a>` : '<span class="nm">Kiti (be gavėjo)</span>'}
+      <span class="tot">${list.length ? (tot ? money(tot) : '') : 'Be dovanos'}</span>${canRemove ? `<button class="icon-btn" data-rmrec="${r.id}" title="Pašalinti iš šios progos">${IC.x}</button>` : ''}</div>
+    ${list.length ? `<div class="list">${list.map(g => giftLi(g)).join('')}</div>` : ''}
+    ${r ? `<input type="text" class="bq" id="bq-${pid}" data-bq="${pid}" placeholder="+ Dovana, pvz. Knyga 15" autocomplete="off" title="Įrašykite ir spauskite Enter">` : ''}
+  </div>`;
+}
+// idėjų skydelis dešinėje: pirmiau – šios progos gavėjų ir šiai šventei tinkančios
+function ideaPanelList(o, recs) {
+  const rp = new Set(recs.map(r => r.person_id)), ck = catKey(o);
+  const q = (UI.bpq || '').trim().toLowerCase();
+  const cs = clusters(freeIdeas()).filter(c => !q || [c.gifts[0].title, c.gifts[0].shop, namesOf(c)].join(' ').toLowerCase().includes(q));
+  const fits = c => c.pids.some(p => rp.has(p)) || c.gifts[0].cat === ck;
+  const li = c => {
+    const i = CL.push(c) - 1, g = c.gifts[0];
+    const meta = [c.pids.map(pname).join(', '), g.cat && g.cat !== ck ? catLabel(g.cat) : ''].filter(Boolean).join(' · ');
+    return `<div class="li" data-bi="${i}" draggable="true" title="Tempkite į žmogaus stulpelį">${thumb(g.photo)}<div class="grow"><div class="t">${esc(g.title)}</div>${meta ? `<div class="s">${esc(meta)}</div>` : ''}</div>${g.price != null ? `<span class="end">${money(g.price)}</span>` : ''}</div>`;
+  };
+  const a = cs.filter(fits), b = cs.filter(c => !fits(c));
+  if (!cs.length) return `<div class="empty small">${q ? 'Nerasta' : 'Idėjų nėra'}</div>`;
+  return (a.length ? `<div class="lbl-s">Šiai progai</div><div class="list">${a.map(li).join('')}</div>` : '')
+    + (b.length ? `<div class="lbl-s">${a.length ? 'Kitos idėjos' : 'Idėjos'}</div><div class="list">${b.map(li).join('')}</div>` : '');
+}
+// idėja nutempta į žmogaus stulpelį: jo (ar be gavėjo) kopija perkeliama į progą, kitaip sukuriama nauja
+async function takeIdea(c, o, pid) {
+  const g0 = c.gifts[0];
+  const own = c.gifts.find(g => g.person_id === pid) || c.gifts.find(g => !g.person_id);
+  let undo;
+  if (own) {
+    const prev = { id: own.id, occasion_id: null, person_id: own.person_id };
+    await saveRow('gifts', { id: own.id, occasion_id: o.id, person_id: pid });
+    undo = () => saveRow('gifts', prev);
+  } else {
+    const r = await saveRow('gifts', { title: g0.title, price: g0.price, shop: g0.shop, url: g0.url, note: g0.note, photo: g0.photo || '', cat: g0.cat || '', status: 'idea', occasion_id: o.id, person_id: pid });
+    undo = () => delRow('gifts', r.id);
+  }
+  toast(`${g0.title} → ${pname(pid)}`, { label: 'Atšaukti', fn: undo }, 4000);
+}
+function bindBoard(o, recs, past) {
+  const panel = $('#bp-list');
+  const bindPanel = () => $$('[data-bi]', panel).forEach(el => {
+    el.onclick = () => ideaSheet(CL[+el.dataset.bi]);
+    el.ondragstart = e => { e.dataTransfer.setData('text/plain', 'bi:' + el.dataset.bi); e.dataTransfer.effectAllowed = 'move'; document.body.classList.add('dragging'); };
+    el.ondragend = () => { document.body.classList.remove('dragging'); $$('.bcol.drop').forEach(x => x.classList.remove('drop')); };
+  });
+  bindPanel();
+  $('#bpq').oninput = () => { UI.bpq = $('#bpq').value; saveUI(); CL = []; panel.innerHTML = ideaPanelList(o, recs); bindPanel(); };
+  $$('[data-col]', view).forEach(col => {
+    col.ondragover = e => { e.preventDefault(); col.classList.add('drop'); };
+    col.ondragleave = e => { if (!col.contains(e.relatedTarget)) col.classList.remove('drop'); };
+    col.ondrop = async e => {
+      e.preventDefault(); col.classList.remove('drop');
+      const m = (e.dataTransfer.getData('text/plain') || '').match(/^bi:(\d+)$/);
+      if (m && CL[+m[1]]) await takeIdea(CL[+m[1]], o, +col.dataset.col);
+    };
+  });
+  $$('[data-bq]', view).forEach(inp => inp.onkeydown = async e => {
+    if (e.key === 'Escape') { inp.value = ''; inp.blur(); return; }
+    if (e.key !== 'Enter' || !inp.value.trim()) return;
+    const pid = +inp.dataset.bq, { title, price } = boardPrice(inp.value);
+    inp.value = '';
+    await saveRow('gifts', { title, price, person_id: pid, occasion_id: o.id, status: past ? 'given' : 'idea' });
+    $('#bq-' + pid)?.focus();
+  });
 }
 
 // ============================================================ apatinis langas
@@ -428,6 +529,31 @@ VIEWS.occ = id => {
     ${o.budget ? `<div class="bar ${sp > o.budget ? 'over' : ''}"><i style="width:${Math.min(100, sp / o.budget * 100)}%"></i></div>` : ''}
   </div>`;
   if (o.notes) h += `<div class="card pad pre small" style="margin-top:12px">${esc(o.notes)}</div>`;
+  if (DESK()) {
+    // kompiuteris: visi gavėjai iš karto stulpeliais, dešinėje – idėjos
+    const have = recs.filter(r => gifts.some(g => g.person_id === r.person_id)).length;
+    const extra = gifts.filter(g => !g.person_id || !recs.some(r => r.person_id === g.person_id));
+    h = `<div class="occ-desk"><div class="grow">${h}
+      ${recs.length > 1 ? `<div class="bprog"><span>Dovaną turi <b>${have} iš ${recs.length}</b></span><div class="bar"><i style="width:${have / recs.length * 100}%"></i></div></div>` : ''}
+      <div class="board">${recs.map(r => boardCol(o, r, gifts.filter(g => g.person_id === r.person_id))).join('')}
+        ${extra.length ? boardCol(o, null, extra) : ''}
+        <button class="bcol add-col" id="add-rec">+ Pridėti žmogų ar grupę</button></div>
+      ${receivedBlock(S.received.filter(r => r.occasion_id === o.id), 'Gauta šia proga')}</div>
+      <aside class="ipanel"><div class="ip-h">Idėjos <span class="small muted">– tempkite į stulpelį</span></div>
+        <div class="searchbox">${svg('<circle cx="11" cy="11" r="7"/><path d="M20 20l-3.5-3.5"/>')}<input type="search" id="bpq" placeholder="Ieškoti idėjų…" value="${esc(UI.bpq || '')}" autocomplete="off"></div>
+        <div id="bp-list">${ideaPanelList(o, recs)}</div></aside></div>`;
+    view.innerHTML = h;
+    bindReceived(view, { occasion_id: o.id });
+    $('#occ-menu').onclick = () => occasionSheet(o);
+    $('#add-rec').onclick = () => recipientSheet(o);
+    bindGiftRows(view, past);
+    bindBoard(o, recs, past);
+    $$('[data-rmrec]', view).forEach(el => el.onclick = () => {
+      const r = I.recipients[el.dataset.rmrec];
+      confirmSheet(`Pašalinti ${pname(r.person_id)} iš šios progos?`, 'Pašalinti', () => delRow('recipients', r.id));
+    });
+    return;
+  }
   const f = recs.length > 1 ? (UI.occF || 'all') : 'all';
   if (recs.length > 1) h += `<div class="seg occ-seg">${[['all', 'Visi'], ['todo', 'Nupirkti'], ['none', 'Be dovanos']].map(([k, l]) => `<button data-f="${k}" class="${f === k ? 'on' : ''}">${l}</button>`).join('')}</div>`;
   let shown = 0;

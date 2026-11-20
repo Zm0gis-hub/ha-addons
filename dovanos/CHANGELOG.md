@@ -1,5 +1,13 @@
 # Pakeitimai
 
+## 2.1.0
+- **Atskiras vaizdas kompiuteryje** (plačiame ekrane): viskas viename lange, kaip lentelėje.
+- Kairėje – **Artėja**: artimiausios progos su kalendoriaus lapeliu ir kiek dar nupirkti. Vienas paspaudimas – ir atsidaro proga.
+- Progos lange kiekvienas žmogus – atskiras **stulpelis** su suma. Kam dar nėra dovanos – oranžinė antraštė „Be dovanos“.
+- Dovaną įrašote tiesiai stulpelio apačioje, pvz. „Knyga 15“, ir spaudžiate **Enter** – be iššokančių langų. Kaina gale nebūtina.
+- Dešinėje – **idėjos** su paieška. Idėją **nutempkite** į žmogaus stulpelį (suklydus – „Atšaukti“).
+- Telefone viskas liko kaip buvo.
+
 ## 2.0.0
 - **Nauja išvaizda.** Programa perdaryta, kad būtų kaip įprasta telefono programėlė: ramios spalvos, telefono šriftas, paprasti sąrašai vietoj kortelių kortelėse, mažiau slinkimo.
 - **Trys skiltys:** Šventės, Idėjos, Žmonės. Visos progos, Reikia nupirkti, Statistika ir Nustatymai – viršuje **⋮** meniu (kompiuteryje – kairėje).

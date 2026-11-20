@@ -51,6 +51,8 @@ Viršuje dešinėje: **paieška** („Ar jau dovanojom?“) ir **⋮ meniu** –
 
 Paspaudus idėją – ją galima pataisyti, pakeisti gavėjus, o **→ Proga** – pridėti prie konkrečios progos (tada pasirenkami ir metai).
 
+**Kompiuteryje** (plačiame ekrane) progos langas rodomas kaip lentelė: kiekvienas žmogus – atskiras stulpelis. Dovaną įrašykite stulpelio apačioje (pvz. „Knyga 15“) ir spauskite **Enter**. Dešinėje – idėjų sąrašas su paieška: idėją nutempkite pele į žmogaus stulpelį. Kairėje, skiltyje **Artėja**, – artimiausios progos, paspaudus atsidaro iš karto.
+
 **Žmogaus profilis** – žmogaus lange **pieštukas**: dydžiai (drabužiai, avalynė, žiedas), ką mėgsta, ko nedovanoti, ką jau turi, spalva.
 
 **Priminimai telefone** – **⋮ → Nustatymai → Priminimai telefone**: pažymėkite telefoną, kiek dienų prieš (pvz. 14 d. ir 3 d.) ir kuriuo metu. Spauskite **Išbandyti pranešimą**. Priedas turi būti rodomas šoniniame meniu, kad paspaudus pranešimą atsidarytų Dovanos.
