@@ -879,7 +879,7 @@ VIEWS.ataskaita = () => {
   const migN = Object.values(pdays).filter(v => v.mig).length;
   const acuteDays = Object.values(pdays).filter(v => [...v.meds].some(k => k !== 'profilaktinis')).length;
   const ints = eps.filter(e => e.intensity != null).map(e => e.intensity);
-  const durs = eps.filter(e => e.ended).map(e => durH(e.start, e.ended));
+  const durs = eps.filter(e => e.ended && e.ended > e.start).map(e => durH(e.start, e.ended)); // importuoti be pabaigos – neskaičiuojami
   const perMonth = 30.4 * painN / nd;
   // mėnesiai
   const months = [];
@@ -998,7 +998,8 @@ VIEWS.nustatymai = () => {
     <div class="card pad stack"><b>💾 Duomenys</b>
       <div class="small muted">Duomenys automatiškai patenka į Home Assistant atsargines kopijas. Čia galima atsisiųsti atskirai.</div>
       <a class="btn" href="api/export.csv" download>⬇ Galvos skausmų įrašai (CSV, Excel)</a>
-      <a class="btn" href="api/export" download>💾 Visi mano duomenys (JSON)</a></div>
+      <a class="btn" href="api/export" download>💾 Visi mano duomenys (JSON)</a>
+      <label class="btn">⬆ Importuoti galvos skausmų įrašus<input type="file" id="imp-f" accept=".json,application/json" hidden></label></div>
 
     <div class="card pad stack"><b>👤 Profilis</b>
       <label class="field"><span>Profilio PIN (nebūtina)</span><input type="password" inputmode="numeric" id="p-pin" placeholder="${p.has_pin ? 'Nustatytas – įrašykite naują arba palikite' : 'Nenustatytas'}"></label>
@@ -1019,6 +1020,22 @@ VIEWS.nustatymai = () => {
     $('[data-x]', el).onclick = closeSheet;
     $('#pd-ok', el).onclick = async () => { await api('api/do/profile_delete', { confirm: $('#pd-c', el).value.trim().toUpperCase() }); closeSheet(); S = null; location.hash = ''; boot(); };
   });
+  $('#imp-f').onchange = async ev => {
+    const f = ev.target.files[0]; ev.target.value = '';
+    if (!f) return;
+    let data;
+    try { data = JSON.parse(await f.text()); } catch (e) { return toast('Netinkamas failas'); }
+    if (!Array.isArray(data.episodes)) return toast('Faile nėra galvos skausmų įrašų');
+    const c = await api('api/do/import', { episodes: data.episodes, dry: true });
+    openSheet(`<h3>⬆ Importuoti įrašus?</h3><div class="stack">
+      <p style="margin:0">Į profilį <b>${esc(S.profile.name)}</b> bus įrašyta <b>${c.episodes}</b> galvos skausmų įrašų${c.from ? ` (${esc(dayNice(c.from.slice(0, 10), true))} – ${esc(dayNice(c.to.slice(0, 10), true))})` : ''}${c.doses ? `, ${c.doses} vaistų žymų` : ''}.</p>
+      ${c.skipped ? `<p class="small muted" style="margin:0">${c.skipped} praleista – tokie jau yra arba be datos.</p>` : ''}
+      ${c.meds_new ? `<p class="small muted" style="margin:0">Bus pridėta naujų vaistų: ${c.meds_new}. Jų rūšį vėliau galite patikslinti Nustatymuose.</p>` : ''}
+      <div class="sheet-actions"><button class="btn" data-x>Atšaukti</button><button class="btn primary" id="imp-ok" ${c.episodes ? '' : 'disabled'}>Importuoti</button></div></div>`, el => {
+      $('[data-x]', el).onclick = closeSheet;
+      $('#imp-ok', el).onclick = async () => { const r = await api('api/do/import', { episodes: data.episodes }); closeSheet(); await load(); toast(`Importuota: ${r.episodes} įrašų`); };
+    });
+  };
   $('#dt-add').onclick = () => drinkTypeSheet(null);
   $$('[data-dt]').forEach(r => r.onclick = e => { if (e.target.closest('[data-up],[data-dn]')) return; drinkTypeSheet(I.drink_types[r.dataset.dt]); });
   $$('[data-addk]').forEach(r => r.onclick = () => drinkTypeSheet(null, +r.dataset.addk));

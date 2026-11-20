@@ -1,5 +1,9 @@
 # Pakeitimai
 
+## 1.3.0
+- **⬆ Importuoti galvos skausmų įrašus** (Nustatymai → Duomenys): JSON failas su senais įrašais (pvz. iš užrašų). Prieš įrašant parodoma, kiek įrašų ir už kokį laikotarpį bus pridėta; jau esantys (ta pati pradžia) praleidžiami, nauji vaistai pridedami automatiškai.
+- Ataskaitoje vidutinė trukmė skaičiuojama tik įrašams su žinoma pabaiga.
+
 ## 1.2.1
 - **Kur skauda:** naujas galvos piešinys (pagal eskizą) su švytinčiomis pažymėtomis sritimis ir paaiškinimu. Galvą galima **apsukti** (↻ Iš nugaros / Iš priekio) – iš nugaros pažymimas pakaušis.
 - Mygtukai su mažomis galvutėmis: Kairė pusė, Abi pusės, Dešinė pusė (tik viena), Pakaušis, Kaklas – sutampa su piešiniu.
