@@ -537,8 +537,61 @@ def act_notify_test(d, pid):
     return {"ok": True}
 
 
+def act_import(d, pid):
+    """Galvos skausmų įrašų importas (pvz. iš senų užrašų) į šį profilį.
+    Formatas: {"episodes": [{"start", "ended", "intensity", "kind", "locs", "chars", "symptoms", "triggers",
+    "relief", "impact", "notes", "doses": [{"med", "dose", "kind", "ts", "effect"}]}], "dry": true|false}.
+    Įrašas su jau esančia pradžia praleidžiamas. dry – tik suskaičiuoti, nieko neįrašyti."""
+    eps = d.get("episodes")
+    if not isinstance(eps, list):
+        raise ValueError("Netinkamas importo failas")
+    dry = bool(d.get("dry"))
+    have = {r["start"] for r in rows("SELECT start FROM episodes WHERE profile_id=?", (pid,))}
+    meds = {r["name"].strip().lower(): r["id"] for r in rows("SELECT id, name FROM meds WHERE profile_id=?", (pid,))}
+    new_meds = set()
+    out = {"episodes": 0, "skipped": 0, "doses": 0, "meds_new": 0, "from": "", "to": ""}
+    for e in eps[:5000]:
+        if not isinstance(e, dict) or not e.get("start"):
+            out["skipped"] += 1
+            continue
+        row = clean_row("episodes", {k: v for k, v in e.items() if k in TABLES["episodes"]}, pid)
+        if not row.get("ended"):
+            row["ended"] = row["start"]  # importuoti įrašai – praėję
+        if row["start"] in have:
+            out["skipped"] += 1
+            continue
+        have.add(row["start"])
+        out["episodes"] += 1
+        out["from"] = min(out["from"] or row["start"], row["start"])
+        out["to"] = max(out["to"], row["start"])
+        eid = None
+        if not dry:
+            row.update({"profile_id": pid, "created": now(), "uid": secrets.token_hex(8)})
+            eid = insert("episodes", row)
+        for x in (e.get("doses") or [])[:20]:
+            name = str((x or {}).get("med") or "").strip()[:80]
+            if not name:
+                continue
+            key = name.lower()
+            if key not in meds:
+                new_meds.add(key)
+                meds[key] = None if dry else insert("meds", {
+                    "profile_id": pid, "name": name, "dose": str(x.get("dose") or "")[:40],
+                    "kind": x.get("kind") if x.get("kind") in MED_KINDS else "kita",
+                    "pos": DB.execute("SELECT COALESCE(MAX(pos),0)+1 FROM meds WHERE profile_id=?", (pid,)).fetchone()[0]})
+            out["doses"] += 1
+            if not dry:
+                eff = x.get("effect") if x.get("effect") in EFFECTS else ""
+                insert("doses", {"profile_id": pid, "episode_id": eid, "med_id": meds[key],
+                                 "ts": clean_ts(x["ts"]) if x.get("ts") else row["start"], "amount": str(x.get("dose") or "")[:40],
+                                 "effect": eff, "asked": 1, "uid": secrets.token_hex(8)})
+    out["meds_new"] = len(new_meds)
+    return out
+
+
 ACTIONS = {
     "save": act_save,
+    "import": act_import,
     "delete": act_delete,
     "drink": act_drink,
     "episode_start": lambda d, pid: {"id": start_episode(pid, num(d.get("intensity")),
@@ -1238,7 +1291,7 @@ def export_csv(pid, nuo="", iki=""):
         if nuo and e["start"][:10] < nuo or iki and e["start"][:10] > iki:
             continue
         hrs = ""
-        if e["ended"]:
+        if e["ended"] and e["ended"] > e["start"]:
             hrs = ("%.1f" % ((dt.datetime.fromisoformat(e["ended"]) - dt.datetime.fromisoformat(e["start"])).total_seconds() / 3600)).replace(".", ",")
         md = [f"{meds.get(x['med_id'], {}).get('name', '?')} {x['amount']} {x['ts'][11:16]}"
               f"{' (' + {'padejo': 'padėjo', 'is_dalies': 'iš dalies', 'nepadejo': 'nepadėjo'}[x['effect']] + ')' if x['effect'] else ''}".replace("  ", " ")
