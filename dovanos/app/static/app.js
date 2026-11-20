@@ -51,10 +51,23 @@ const pcSty = pid => pcolor(pid) ? `style="--pc:${pcolor(pid)}"` : '';
 // būsima data – žalia, praėjusi – blanki
 const dcls = d => !d ? '' : d < T() ? 'd-past' : 'd-future';
 // žmogus / grupė – užpildytas ženkliukas (jo spalva), proga – kitos spalvos rėmelis
-const tagP = (pid, pre = '') => { const p = I.people?.[pid]; return p ? `<span class="tg p ${pcCls(pid)}" ${pcSty(pid)}>${pre}${esc(pLabel(p))}</span>` : ''; };
+const tagP = (pid, pre = '') => { const p = I.people?.[pid]; return p ? `<span class="tg p" ${pcSty(pid)}>${pre}${esc(p.name)}</span>` : ''; };
 const tagO = txt => txt ? `<span class="tg o">${esc(txt)}</span>` : '';
 const tagT = txt => txt ? `<span class="tg t">${esc(txt)}</span>` : '';
 const thumb = (photo, cls = '') => photo ? `<img class="th ${cls}" src="photos/${esc(photo)}" alt="" loading="lazy">` : '';
+// ikonos (linijinės, kaip įprastose programėlėse)
+const svg = (d, w = 1.9) => `<svg class="i" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="${w}" stroke-linecap="round" stroke-linejoin="round">${d}</svg>`;
+const IC = {
+  check: svg('<path d="M5 12.5l4.5 4.5L19 7.5"/>', 3.2),
+  more: '<svg class="i" viewBox="0 0 24 24" fill="currentColor"><circle cx="12" cy="5" r="2"/><circle cx="12" cy="12" r="2"/><circle cx="12" cy="19" r="2"/></svg>',
+  edit: svg('<path d="M4 20h4L19 9l-4-4L4 16v4z"/><path d="M13.5 6.5l4 4"/>'),
+  archive: svg('<rect x="3" y="4" width="18" height="5" rx="1.5"/><path d="M5 9v10h14V9M10 13h4"/>'),
+  unarchive: svg('<path d="M9 14l-4-4 4-4"/><path d="M5 10h9a5 5 0 0 1 0 10h-2"/>'),
+  x: svg('<path d="M6 6l12 12M18 6L6 18"/>', 2),
+};
+// žmogaus inicialai spalvotame apskritime (spalva – žmogaus ar jo grupės)
+const initials = n => { const w = String(n || '?').replace(/[„“"()]/g, '').split(/\s+/).filter(Boolean); return w.length > 1 ? w[0][0] + w[w.length - 1][0] : (w[0] || '?').slice(0, 2); };
+const ava = (pid, cls = '') => { const p = I.people?.[pid]; return `<span class="ava ${cls}" ${pcSty(pid)}>${esc(initials(p?.name))}</span>`; };
 const prof = p => { try { return JSON.parse(p?.profile || '{}') || {}; } catch (e) { return {}; } };
 
 function toast(msg, action, ms = 3200) {
@@ -246,6 +259,10 @@ function render() {
   const name = VIEWS[route[0]] ? route[0] : 'soon';
   const tab = { occ: 'occs', person: 'people', merge: 'people' }[name] || name;
   $$('#tabs a').forEach(a => a.classList.toggle('on', a.dataset.tab === tab));
+  // ＋ mygtukas: žmonių skiltyje – naujas žmogus, kitur – nauja idėja
+  $('#fab').hidden = !['soon', 'ideas', 'people', 'person'].includes(name);
+  $('#fab-l').textContent = name === 'people' ? 'Žmogus' : 'Idėja';
+  view.classList.toggle('wide', ['stats', 'settings', 'merge', 'occs'].includes(name));
   CL = [];
   VIEWS[name](route[1]);
 }
@@ -277,46 +294,55 @@ function splitPrice(text) {
   return m ? { title: m[1], price: pnum(m[2]) } : { title: text.trim(), price: null };
 }
 
-// ============================================================ ARTĖJA
+// ============================================================ ŠVENTĖS (pradžia)
+// trumpa būsena: kiek gavėjų jau turi dovaną, kiek dar reikia nupirkti
+function occStatus(o, kind, pid) {
+  if (!o) {
+    const ideas = pid ? freeIdeas(pid).length : 0;
+    return { txt: 'Dovanų dar nėra' + (ideas ? ` · ${ideas} idėj${ideas === 1 ? 'a' : 'os'} laukia` : ''), have: 0, total: 0, todo: 0 };
+  }
+  const gifts = giftsOf(o.id), recs = recipientsOf(o.id);
+  const todo = gifts.filter(g => g.status === 'idea' || g.status === 'ordered').length;
+  const have = recs.filter(r => gifts.some(g => g.person_id === r.person_id)).length;
+  let txt;
+  if (!gifts.length) txt = 'Dovanų dar nėra';
+  else if (recs.length > 1) txt = have === recs.length ? 'Visi turi dovanas' : `${have} iš ${recs.length} turi dovaną`;
+  else txt = todo ? 'Reikia nupirkti' : 'Nupirkta';
+  return { txt, have, total: recs.length, todo };
+}
+const evIcon = e => e.kind === 'birthday' && (e.person_id || e.occ?.person_id) ? ava(e.person_id || e.occ.person_id) : `<span class="ico">${KINDS[e.kind].icon}</span>`;
+const ageTxt = (pid, year) => { const a = ageAt(pid, year); return a ? `<span class="age ${a % 5 === 0 ? 'jub' : ''}">${a} m.${a % 5 === 0 ? ' 🎉' : ''}</span>` : ''; };
+
 VIEWS.soon = () => {
   setTop('Dovanos');
   const days = S.settings.ahead_days || 60;
   const ev = upcoming(days);
-  let h = `<h2>⏳ Artėjančios progos <span class="sum small">${days} d. į priekį</span></h2>`;
-  if (!ev.length) h += `<div class="card empty">Artimiausiu metu progų nėra.<br><span class="small">Gimtadienius įrašykite skiltyje „Žmonės“.</span></div>`;
-  h += `<div class="grid">` + ev.map((e, i) => {
-    const gifts = e.occ ? giftsOf(e.occ.id) : [];
-    const recs = e.occ ? recipientsOf(e.occ.id) : [];
-    const n = diffDays(T(), e.date);
-    let detail;
-    if (!e.occ) {
-      const ideas = e.person_id ? freeIdeas(e.person_id).length : 0;
-      detail = `<span class="muted small">Dovanų dar nėra${ideas ? ` · <b>${ideas}</b> idėj${ideas === 1 ? 'a' : 'os'} laukia` : ''}</span>`;
-    } else {
-      const lines = recs.slice(0, 6).map(r => {
-        const g = gifts.filter(x => x.person_id === r.person_id);
-        const done = g.some(x => x.status !== 'idea');
-        return `<span class="pill ${done ? 'ok' : g.length ? 'gold' : 'red'} ${pcCls(r.person_id)}" ${pcSty(r.person_id)}>${done ? '✓' : g.length ? '🛒' : '·'} ${esc(pname(r.person_id))}</span>`;
-      });
-      if (recs.length > 6) lines.push(`<span class="pill">+${recs.length - 6}</span>`);
-      detail = `<div class="chips" style="margin-top:6px">${lines.join('') || '<span class="muted small">Gavėjų dar nėra</span>'}</div>`;
-    }
-    return `<div class="card event ${n <= 0 ? 'today' : ''} ${e.person_id ? pcCls(e.person_id) : ''}" ${e.person_id ? pcSty(e.person_id) : ''} data-i="${i}">
-      <div class="ico">${KINDS[e.kind].icon}</div>
-      <div class="grow"><b>${esc(eventName(e))}</b>${e.occ ? ` <span class="muted small">· ${moneyShort(spent(gifts))}</span>` : ''}<br>${detail}</div>
-      <div class="when ${dcls(e.date)}"><b>${until(e.date)}</b><span class="small">${niceDate(e.date)}${e.kind === 'birthday' ? ageBadge(e.person_id || e.occ?.person_id, e.year) : ''}</span></div>
-    </div>`;
-  }).join('') + `</div>`;
-
+  let h = '';
+  // artimiausia didelė šventė (ne gimtadienis) – su pažanga
+  const big = ev.find(e => e.kind !== 'birthday');
+  if (big) {
+    const st = occStatus(big.occ, big.kind);
+    h += `<div class="card hero" data-i="${ev.indexOf(big)}">
+      <div class="k">Artimiausia šventė</div>
+      <div class="n">${KINDS[big.kind].icon} ${esc(eventName(big))}</div>
+      <div class="d">${until(big.date)} · ${niceDate(big.date)}</div>
+      ${st.total > 1 ? `<div class="bar"><i style="width:${st.have / st.total * 100}%"></i></div>` : '<div style="height:10px"></div>'}
+      <div class="p"><span>${st.txt}</span>${st.todo ? `<span class="pill todo">Nupirkti dar: ${st.todo}</span>` : ''}</div></div>`;
+  }
+  h += `<h2>Artėja <span class="sum">${days} d.</span></h2>`;
+  h += ev.length ? `<div class="card list">${ev.map((e, i) => {
+    const pid = e.person_id || e.occ?.person_id, st = occStatus(e.occ, e.kind, pid);
+    const age = e.kind === 'birthday' ? ageTxt(pid, e.year) : '';
+    return `<div class="li" data-i="${i}">${evIcon(e)}
+      <div class="grow"><div class="t">${esc(eventName(e))}</div><div class="s">${age ? age + ' · ' : ''}${esc(st.txt)}</div></div>
+      <div class="end"><b class="${dcls(e.date)}">${until(e.date)}</b>${niceDate(e.date)}</div></div>`;
+  }).join('')}</div>` : `<div class="card empty">Artimiausiu metu progų nėra.<br><span class="small">Gimtadienius įrašykite skiltyje „Žmonės“.</span></div>`;
   const todo = toBuy();
-  if (todo.length) h += `<a class="card pad row shoplink" href="#shop"><span style="font-size:22px">🛒</span><span class="grow"><b>Reikia nupirkti: ${todo.length}</b><br><span class="small muted">${moneyShort(todo.reduce((s, g) => s + (g.price || 0), 0))} · pagal parduotuves</span></span><span class="muted">›</span></a>`;
-  const ideas = clusters(freeIdeas());
-  h += `<h2>💡 Naujausios idėjos <a class="btn small" href="#ideas">Visos (${ideas.length})</a></h2>`;
-  h += ideas.length ? `<div class="card list">${ideas.slice(0, 6).map(c => ideaLi(c)).join('')}</div>`
-    : `<div class="card empty">Idėjų nėra. Spauskite <b>＋ Idėja</b>, kai tik kas šaus į galvą.</div>`;
+  h += `<h2>Apsipirkimui ir istorija</h2><div class="card list">
+    ${todo.length ? `<a class="li" href="#shop"><span class="ico">🛒</span><div class="grow"><div class="t">Reikia nupirkti</div><div class="s">${todo.length} dovan${todo.length === 1 ? 'a' : 'os'} · ${moneyShort(todo.reduce((s, g) => s + (g.price || 0), 0))}</div></div><span class="chev">›</span></a>` : ''}
+    <a class="li" href="#occs"><span class="ico">🎁</span><div class="grow"><div class="t">Visos progos</div><div class="s">Ir praėjusių metų</div></div><span class="chev">›</span></a></div>`;
   view.innerHTML = h;
-  $$('.event', view).forEach(el => el.onclick = () => openEvent(ev[+el.dataset.i]));
-  bindIdeaLis();
+  $$('[data-i]', view).forEach(el => el.onclick = () => openEvent(ev[+el.dataset.i]));
 };
 
 // Vienodos laukiančios idėjos (tas pats pavadinimas, kaina, parduotuvė, nuoroda, pastaba) rodomos kaip viena su keliais vardais.
@@ -334,18 +360,15 @@ function ideaLi(c, skipPid, noCat) {
   if (!c.gifts) c = clusterOf(c);
   const i = CL.push(c) - 1, g = c.gifts[0];
   const others = skipPid ? c.pids.filter(x => x !== skipPid) : null;
-  const who = skipPid === -1 ? '' : others ? (others.length ? '<span class="small muted">taip pat:</span>' + others.map(x => tagP(x)).join('') : '') : c.pids.map(x => tagP(x)).join('');
+  const who = skipPid === -1 ? '' : others ? (others.length ? 'taip pat: ' + others.map(pname).join(', ') : '') : c.pids.map(x => pname(x)).join(', ');
   const uses = usesOf(g), cat = !noCat && g.cat ? catLabel(g.cat) : '';
-  const meta = (cat ? tagO(cat) : '') + who + (g.shop ? `<span class="small muted">${esc(g.shop)}</span>` : '');
-  return `<div class="li" data-c="${i}">${g.photo ? thumb(g.photo) : '<div class="ico">💡</div>'}
-    <div class="grow"><div class="ellip">${esc(g.title)}${g.url ? ' <span class="small">🔗</span>' : ''}</div>${meta ? `<div class="tags">${meta}</div>` : ''}
-      ${usedLine(uses)}</div>
-    ${g.price != null ? `<b class="nowrap">${money(g.price)}</b>` : ''}
-    <button class="btn small ghost" data-assign="${i}" title="Priskirti progai">→ Proga</button></div>`;
+  const meta = [cat, who, g.shop].filter(Boolean).join(' · ');
+  return `<div class="li" data-c="${i}">${thumb(g.photo)}
+    <div class="grow"><div class="t">${esc(g.title)}${g.url ? ' <span class="small">🔗</span>' : ''}</div>${meta ? `<div class="s">${esc(meta)}</div>` : ''}${usedLine(uses)}</div>
+    ${g.price != null ? `<span class="end">${money(g.price)}</span>` : ''}</div>`;
 }
-function bindIdeaLis() {
-  $$('[data-c]', view).forEach(el => el.onclick = e => { if (!e.target.closest('[data-assign]')) ideaSheet(CL[+el.dataset.c]); });
-  $$('[data-assign]', view).forEach(el => el.onclick = () => assignSheet(CL[+el.dataset.assign]));
+function bindIdeaLis(root = view) {
+  $$('[data-c]', root).forEach(el => el.onclick = () => ideaSheet(CL[+el.dataset.c]));
 }
 // idėjos langas: vienas visoms vienodos idėjos kopijoms (keli gavėjai)
 const ideaSheet = c => giftSheet(c.gifts[0], { person_ids: [...c.pids] }, true, c);
@@ -394,33 +417,41 @@ function pasteSheet() {
 VIEWS.occ = id => {
   const o = I.occasions[id];
   if (!o) return go('occs');
-  setTop(occTitle(o) + (o.kind === 'birthday' && ageAt(o.person_id, o.year) ? ` (${ageAt(o.person_id, o.year)} m.)` : ''), `<button class="icon-btn" id="occ-menu" title="Progos nustatymai">⋯</button>`, true);
+  setTop(occTitle(o), `<button class="icon-btn" id="occ-menu" title="Biudžetas, pastabos, trynimas">${IC.edit}</button>`, true);
   const gifts = giftsOf(o.id), recs = recipientsOf(o.id), date = occDate(o);
-  const sp = spent(gifts), pl = planned(gifts), c = counts(gifts);
+  const sp = spent(gifts), todo = gifts.filter(g => g.status === 'idea' || g.status === 'ordered');
+  const todoSum = todo.reduce((s, g) => s + (g.price || 0), 0);
   const past = date && date < T();
-  let h = `<div class="card summary">
-    <div><div class="muted small">${occIcon(o)} ${date ? `<span class="${dcls(date)}">${niceDate(date, true)}${o.kind === 'birthday' ? ageBadge(o.person_id, o.year) : ''} · ${until(date)}</span>` : 'data nenurodyta'}</div><div class="big">${money(sp) || '0,00 €'}</div></div>
-    ${o.budget ? `<div class="budget"><div class="small muted">Biudžetas ${money(o.budget)}${sp > o.budget ? ' · <b style="color:var(--danger)">viršyta</b>' : ` · liko ${money(o.budget - sp)}`}</div>
-      <div class="bar ${sp > o.budget ? 'over' : ''}"><i style="width:${Math.min(100, sp / o.budget * 100)}%"></i></div></div>` : ''}
-    <div class="chips">${c.idea ? `<span class="pill gold">🛒 ${c.idea} reikia nupirkti${pl ? ' · ' + moneyShort(pl) : ''}</span>` : ''}
-      ${c.ordered ? `<span class="pill">📦 ${c.ordered} užsakyta</span>` : ''}${c.bought + c.wrapped ? `<span class="pill ok">✓ ${c.bought + c.wrapped} nupirkta${c.wrapped ? ` (🎀 ${c.wrapped})` : ''}</span>` : ''}${c.given ? `<span class="pill">🎁 ${c.given} įteikta</span>` : ''}</div>
+  let h = `<div class="occ-head">
+    <div class="d">${date ? `${niceDate(date, true)}${o.kind === 'birthday' ? ageBadge(o.person_id, o.year) : ''} · <span class="${dcls(date)}">${until(date)}</span>` : 'Data nenurodyta'}</div>
+    <div class="m">Išleista <b>${money(sp) || '0 €'}</b>${todo.length ? ` · nupirkti dar ${todo.length}${todoSum ? ` (${moneyShort(todoSum)})` : ''}` : ''}${o.budget ? ` · biudžetas ${moneyShort(o.budget)}${sp > o.budget ? ' <b style="color:var(--danger)">viršytas</b>' : ''}` : ''}</div>
+    ${o.budget ? `<div class="bar ${sp > o.budget ? 'over' : ''}"><i style="width:${Math.min(100, sp / o.budget * 100)}%"></i></div>` : ''}
   </div>`;
-  if (o.notes) h += `<div class="card pad pre small" style="margin-bottom:14px">${esc(o.notes)}</div>`;
-  h += `<div class="occbar"><span class="muted small grow">Spauskite ženkliuką prie dovanos: 🛒 → ✓ nupirkta → 🎀 supakuota → 🎁 įteikta</span>
-    <button class="btn small" id="add-rec">＋ Gavėjas</button></div>`;
-  h += `<div class="grid">`;
-  for (const r of recs) h += recipientCard(o, r, gifts.filter(g => g.person_id === r.person_id), past);
+  if (o.notes) h += `<div class="card pad pre small" style="margin-top:12px">${esc(o.notes)}</div>`;
+  const f = recs.length > 1 ? (UI.occF || 'all') : 'all';
+  if (recs.length > 1) h += `<div class="seg occ-seg">${[['all', 'Visi'], ['todo', 'Nupirkti'], ['none', 'Be dovanos']].map(([k, l]) => `<button data-f="${k}" class="${f === k ? 'on' : ''}">${l}</button>`).join('')}</div>`;
+  let shown = 0;
+  for (const r of recs) {
+    const all = gifts.filter(g => g.person_id === r.person_id);
+    if (f === 'todo' && !all.some(g => g.status === 'idea' || g.status === 'ordered')) continue;
+    if (f === 'none' && all.length) continue;
+    h += recipientGroup(o, r, f === 'todo' ? all.filter(g => g.status === 'idea' || g.status === 'ordered') : all, all, f);
+    shown++;
+  }
   const extra = gifts.filter(g => !g.person_id || !recs.some(r => r.person_id === g.person_id));
-  if (extra.length || !recs.length) h += recipientCard(o, null, extra, past);
-  h += `</div>`;
-  h += receivedBlock(S.received.filter(r => r.occasion_id === o.id), '📥 Gauta šia proga');
+  if (f !== 'none' && extra.length) { h += recipientGroup(o, null, extra, extra, f); shown++; }
+  if (!shown && f !== 'all') h += `<div class="empty">${f === 'todo' ? 'Viskas nupirkta 🎉' : 'Visi jau turi dovanas'}</div>`;
+  if (f === 'all') h += `<div class="card list" style="margin-top:18px"><div class="li add" id="add-rec"><span class="plus">+</span><span class="grow">Pridėti žmogų ar grupę</span></div></div>`;
+  h += receivedBlock(S.received.filter(r => r.occasion_id === o.id), 'Gauta šia proga');
   view.innerHTML = h;
   bindReceived(view, { occasion_id: o.id });
 
   $('#occ-menu').onclick = () => occasionSheet(o);
-  $('#add-rec').onclick = () => recipientSheet(o);
+  if ($('#add-rec')) $('#add-rec').onclick = () => recipientSheet(o);
+  $$('[data-f]', view).forEach(b => b.onclick = () => { UI.occF = b.dataset.f; saveUI(); render(); });
   bindGiftRows(view, past);
-  $$('[data-addg]', view).forEach(el => el.onclick = () => {
+  $$('[data-addg]', view).forEach(el => el.onclick = e => {
+    if (e.target.closest('[data-pick]')) return;
     const pid = +el.dataset.addg || null;
     giftSheet(null, { occasion_id: o.id, person_ids: pid ? [pid] : [], status: past ? 'given' : 'idea' });
   });
@@ -434,57 +465,54 @@ VIEWS.occ = id => {
 // idėjos, kurias galima priskirti gavėjui: jo paties ir „nežinia kam“
 const pickableIdeas = pid => ({ own: freeIdeas(pid), loose: S.gifts.filter(g => !g.occasion_id && g.status === 'idea' && !g.person_id).sort((a, b) => b.id - a.id) });
 
-function recipientCard(o, r, gifts, past) {
+// vienas gavėjas progoje: vardas, jo dovanos su varnelėmis, „+ Pridėti dovaną“ ir „Iš idėjų“
+function recipientGroup(o, r, shown, all, f) {
   const pid = r ? r.person_id : null;
   const pi = pid ? pickableIdeas(pid) : null, nIdeas = pi ? pi.own.length + pi.loose.length : 0;
   const canRemove = r && !(o.kind === 'birthday' && o.person_id === pid);
-  return `<div class="card rcard ${r ? pcCls(pid) : 'extra'}" ${r ? pcSty(pid) : ''}>
-    <div class="rhead">
-      ${r ? `<a class="name ellip" href="#person/${pid}">${esc(pname(pid))}</a>` : `<span class="grow"><b>Kiti</b> <span class="muted small">(be gavėjo)</span></span>`}
-      <span class="total">${moneyShort(spent(gifts))}</span>
-      ${canRemove ? `<button class="icon-btn" style="font-size:15px;min-width:30px;height:30px" data-rmrec="${r.id}" title="Pašalinti gavėją">✕</button>` : ''}
-    </div>
-    ${gifts.length ? `<ul class="gifts">${gifts.map(giftRow).join('')}</ul>` : `<div class="empty-g muted small">Dovanų dar nėra</div>`}
-    <div class="ractions">
-      <button class="btn small" data-addg="${pid || ''}">＋ Dovana</button>
-      ${nIdeas ? `<button class="btn small idea-btn" data-pick="${pid}">💡 Iš idėjų${pi.own.length ? ` <b>${pi.own.length}</b>` : ''}</button>` : ''}
-    </div>
-  </div>`;
+  const tot = all.reduce((s, g) => s + (g.price || 0), 0);
+  // viena eilutė: „+ Pridėti dovaną“ ir dešinėje – „Iš idėjų“
+  const adds = f === 'todo' ? '' : `<div class="li add" data-addg="${pid || ''}"><span class="plus">+</span><span class="grow">${all.length ? 'Dar viena dovana' : 'Pridėti dovaną'}</span>
+    ${nIdeas ? `<button class="btn small" data-pick="${pid}">💡 Iš idėjų${pi.own.length ? ' ' + pi.own.length : ''}</button>` : ''}</div>`;
+  return `<div class="phead">${r ? ava(pid, 'sm') : ''}${r ? `<a class="nm" href="#person/${pid}">${esc(pname(pid))}</a>` : '<span class="nm">Kiti (be gavėjo)</span>'}
+      <span class="tot">${tot ? money(tot) : ''}</span>${canRemove ? `<button class="icon-btn" data-rmrec="${r.id}" title="Pašalinti iš šios progos">${IC.x}</button>` : ''}</div>
+    <div class="card list">${shown.map(g => giftLi(g)).join('')}${adds}</div>`;
 }
 
 function pickIdeaSheet(o, pid) {
   const { own, loose } = pickableIdeas(pid);
-  const li = g => `<li class="gift idea" data-take="${g.id}"><span class="st">${g.photo ? thumb(g.photo, 's') : '💡'}</span><span class="t">${esc(g.title)}${g.shop ? ` <span class="shop">· ${esc(g.shop)}</span>` : ''}</span><span class="p">${money(g.price)}</span></li>`;
-  openSheet(`<h3>💡 Idėja – ${esc(pname(pid))}</h3>
-    <p class="muted small" style="margin-top:-6px">Pasirinkite idėją – ji bus priskirta šiai progai.</p>
-    ${own.length ? `<div class="lbl-s">${esc(pname(pid))} idėjos</div><ul class="gifts pick">${own.map(li).join('')}</ul>` : ''}
-    ${loose.length ? `<div class="lbl-s">Nežinia kam</div><ul class="gifts pick">${loose.map(li).join('')}</ul>` : ''}
+  const li = g => `<div class="li" data-take="${g.id}">${thumb(g.photo)}<div class="grow"><div class="t">${esc(g.title)}</div>${g.shop ? `<div class="s">${esc(g.shop)}</div>` : ''}</div><span class="end">${money(g.price)}</span></div>`;
+  openSheet(`<h3>Idėja: ${esc(pname(pid))}</h3>
+    <p class="muted small" style="margin:-8px 2px 14px">Pasirinkite idėją – ji bus pridėta prie šios progos.</p>
+    ${own.length ? `<div class="lbl-s">${esc(pname(pid))} idėjos</div><div class="list" style="margin-bottom:14px">${own.map(li).join('')}</div>` : ''}
+    ${loose.length ? `<div class="lbl-s">Be konkretaus gavėjo</div><div class="list">${loose.map(li).join('')}</div>` : ''}
     <div class="actions"><button class="btn" data-x>Uždaryti</button></div>`, el => {
     $('[data-x]', el).onclick = closeSheet;
     $$('[data-take]', el).forEach(x => x.onclick = async () => {
       closeSheet();
       await saveRow('gifts', { id: +x.dataset.take, occasion_id: o.id, person_id: pid });
-      toast('Idėja priskirta');
+      toast('Idėja pridėta');
     });
   });
 }
 
-function giftRow(g) {
-  const st = stOf(g);
-  const showTo = !g.person_id && g.recipient_text ? tagT(g.recipient_text) + ' ' : '';
-  const pmap = g.person_id && !S.recipients.some(r => r.occasion_id === g.occasion_id && r.person_id === g.person_id) ? tagP(g.person_id) + ' ' : '';
-  return `<li class="gift ${g.status}" data-gift="${g.id}">
-    <button class="st ${g.status}" data-st="${g.id}" title="${st.name} – spauskite, kad pakeistumėte">${st.icon}</button>
-    <span class="t">${showTo}${pmap}${esc(g.title)}${g.shop ? ` <span class="shop">· ${esc(g.shop)}</span>` : ''}${g.url ? ' 🔗' : ''}</span>
-    ${thumb(g.photo, 's')}<span class="p">${money(g.price)}</span></li>`;
+// dovanos eilutė su apvalia varnele: pažymėta = nupirkta
+const DONE = ['bought', 'wrapped', 'given'];
+function giftLi(g, sub) {
+  const done = DONE.includes(g.status);
+  const stTxt = { ordered: '📦 Užsakyta', bought: 'Nupirkta', wrapped: '🎀 Supakuota', given: '🎁 Įteikta' }[g.status] || '';
+  const who = !g.person_id && g.recipient_text ? g.recipient_text : g.person_id && !S.recipients.some(r => r.occasion_id === g.occasion_id && r.person_id === g.person_id) ? pname(g.person_id) : '';
+  const line = [sub, who, stTxt, g.shop].filter(Boolean).join(' · ');
+  return `<div class="li gift-li ${done ? 'done' : ''}" data-gift="${g.id}"><button class="chk ${done ? 'on' : ''}" data-st="${g.id}" aria-label="${done ? 'Nuimti žymę „nupirkta“' : 'Pažymėti „nupirkta“'}">${IC.check}</button>${thumb(g.photo)}
+    <div class="grow"><div class="t">${esc(g.title)}${g.url ? ' <span class="small">🔗</span>' : ''}</div>${line ? `<div class="s">${esc(line)}</div>` : ''}</div>
+    <span class="end">${money(g.price)}</span></div>`;
 }
 function bindGiftRows(root) {
   $$('[data-gift]', root).forEach(el => el.onclick = e => { if (!e.target.closest('[data-st]')) giftSheet(I.gifts[el.dataset.gift]); });
   $$('[data-st]', root).forEach(el => el.onclick = async () => {
-    const g = I.gifts[el.dataset.st], prev = g.status, next = NEXT_STATUS[prev];
-    if (!next) return toast('🎁 Jau įteikta. Būseną pakeisti galima atidarius dovaną.');
+    const g = I.gifts[el.dataset.st], prev = g.status, next = DONE.includes(prev) ? 'idea' : 'bought';
     await saveRow('gifts', { id: g.id, status: next });
-    toast(`${STATUS[next].icon} ${STATUS[next].name}`, { label: 'Atšaukti', fn: () => saveRow('gifts', { id: g.id, status: prev }) }, 2500);
+    toast(next === 'bought' ? `Nupirkta: ${g.title}` : 'Žymė nuimta', { label: 'Atšaukti', fn: () => saveRow('gifts', { id: g.id, status: prev }) }, 2600);
   });
 }
 
@@ -539,7 +567,7 @@ function occCategories() {
 }
 // Proga ir metai – du atskiri pasirinkimai; naudojama visur, kur įrašomos idėjos ir dovanos.
 // pids – gavėjai, kurių gimtadieniai rodomi pirmi
-function catSelectHtml(id, cur, pids = [], none = '— bet kuriai progai —', label = 'Tinka progai') {
+function catSelectHtml(id, cur, pids = [], none = 'Bet kada', label = 'Kada tiktų?') {
   const cats = occCategories(), mine = new Set(pids.flatMap(pid => [pid, ...membersOf(pid).map(m => m.id)]).map(pid => `birthday|${pid}|`));
   cats.sort((a, b) => (mine.has(b.key) ? 1 : 0) - (mine.has(a.key) ? 1 : 0));
   if (cur && !cats.some(c => c.key === cur)) cats.push({ key: cur, label: catLabel(cur) });
@@ -611,10 +639,10 @@ function giftSheet(g, preset = {}, _, cluster) {
   const pids = [...(preset.person_ids || (g.person_id ? [g.person_id] : []))];
   const uses = !isNew && ideaMode ? usesOf(g) : [];
   const more = g.price != null || g.shop || g.url || g.note || g.photo;
-  openSheet(`<h3>${isNew ? (g.occasion_id ? 'Nauja dovana' : '💡 Nauja idėja') : ideaMode ? '💡 Idėja' : 'Dovana'}</h3>
+  openSheet(`<h3>${isNew ? (g.occasion_id ? 'Nauja dovana' : 'Nauja idėja') : ideaMode ? 'Idėja' : 'Dovana'}</h3>
     <div class="fgrid">
-      <label class="field full"><span>Kas</span><input type="text" id="g-title" value="${esc(g.title)}" ${isNew && !g.title ? 'autofocus' : ''} placeholder="pvz. Šilko pagalvės užvalkalas"></label>
-      <div class="field full"><span class="lbl-s">Kam (galima pažymėti kelis)</span><div id="g-multi">${multiPeopleChips(pids)}</div></div>
+      <label class="field full"><span>Ką dovanoti?</span><input type="text" id="g-title" value="${esc(g.title)}" ${isNew && !g.title ? 'autofocus' : ''} placeholder="pvz. Šilko pagalvės užvalkalas"></label>
+      <div class="field full"><span class="lbl-s">Kam?</span><div id="g-multi">${multiPeopleChips(pids)}</div></div>
       ${ideaMode ? `<div class="full">${catSelectHtml('g', g.cat, pids)}</div>`
         : occPickHtml('g', I.occasions[g.occasion_id] ? { cat: catKey(I.occasions[g.occasion_id]), year: I.occasions[g.occasion_id].year } : {}, pids)}
       ${ideaMode ? '' : `<div class="full"><div class="seg st5" id="g-status">${Object.keys(STATUS).map(k => { const s = stName(k, true); return `<button type="button" data-s="${k}" class="${k === status ? 'on' : ''}"><span>${s.icon}</span>${s.name}</button>`; }).join('')}</div></div>`}
@@ -719,20 +747,28 @@ async function urlInfo(url) {
   try { const r = await api('api/do/url_info', { url }); $('#toast').hidden = true; return r; } catch (e) { return null; }
 }
 
-// kelių gavėjų pasirinkimas (naujai idėjai): „Nežinia kam“ arba keli žmonės / grupės
+// kelių gavėjų pasirinkimas: pažymėti ir dažniausi rodomi iškart, kiti – paspaudus „Kiti…“.
+// Nieko nepažymėta – idėja be konkretaus gavėjo.
+function topPeople(n, sel) {
+  const cnt = {}; S.gifts.forEach(g => { if (g.person_id) cnt[g.person_id] = (cnt[g.person_id] || 0) + 1; });
+  const rest = people().filter(p => !sel.includes(p.id)).sort((a, b) => (cnt[b.id] || 0) - (cnt[a.id] || 0) || lt(a.name, b.name));
+  return [...sel, ...rest.slice(0, Math.max(0, n - sel.length)).map(p => p.id)];
+}
 function multiPeopleChips(sel) {
-  return `<div class="chips multi"><button type="button" class="chip ${sel.length ? '' : 'on'}" data-p="">Nežinia kam</button>
-    ${people().map(p => `<button type="button" class="chip ${sel.includes(p.id) ? 'on' : ''}" data-p="${p.id}">${esc(pLabel(p))}</button>`).join('')}</div>`;
+  const top = topPeople(6, sel), all = people();
+  const order = [...top.map(id => I.people[id]).filter(Boolean), ...all.filter(p => !top.includes(p.id))];
+  return `<div class="chips multi ${all.length > top.length ? 'collapsed' : ''}">${order.map(p => `<button type="button" class="chip ${sel.includes(p.id) ? 'on' : ''} ${top.includes(p.id) ? '' : 'x'}" data-p="${p.id}">${esc(pLabel(p))}</button>`).join('')}
+    ${all.length > top.length ? `<button type="button" class="chip more" data-morep>Kiti… (${all.length - top.length})</button>` : ''}</div>`;
 }
 function bindMultiPeople(box, sel, after) {
-  $$('.chip', box).forEach(b => b.onclick = () => {
+  $$('.chip[data-p]', box).forEach(b => b.onclick = () => {
     const id = +b.dataset.p;
-    if (!id) sel.length = 0;
-    else if (sel.includes(id)) sel.splice(sel.indexOf(id), 1);
-    else sel.push(id);
-    $$('.chip', box).forEach(x => x.classList.toggle('on', +x.dataset.p ? sel.includes(+x.dataset.p) : !sel.length));
+    if (sel.includes(id)) sel.splice(sel.indexOf(id), 1); else sel.push(id);
+    b.classList.toggle('on', sel.includes(id));
     if (after) after();
   });
+  const more = $('[data-morep]', box);
+  if (more) more.onclick = () => { $('.chips', box)?.classList.remove('collapsed'); box.classList.remove('collapsed'); more.remove(); };
 }
 // ta pati idėja keliems – kiekvienam atskiras įrašas (priskyrus vienam, kitiems lieka)
 async function addForMany(row, pids) {
@@ -746,13 +782,13 @@ async function addForMany(row, pids) {
 // Galima įklijuoti ir parduotuvės nuorodą – pavadinimas, kaina ir nuotrauka užsipildo patys.
 function newIdeaSheet(pre = []) {
   const pids = [...pre];
-  openSheet(`<h3>💡 Nauja idėja</h3>
+  openSheet(`<h3>Nauja idėja</h3>
     <div class="stack">
-      <input type="text" id="q-title" autofocus placeholder="Kokia idėja? (pvz. Kava 8,99 arba nuoroda)">
-      <div id="q-people">${multiPeopleChips(pids)}</div>
+      <label class="field"><span>Ką dovanoti?</span><input type="text" id="q-title" autofocus placeholder="pvz. Termosas, Kava 8,99 arba nuoroda"></label>
+      <div><span class="lbl-s">Kam? (nebūtina, galima kelis)</span><div id="q-people">${multiPeopleChips(pids)}</div></div>
       ${catSelectHtml('q', '', pids)}
     </div>
-    <div class="sheet-actions"><button class="btn" data-paste title="Daug idėjų iš karto">📋 Sąrašas</button><button class="btn" data-more>Daugiau…</button><button class="btn primary" data-ok>Įrašyti</button></div>`, el => {
+    <div class="sheet-actions"><button class="btn" data-paste title="Daug idėjų iš karto">Sąrašas</button><button class="btn" data-more>Daugiau</button><button class="btn primary" data-ok>Išsaugoti</button></div>`, el => {
     bindMultiPeople($('#q-people', el), pids, () => $('#q-title').focus());
     $('#q-cat', el).onchange = () => bdAutoPick($('#q-people', el), pids)($('#q-cat', el).value);
     const isUrl = v => /^https?:\/\/\S+$/i.test(v);
@@ -779,7 +815,18 @@ function newIdeaSheet(pre = []) {
     };
   });
 }
-$('#fab').onclick = () => newIdeaSheet(route[0] === 'person' && I.people[+route[1]] ? [+route[1]] : []);
+$('#fab').onclick = () => route[0] === 'people' ? personSheet(null) : newIdeaSheet(route[0] === 'person' && I.people[+route[1]] ? [+route[1]] : []);
+// meniu ⋯ (telefone; kompiuteryje tie patys punktai yra šoniniame meniu)
+$('#top-menu').onclick = () => {
+  const n = toBuy().length, mp = mergePairs().length;
+  const item = (href, ic, t, end = '') => `<a class="li" href="#${href}"><span class="mi">${ic}</span><span class="grow t">${t}</span>${end ? `<span class="end">${end}</span>` : ''}</a>`;
+  openSheet(`<div class="list menu-list">
+    ${item('occs', '🎁', 'Visos progos')}
+    ${item('shop', '🛒', 'Reikia nupirkti', n ? String(n) : '')}
+    ${item('stats', '📊', 'Statistika')}
+    ${mp ? item('merge', '🔗', 'Sujungti pasikartojančius vardus', String(mp)) : ''}
+    ${item('settings', '⚙️', 'Nustatymai')}</div>`, el => $$('a', el).forEach(a => a.onclick = closeSheet));
+};
 
 // idėjos priskyrimas progai: proga ir metai atskirai
 function assignSheet(c) {
@@ -823,24 +870,23 @@ async function assignTo(c, oid) {
 
 // ============================================================ PROGOS
 VIEWS.occs = () => {
-  setTop('Progos', `<button class="btn small primary" id="new-occ">＋ Nauja proga</button>`);
+  setTop('Visos progos', `<button class="btn small" id="new-occ">+ Nauja proga</button>`, true);
   const years = [...new Set([Y(), ...S.occasions.map(o => o.year)])].sort((a, b) => b - a);
   const yr = years.includes(UI.year) ? UI.year : Y();
   const list = S.occasions.filter(o => o.year === yr).sort((a, b) => (occDate(a) || '9').localeCompare(occDate(b) || '9'));
   const total = spent(S.gifts.filter(g => list.some(o => o.id === g.occasion_id)));
-  let h = `<div class="chips" style="margin-bottom:6px">${years.map(y => `<button class="chip ${y === yr ? 'on' : ''} ${y === Y() ? 'cur' : ''}" data-y="${y}">${y}</button>`).join('')}</div>`;
-  h += `<h2>${yr} m. progos <span class="sum">Iš viso: ${money(total) || '0,00 €'}</span></h2>`;
-  if (!list.length) h += `<div class="card empty">${yr} m. progų dar nėra.<br><span class="small">Jos atsiranda pačios, kai atidarote artėjančią progą, arba spauskite „＋ Nauja proga“.</span></div>`;
+  let h = `<div class="chips scroll" style="margin-top:4px">${years.map(y => `<button class="chip ${y === yr ? 'on' : ''} ${y === Y() ? 'cur' : ''}" data-y="${y}">${y}</button>`).join('')}</div>`;
+  h += `<h2>${yr} m. <span class="sum">Išleista ${money(total) || '0 €'}</span></h2>`;
+  if (!list.length) h += `<div class="card empty">${yr} m. progų dar nėra.<br><span class="small">Jos atsiranda pačios, kai atidarote artėjančią progą.</span></div>`;
   const groups = [['Kalėdos', list.filter(o => o.kind === 'christmas')], ['Gimtadieniai', list.filter(o => o.kind === 'birthday')],
-    ['Šventės ir kitos progos', list.filter(o => o.kind !== 'christmas' && o.kind !== 'birthday')]];
+    ['Kitos šventės ir progos', list.filter(o => o.kind !== 'christmas' && o.kind !== 'birthday')]];
   for (const [name, arr] of groups) {
     if (!arr.length) continue;
-    h += `<div class="year-h">${name}</div><div class="grid narrow">` + arr.map(o => {
-      const gifts = giftsOf(o.id), d = occDate(o);
-      return `<div class="card event ${o.kind === 'birthday' ? pcCls(o.person_id) : ''}" ${o.kind === 'birthday' ? pcSty(o.person_id) : ''} data-o="${o.id}"><div class="ico">${occIcon(o)}</div>
-        <div class="grow"><b>${esc(occName(o))}</b><div class="small muted">${d ? `<span class="${dcls(d)}">${niceDate(d)}${o.kind === 'birthday' ? ageBadge(o.person_id, o.year) : ''}</span>` : ''}${recipientsOf(o.id).length > 1 ? ` · ${recipientsOf(o.id).length} gavėjai` : ''}</div>
-        <div style="margin-top:4px">${countPills(gifts) || '<span class="small muted">tuščia</span>'}</div></div>
-        <div class="when"><b>${moneyShort(spent(gifts))}</b></div></div>`;
+    h += `<div class="cat-h">${name}</div><div class="card list">` + arr.map(o => {
+      const gifts = giftsOf(o.id), d = occDate(o), st = occStatus(o, o.kind);
+      return `<div class="li" data-o="${o.id}">${o.kind === 'birthday' ? ava(o.person_id) : `<span class="ico">${occIcon(o)}</span>`}
+        <div class="grow"><div class="t">${esc(occName(o))}</div><div class="s">${d ? `${niceDate(d)}${o.kind === 'birthday' ? ageBadge(o.person_id, o.year) : ''} · ` : ''}${esc(st.txt)}</div></div>
+        <span class="end"><b>${moneyShort(spent(gifts))}</b>${st.todo ? `<span style="color:var(--todo)">nupirkti dar ${st.todo}</span>` : ''}</span></div>`;
     }).join('') + `</div>`;
   }
   view.innerHTML = h;
@@ -888,21 +934,50 @@ function newOccasionSheet(done) {
 
 // ============================================================ IDĖJOS
 VIEWS.ideas = () => {
-  setTop('Idėjos');
+  setTop('Idėjos', `<button class="icon-btn" id="paste" title="Įklijuoti sąrašą (daug idėjų iš karto)">${svg('<rect x="6" y="4" width="12" height="17" rx="2"/><path d="M9 4.5V3h6v1.5M9 10h6M9 14h6M9 18h3"/>')}</button>`);
   const all = clusters(freeIdeas());
-  let h = `<h2>💡 Laukiančios idėjos <span class="sum">${all.length}</span></h2>`;
-  if (!all.length) h += `<div class="card empty">Laukiančių idėjų nėra. Spauskite <b>＋ Idėja</b>, kai tik kas šaus į galvą.</div>`;
-  const byCat = new Map();
-  for (const c of all) { const k = KINDS[(c.gifts[0].cat || '').split('|')[0]] ? c.gifts[0].cat : ''; if (!byCat.has(k)) byCat.set(k, []); byCat.get(k).push(c); }
-  const keys = [...byCat.keys()].sort((a, b) => (a ? 1 : 0) - (b ? 1 : 0) || lt(catLabel(a), catLabel(b)));
-  for (const k of keys) {
-    if (keys.length > 1 || k) h += `<div class="cat-h">${k ? esc(catLabel(k)) : 'Bet kuriai progai'} <span>${byCat.get(k).length}</span></div>`;
-    h += `<div class="card list compact">${byCat.get(k).map(c => ideaLi(c, null, true)).join('')}</div>`;
+  // filtrai: progos ir žmonės, kurie turi idėjų (daugiausia turintys – pirmi)
+  const catN = new Map(), pN = new Map();
+  for (const c of all) {
+    const k = KINDS[(c.gifts[0].cat || '').split('|')[0]] ? c.gifts[0].cat : '';
+    if (k) catN.set(k, (catN.get(k) || 0) + 1);
+    c.pids.forEach(pid => pN.set(pid, (pN.get(pid) || 0) + 1));
   }
-  const todo = toBuy();
-  if (todo.length) h += `<a class="card pad row shoplink" href="#shop" style="margin-top:18px"><span style="font-size:22px">🛒</span><span class="grow"><b>Priskirta progoms, bet dar nenupirkta: ${todo.length}</b><br><span class="small muted">Visas sąrašas pagal parduotuves</span></span><span class="muted">›</span></a>`;
-  view.innerHTML = h;
-  bindIdeaLis();
+  const filters = [['', `Visos ${all.length}`], ...[...catN.keys()].sort((a, b) => lt(catLabel(a), catLabel(b))).map(k => ['c:' + k, catLabel(k)]),
+    ...[...pN.entries()].sort((a, b) => b[1] - a[1] || lt(pname(a[0]), pname(b[0]))).map(([pid]) => ['p:' + pid, pname(pid)])];
+  if (!filters.some(x => x[0] === UI.idf)) UI.idf = '';
+  view.innerHTML = `<label class="searchbox">${svg('<circle cx="11" cy="11" r="7"/><path d="M20 20l-3.5-3.5"/>')}<input type="search" id="iq" placeholder="Ieškoti idėjų" value="${esc(UI.iq || '')}"></label>
+    <div class="chips scroll filters">${filters.map(([k, l]) => `<button class="chip ${UI.idf === k ? 'on' : ''}" data-f="${esc(k)}">${esc(l)}</button>`).join('')}</div>
+    <div id="ilist"></div>`;
+  const draw = () => {
+    CL = [];
+    const q = (UI.iq || '').trim().toLowerCase(), f = UI.idf || '';
+    const list = all.filter(c => {
+      const g = c.gifts[0];
+      if (q && ![g.title, g.shop, g.note, ...c.pids.map(pname)].some(x => String(x || '').toLowerCase().includes(q))) return false;
+      if (f.startsWith('c:')) return g.cat === f.slice(2);
+      if (f.startsWith('p:')) return c.pids.includes(+f.slice(2));
+      return true;
+    });
+    let h = '';
+    if (!all.length) h = `<div class="card empty" style="margin-top:14px">Idėjų dar nėra. Spauskite <b>+ Idėja</b>, kai tik kas šaus į galvą.</div>`;
+    else if (!list.length) h = `<div class="empty">Nieko nerasta</div>`;
+    else if (!q && !f) {
+      // be filtro – sugrupuota pagal tai, kuriai progai tinka
+      const byCat = new Map();
+      for (const c of list) { const k = KINDS[(c.gifts[0].cat || '').split('|')[0]] ? c.gifts[0].cat : ''; if (!byCat.has(k)) byCat.set(k, []); byCat.get(k).push(c); }
+      const keys = [...byCat.keys()].sort((a, b) => (a ? 1 : 0) - (b ? 1 : 0) || lt(catLabel(a), catLabel(b)));
+      for (const k of keys) h += `<div class="cat-h">${k ? esc(catLabel(k)) : 'Bet kada'}<span>${byCat.get(k).length}</span></div><div class="card list">${byCat.get(k).map(c => ideaLi(c, null, true)).join('')}</div>`;
+    } else h = `<div class="cat-h">Rasta<span>${list.length}</span></div><div class="card list">${list.map(c => ideaLi(c, null, f.startsWith('c:'))).join('')}</div>`;
+    const todo = toBuy();
+    if (todo.length && !q) h += `<div class="card list" style="margin-top:18px"><a class="li" href="#shop"><span class="ico">🛒</span><div class="grow"><div class="t">Priskirta progoms, dar nenupirkta</div><div class="s">${todo.length} · sąrašas pagal parduotuves</div></div><span class="chev">›</span></a></div>`;
+    $('#ilist').innerHTML = h;
+    bindIdeaLis($('#ilist'));
+  };
+  draw();
+  $('#iq').oninput = e => { UI.iq = e.target.value; saveUI(); draw(); };
+  $$('[data-f]', view).forEach(b => b.onclick = () => { UI.idf = b.dataset.f; saveUI(); $$('[data-f]', view).forEach(x => x.classList.toggle('on', x === b)); draw(); });
+  $('#paste').onclick = pasteSheet;
 };
 
 // ============================================================ PIRKINIAI
@@ -910,40 +985,41 @@ VIEWS.ideas = () => {
 const toBuy = () => S.gifts.filter(g => (g.status === 'idea' || g.status === 'ordered') && g.occasion_id && I.occasions[g.occasion_id]
   && (occDate(I.occasions[g.occasion_id]) || '9999') >= addDays(T(), -1));
 VIEWS.shop = () => {
-  setTop('Pirkiniai');
+  setTop('Reikia nupirkti', '', true);
   const all = toBuy(), need = all.filter(g => g.status === 'idea'), ord = all.filter(g => g.status === 'ordered');
   const row = g => {
     const o = I.occasions[g.occasion_id], st = stOf(g);
-    return `<div class="li" data-g="${g.id}"><button class="st" data-buy="${g.id}" title="Pažymėti nupirkta">${st.icon}</button>${thumb(g.photo)}
-      <div class="grow"><div class="ellip">${esc(g.title)}${g.url ? ' <span class="small">🔗</span>' : ''}</div><div class="tags">${tagO(occTitle(o))}${g.person_id ? tagP(g.person_id) : tagT(g.recipient_text)}</div></div>
-      ${g.price != null ? `<b class="nowrap">${money(g.price)}</b>` : ''}</div>`;
+    return `<div class="li" data-g="${g.id}"><button class="chk" data-buy="${g.id}" aria-label="Pažymėti „nupirkta“">${IC.check}</button>${thumb(g.photo)}
+      <div class="grow"><div class="t">${esc(g.title)}${g.url ? ' <span class="small">🔗</span>' : ''}</div><div class="s">${esc([occTitle(o), g.person_id ? pname(g.person_id) : g.recipient_text, st === STATUS.ordered ? 'užsakyta' : ''].filter(Boolean).join(' · '))}</div></div>
+      <span class="end">${money(g.price)}</span></div>`;
   };
-  let h = `<p class="muted small" style="margin:0 4px 12px">Kas dar nenupirkta artėjančioms progoms. Paspaudus 🛒 – pažymima „Nupirkta“.</p>`;
+  let h = `<p class="muted small" style="margin:0 4px 12px">Kas dar nenupirkta artėjančioms progoms. Pažymėkite apskritimą, kai nupirksite.</p>`;
   if (!all.length) h += `<div class="card empty">Viskas nupirkta 🎉<br><span class="small">Čia atsiranda dovanos, priskirtos progoms, bet dar nenupirktos.</span></div>`;
   const shops = new Map();
   for (const g of need) { const k = (g.shop || '').trim(); if (!shops.has(k)) shops.set(k, []); shops.get(k).push(g); }
   const keys = [...shops.keys()].sort((a, b) => (a ? 0 : 1) - (b ? 0 : 1) || lt(a, b));
-  if (need.length) h += `<h2>🛒 Reikia nupirkti <span class="sum">${need.length} · ${moneyShort(need.reduce((s, g) => s + (g.price || 0), 0))}</span></h2><div class="grid">`
+  if (need.length) h += `<h2>Iš viso ${need.length} <span class="sum">${moneyShort(need.reduce((s, g) => s + (g.price || 0), 0))}</span></h2>`
     + keys.map(k => { const arr = shops.get(k).sort((a, b) => (occDate(I.occasions[a.occasion_id]) || '').localeCompare(occDate(I.occasions[b.occasion_id]) || ''));
-      return `<div><div class="cat-h">${k ? '🏬 ' + esc(k) : 'Parduotuvė nenurodyta'} <span>${arr.length}</span></div><div class="card list compact">${arr.map(row).join('')}</div></div>`; }).join('') + `</div>`;
-  if (ord.length) h += `<h2>📦 Užsakyta – laukiama <span class="sum">${ord.length}</span></h2><div class="card list compact">${ord.map(row).join('')}</div>`;
+      return `<div class="cat-h">${k ? esc(k) : 'Parduotuvė nenurodyta'}<span>${arr.length}</span></div><div class="card list">${arr.map(row).join('')}</div>`; }).join('');
+  if (ord.length) h += `<div class="cat-h">Užsakyta, laukiama<span>${ord.length}</span></div><div class="card list">${ord.map(row).join('')}</div>`;
   view.innerHTML = h;
   $$('[data-g]', view).forEach(el => el.onclick = e => { if (!e.target.closest('[data-buy]')) giftSheet(I.gifts[el.dataset.g]); });
   $$('[data-buy]', view).forEach(b => b.onclick = async () => {
     const g = I.gifts[b.dataset.buy], prev = g.status;
     await saveRow('gifts', { id: g.id, status: 'bought' });
-    toast(`✓ Nupirkta: ${g.title}`, { label: 'Atšaukti', fn: () => saveRow('gifts', { id: g.id, status: prev }) }, 3000);
+    toast(`Nupirkta: ${g.title}`, { label: 'Atšaukti', fn: () => saveRow('gifts', { id: g.id, status: prev }) }, 3000);
   });
 };
 
 // ============================================================ GAUTOS DOVANOS
 function receivedBlock(list, title, addPreset = true) {
   list = [...list].sort((a, b) => b.id - a.id);
-  return `<h2>${esc(title)}${list.length ? ` <span class="muted" style="font-weight:600">(${list.length})</span>` : ''}${addPreset ? '<button class="btn small" data-rcv-add>＋ Gauta dovana</button>' : ''}</h2>
-    ${list.length ? `<div class="card list compact">${list.map(r => { const o = I.occasions[r.occasion_id];
-      return `<div class="li" data-rcv="${r.id}">${r.photo ? thumb(r.photo) : '<div class="ico">📥</div>'}<div class="grow"><div class="ellip">${esc(r.title)}</div>
-        <div class="tags">${r.person_id ? tagP(r.person_id, 'nuo ') : ''}${o ? tagO(occTitle(o)) : ''}${r.note ? `<span class="small muted ellip">${esc(r.note)}</span>` : ''}</div></div></div>`; }).join('')}</div>`
-      : '<div class="card empty small" style="padding:14px">Gautų dovanų dar neįrašyta.</div>'}`;
+  if (!list.length && !addPreset) return '';
+  return `<h2>${esc(title)}${list.length ? ` <span class="sum">${list.length}</span>` : ''}</h2>
+    <div class="card list">${list.map(r => { const o = I.occasions[r.occasion_id];
+      const line = [r.person_id ? 'nuo ' + pname(r.person_id) : '', o ? occTitle(o) : '', r.note].filter(Boolean).join(' · ');
+      return `<div class="li" data-rcv="${r.id}">${r.photo ? thumb(r.photo) : '<span class="ico">📥</span>'}<div class="grow"><div class="t">${esc(r.title)}</div>${line ? `<div class="s">${esc(line)}</div>` : ''}</div></div>`; }).join('')}
+      ${addPreset ? '<div class="li add" data-rcv-add><span class="plus">+</span><span class="grow">Įrašyti gautą dovaną</span></div>' : ''}</div>`;
 }
 function bindReceived(root, preset) {
   $$('[data-rcv]', root).forEach(el => el.onclick = () => receivedSheet(I.received[el.dataset.rcv]));
@@ -986,39 +1062,32 @@ const bdLine = p => { const d = nextBd(p); return d ? `<span class="${dcls(d)}">
 const looksGroup = p => !p.is_group && /\s(ir|su)\s|,|\+|&|ams$|iems$|ėms$|oms$|šeim|vaik|tėv(ai|ams|ų)/i.test(p.name.trim()) && !(UI.notGroup || []).includes(p.id);
 
 VIEWS.people = () => {
-  setTop('Žmonės', `<a class="btn small" href="#merge" title="Sujungti">🔗<span class="lbl"> Sujungti</span>${mergePairs().length ? ` (${mergePairs().length})` : ''}</a>
-    <button class="btn small" id="new-g" title="Nauja grupė">＋<span class="lbl"> Grupė</span><span class="ico-only">👥</span></button>
-    <button class="btn small primary" id="new-p" title="Naujas žmogus">＋<span class="lbl"> Žmogus</span><span class="ico-only">👤</span></button>`);
+  setTop('Žmonės');
   const all = people(), arch = people(true).filter(p => p.archived);
   const groups = all.filter(p => p.is_group), indiv = all.filter(p => !p.is_group);
-  const sugg = indiv.filter(looksGroup);
+  const sugg = indiv.filter(looksGroup), pairs = mergePairs().length;
   let h = '';
-  if (sugg.length) h += `<div class="card pad stack" style="margin-bottom:14px"><b>Panašu į grupes</b>
-    <div class="small muted">Šie įrašai, atrodo, yra keli žmonės kartu. Pažymėjus grupe, jai galima priskirti narius.</div>
-    <div class="list">${sugg.map(p => `<div class="li" style="cursor:default"><span class="grow">${esc(p.name)}</span>
-      <button class="btn small primary" data-mkg="${p.id}">👥 Grupė</button><button class="btn small ghost" data-nog="${p.id}">Ne</button></div>`).join('')}</div></div>`;
-  h += `<h2>👥 Grupės <span class="sum">${groups.length}</span></h2>`;
-  h += groups.length ? `<div class="grid narrow">` + groups.map(g => {
-    const ms = membersOf(g.id).filter(m => !m.archived), ideas = freeIdeas(g.id).length;
-    return `<div class="card person ${pcCls(g.id)}" ${pcSty(g.id)} data-p="${g.id}"><div class="row"><span class="nm grow ellip">${esc(g.name)}</span>${ideas ? `<span class="pill gold">💡 ${ideas}</span>` : ''}${g.archived ? '<span class="pill">archyve</span>' : ''}</div>
-      ${ms.length ? `<div class="members">${ms.map(m => `<a class="member" href="#person/${m.id}"><span class="ellip">${esc(m.name)}</span><span class="small">${bdLine(m)}</span></a>`).join('')}</div>`
-        : '<div class="small muted">Narių dar nėra – ✏️ priskirkite</div>'}</div>`;
-  }).join('') + `</div>` : `<div class="card empty">Grupių dar nėra. Grupė – keli žmonės, kuriems dovanojama kartu (pvz. „A tėvai“).</div>`;
-  h += `<h2>👤 Žmonės <span class="sum">${indiv.length}</span></h2>`;
-  h += indiv.length ? `<div class="grid narrow">` + indiv.map(p => {
-    const ideas = freeIdeas(p.id).length, gs = groupsOf(p.id);
-    return `<div class="card person ${pcCls(p.id)}" ${pcSty(p.id)} data-p="${p.id}"><div class="row"><span class="nm grow ellip">${esc(p.name)}</span>${ideas ? `<span class="pill gold">💡 ${ideas}</span>` : ''}${p.archived ? '<span class="pill">archyve</span>' : ''}</div>
-      ${p.birthday ? `<div class="small muted">${bdLine(p)}</div>` : ''}
-      ${gs.length ? `<div class="small muted ellip">👥 ${gs.map(g => esc(g.name)).join(', ')}</div>` : ''}</div>`;
-  }).join('') + `</div>` : `<div class="card empty">Žmonių dar nėra. Pridėkite artimuosius ir jų gimtadienius.</div>`;
+  if (sugg.length) h += `<h2>Panašu į grupes</h2><div class="card list">${sugg.map(p => `<div class="li" style="cursor:default">${ava(p.id)}<div class="grow"><div class="t">${esc(p.name)}</div><div class="s">Keli žmonės kartu?</div></div>
+      <button class="btn small" data-mkg="${p.id}">Grupė</button><button class="btn small ghost" data-nog="${p.id}">Ne</button></div>`).join('')}</div>`;
+  h += `<h2>Grupės <span class="sum">${groups.length || ''}</span></h2><div class="card list">` + groups.map(g => {
+    const ms = membersOf(g.id).filter(m => !m.archived);
+    return `<div class="li" data-p="${g.id}">${ava(g.id)}<div class="grow"><div class="t">${esc(g.name)}</div><div class="s">${ms.length ? esc(ms.map(m => m.name).join(', ')) : 'Narių dar nėra'}</div></div><span class="chev">›</span></div>`;
+  }).join('') + `<div class="li add" id="new-g"><span class="plus">+</span><span class="grow">Nauja grupė <span class="small muted">(pvz. „A tėvai“)</span></span></div></div>`;
+  h += `<h2>Žmonės <span class="sum">${indiv.length || ''}</span></h2>`;
+  h += indiv.length ? `<div class="card list">` + indiv.map(p => {
+    const d = nextBd(p), gs = groupsOf(p.id);
+    const line = d ? `🎂 ${mdNice(p.birthday)}${ageBadge(p.id, +d.slice(0, 4))}` : esc(gs.map(g => g.name).join(', '));
+    return `<div class="li" data-p="${p.id}">${ava(p.id)}<div class="grow"><div class="t">${esc(p.name)}</div>${line ? `<div class="s">${line}</div>` : ''}</div>
+      ${d ? `<span class="end"><b class="${dcls(d)}">${until(d)}</b></span>` : ''}</div>`;
+  }).join('') + `</div>` : `<div class="card empty">Žmonių dar nėra. Spauskite <b>+ Žmogus</b> ir įrašykite artimuosius su gimtadieniais.</div>`;
+  if (pairs) h += `<div class="card list" style="margin-top:14px"><a class="li" href="#merge"><span class="ico">🔗</span><div class="grow"><div class="t">Sujungti pasikartojančius vardus</div><div class="s">Rasta panašių porų: ${pairs}</div></div><span class="chev">›</span></a></div>`;
   // archyvas: nerodomi sąrašuose, bet istorija lieka; bet kada galima grąžinti
-  if (arch.length) h += `<h2 id="arch" style="cursor:pointer">🗄 Archyvas <span class="sum">${arch.length} ${UI.arch ? '▾' : '▸'}</span></h2>` + (UI.arch ? `<div class="card list">${arch.map(p =>
-    `<div class="li" data-p="${p.id}"><span class="grow ellip">${esc(pLabel(p))}</span><button class="btn small" data-unarch="${p.id}">↩ Išarchyvuoti</button></div>`).join('')}</div>` : '');
+  if (arch.length) h += `<h2 id="arch" style="cursor:pointer">Archyvas <span class="sum">${arch.length} ${UI.arch ? '▾' : '▸'}</span></h2>` + (UI.arch ? `<div class="card list">${arch.map(p =>
+    `<div class="li" data-p="${p.id}">${ava(p.id)}<div class="grow"><div class="t">${esc(p.name)}</div></div><button class="btn small" data-unarch="${p.id}">Grąžinti</button></div>`).join('')}</div>` : '');
   view.innerHTML = h;
-  $$('[data-p]', view).forEach(el => el.onclick = e => { if (!e.target.closest('a.member, [data-unarch]')) go('person/' + el.dataset.p); });
+  $$('[data-p]', view).forEach(el => el.onclick = e => { if (!e.target.closest('[data-unarch]')) go('person/' + el.dataset.p); });
   $$('[data-mkg]', view).forEach(b => b.onclick = async () => { const id = +b.dataset.mkg; await saveRow('people', { id, is_group: 1 }, true); render(); personSheet(I.people[id]); });
   $$('[data-nog]', view).forEach(b => b.onclick = () => { UI.notGroup = [...(UI.notGroup || []), +b.dataset.nog]; saveUI(); render(); });
-  $('#new-p').onclick = () => personSheet(null);
   $('#new-g').onclick = () => personSheet(null, true);
   if ($('#arch')) $('#arch').onclick = () => { UI.arch = !UI.arch; saveUI(); render(); };
   $$('[data-unarch]', view).forEach(b => b.onclick = async e => { e.stopPropagation(); await saveRow('people', { id: +b.dataset.unarch, archived: 0 }); toast('Grąžinta iš archyvo'); });
@@ -1171,48 +1240,45 @@ VIEWS.merge = () => {
 VIEWS.person = id => {
   const p = I.people[id];
   if (!p) return go('people');
-  setTop(pLabel(p), `<button class="icon-btn" id="p-arch-t" title="${p.archived ? 'Išarchyvuoti' : 'Archyvuoti (paslėpti iš sąrašų)'}">${p.archived ? '↩' : '🗄'}</button><button class="icon-btn" id="p-edit" title="Redaguoti">✏️</button>`, true);
+  setTop(p.name, `<button class="icon-btn" id="p-arch-t" title="${p.archived ? 'Grąžinti iš archyvo' : 'Archyvuoti (paslėpti iš sąrašų)'}">${p.archived ? IC.unarchive : IC.archive}</button><button class="icon-btn" id="p-edit" title="Redaguoti">${IC.edit}</button>`, true);
   const ideas = clusters(freeIdeas()).filter(c => c.pids.includes(p.id));
   const gs = groupsOf(p.id), ms = p.is_group ? membersOf(p.id) : [];
   // istorija: savo dovanos ir (žmogui) – grupių, kurioms priklauso, dovanos
   const ids = new Set([p.id, ...gs.map(g => g.id)]);
   const gifts = S.gifts.filter(g => ids.has(g.person_id) && g.occasion_id && I.occasions[g.occasion_id]);
-  let info = '';
-  if (p.is_group) info = ms.length ? `<div class="chips">${ms.map(m => `<a class="chip" href="#person/${m.id}">${esc(m.name)}</a>`).join('')}</div>` : '<span class="muted small">Narių nėra – ✏️ priskirkite</span>';
-  else info = [p.birthday ? `<div class="small">${bdLine(p)}</div>` : '',
-    gs.length ? `<div class="chips" style="margin-top:6px">${gs.map(g => `<a class="chip" href="#person/${g.id}">👥 ${esc(g.name)}</a>`).join('')}</div>` : ''].join('');
-  const pf = prof(p), sizes = [['👕', pf.clothes], ['👟', pf.shoes], ['💍', pf.ring]].filter(x => x[1]).map(x => `${x[0]} ${esc(x[1])}`).join(' · ');
-  const profH = [sizes ? `<div>${sizes}</div>` : '', ...[['❤️', 'Mėgsta', pf.likes], ['🚫', 'Nedovanoti', pf.avoid], ['✅', 'Jau turi', pf.has]]
-    .filter(x => x[2]).map(x => `<div>${x[0]} <span class="muted">${x[1]}:</span> ${esc(x[2])}</div>`)].join('');
-  let h = (info || p.notes || profH) ? `<div class="card summary ${pcCls(p.id)}" ${pcSty(p.id)}>${info ? `<div>${info}</div>` : ''}
-    ${profH ? `<div class="prof small">${profH}</div>` : ''}
-    ${p.notes ? `<div class="grow pre small" style="min-width:200px">${esc(p.notes)}</div>` : ''}</div>` : '';
-  h += `<div class="grid"><div><h2 style="margin-top:4px">💡 Idėjos <span class="sum">${ideas.length}</span><button class="btn small" id="pi">＋ Idėja</button></h2>
-    ${ideas.length ? `<div class="card list">${ideas.map(c => ideaLi(c, p.id)).join('')}</div>` : '<div class="card empty small" style="padding:14px">Idėjų dar nėra.</div>'}
-    ${receivedBlock(S.received.filter(r => r.person_id === p.id), "📥 Gautos dovanos")}</div>`;
-  h += `<div><h2 style="margin-top:4px">🎁 Dovanų istorija</h2>`;
+  const d = nextBd(p);
+  let h = '';
+  if (p.archived) h += `<div class="card pad row" style="margin-bottom:12px"><span class="grow small">Archyvuota – nerodoma sąrašuose, istorija išsaugota.</span><button class="btn small" id="p-unarch">Grąžinti</button></div>`;
+  h += `<div class="p-head">${ava(p.id, 'lg')}<div class="info">
+    ${p.is_group ? `<div class="muted">Grupė${ms.length ? '' : ' · narių dar nėra'}</div>` : d ? `<div>🎂 ${mdNice(p.birthday)}${ageBadge(p.id, +d.slice(0, 4))}</div><div class="${dcls(d)}">${until(d)}</div>` : '<div class="muted">Gimtadienis neįrašytas</div>'}
+    </div></div>`;
+  const links = p.is_group ? ms : gs;
+  if (links.length) h += `<div class="chips" style="margin:12px 0 0">${links.map(x => `<a class="chip" href="#person/${x.id}">${esc(pLabel(x))}</a>`).join('')}</div>`;
+  h += `<h2>Idėjos <span class="sum">${ideas.length || ''}</span></h2><div class="card list">${ideas.map(c => ideaLi(c, p.id)).join('')}
+    <div class="li add" id="pi"><span class="plus">+</span><span class="grow">Nauja idėja</span></div></div>`;
+  const pf = prof(p);
+  const kv = [['Drabužiai', pf.clothes], ['Avalynė', pf.shoes], ['Žiedas', pf.ring], ['Mėgsta', pf.likes], ['Nedovanoti', pf.avoid], ['Jau turi', pf.has]].filter(x => x[1]);
+  if (kv.length || p.notes) h += `<h2>Dydžiai ir pomėgiai</h2><div class="card">${kv.map(([k, v]) => `<div class="kv"><span>${k}</span><span>${esc(v)}</span></div>`).join('')}
+    ${p.notes ? `<div class="kv"><span class="pre" style="color:var(--ink)">${esc(p.notes)}</span></div>` : ''}</div>`;
+  else h += `<div class="card list" style="margin-top:14px"><div class="li add" id="p-edit2"><span class="plus">+</span><span class="grow">Įrašyti dydžius, pomėgius</span></div></div>`;
+  h += `<h2>Dovanos per progas <span class="sum">${gifts.length ? moneyShort(spent(gifts)) : ''}</span></h2>`;
+  if (!gifts.length) h += `<div class="card empty small">Dovanų įrašų dar nėra.</div>`;
   const byYear = new Map();
   for (const g of gifts) { const y = I.occasions[g.occasion_id].year; if (!byYear.has(y)) byYear.set(y, []); byYear.get(y).push(g); }
-  if (!gifts.length) h += `<div class="card empty">Dovanų įrašų dar nėra.</div>`;
   for (const y of [...byYear.keys()].sort((a, b) => b - a)) {
-    const arr = byYear.get(y);
-    const keys = [...new Set(arr.map(g => g.occasion_id + ':' + g.person_id))]
-      .sort((a, b) => (occDate(I.occasions[+a.split(':')[0]]) || '').localeCompare(occDate(I.occasions[+b.split(':')[0]]) || ''));
-    h += `<div class="year-h row">${y} <span class="grow"></span>${moneyShort(spent(arr))}</div><div class="card" style="padding:4px 0">`;
-    for (const k of keys) {
-      const [oid, pid] = k.split(':').map(Number), o = I.occasions[oid];
-      h += `<div class="small" style="padding:6px 14px 0"><a href="#occ/${oid}" class="nolink">${tagO(occIcon(o) + ' ' + occName(o))}</a>${pid !== p.id ? ' ' + tagP(pid) : ''}</div>
-        <ul class="gifts">${arr.filter(g => g.occasion_id === oid && g.person_id === pid).map(giftRow).join('')}</ul>`;
-    }
-    h += `</div>`;
+    const arr = byYear.get(y).sort((a, b) => (occDate(I.occasions[a.occasion_id]) || '').localeCompare(occDate(I.occasions[b.occasion_id]) || ''));
+    h += `<div class="cat-h">${y}<span>${moneyShort(spent(arr))}</span></div><div class="card list">${arr.map(g => {
+      const o = I.occasions[g.occasion_id];
+      return giftLi(g, `${occIcon(o)} ${occName(o)}${g.person_id !== p.id ? ' · ' + pname(g.person_id) : ''}`);
+    }).join('')}</div>`;
   }
-  h += `</div></div>`;
-  if (p.archived) h = `<div class="card pad row" style="margin-bottom:12px;background:var(--chip)"><span class="grow">🗄 Archyvuota – nerodoma sąrašuose, istorija išsaugota.</span><button class="btn small" id="p-unarch">↩ Išarchyvuoti</button></div>` + h;
+  h += receivedBlock(S.received.filter(r => r.person_id === p.id), 'Gautos dovanos');
   view.innerHTML = h;
   $('#p-edit').onclick = () => personSheet(p);
+  if ($('#p-edit2')) $('#p-edit2').onclick = () => personSheet(p);
   const setArch = async v => {
     await saveRow('people', { id: p.id, archived: v });
-    toast(v ? '🗄 Archyvuota' : 'Grąžinta iš archyvo', { label: 'Atšaukti', fn: () => saveRow('people', { id: p.id, archived: v ? 0 : 1 }) });
+    toast(v ? 'Archyvuota' : 'Grąžinta iš archyvo', { label: 'Atšaukti', fn: () => saveRow('people', { id: p.id, archived: v ? 0 : 1 }) });
   };
   $('#p-arch-t').onclick = () => setArch(p.archived ? 0 : 1);
   if ($('#p-unarch')) $('#p-unarch').onclick = () => setArch(0);
@@ -1222,7 +1288,7 @@ VIEWS.person = id => {
 
 // ============================================================ STATISTIKA
 VIEWS.stats = () => {
-  setTop('Statistika');
+  setTop('Statistika', '', true);
   const real = S.gifts.filter(g => g.status !== 'idea' && g.occasion_id && I.occasions[g.occasion_id]);
   const years = [...new Set(real.map(g => I.occasions[g.occasion_id].year))].sort((a, b) => b - a);
   if (!years.length) { view.innerHTML = `<div class="card empty">Statistika atsiras, kai bus nupirktų dovanų.</div>`; return; }
@@ -1262,8 +1328,8 @@ VIEWS.stats = () => {
 
 // ============================================================ PAIEŠKA
 VIEWS.search = () => {
-  setTop('Paieška');
-  view.innerHTML = `<input type="search" id="sq" placeholder="Ar jau dovanojom? Ieškokite dovanos, parduotuvės, žmogaus…" value="${esc(UI.sq || '')}" autofocus>
+  setTop('Paieška', '', true);
+  view.innerHTML = `<label class="searchbox">${svg('<circle cx="11" cy="11" r="7"/><path d="M20 20l-3.5-3.5"/>')}<input type="search" id="sq" placeholder="Ar jau dovanojom? Dovana, parduotuvė, žmogus…" value="${esc(UI.sq || '')}" autofocus></label>
     <div id="sr" style="margin-top:14px"></div>`;
   const run = () => {
     const q = $('#sq').value.trim().toLowerCase();
@@ -1273,14 +1339,14 @@ VIEWS.search = () => {
     const ps = people(true).filter(p => hit(p.name) || hit(p.notes));
     const gs = S.gifts.filter(g => hit(g.title) || hit(g.shop) || hit(g.note) || hit(g.recipient_text) || hit(pname(g.person_id)))
       .sort((a, b) => (I.occasions[b.occasion_id]?.year || 9999) - (I.occasions[a.occasion_id]?.year || 9999));
-    let h = ps.length ? `<div class="chips" style="margin-bottom:12px">${ps.map(p => `<a class="chip" href="#person/${p.id}">👤 ${esc(p.name)}</a>`).join('')}</div>` : '';
+    let h = ps.length ? `<div class="chips" style="margin-bottom:12px">${ps.map(p => `<a class="chip" href="#person/${p.id}">${esc(p.name)}</a>`).join('')}</div>` : '';
     const rs = (S.received || []).filter(r => hit(r.title) || hit(r.note) || hit(pname(r.person_id)));
     h += gs.length ? `<div class="card list">${gs.slice(0, 200).map(g => {
       const o = I.occasions[g.occasion_id];
-      return `<div class="li" data-g="${g.id}">${g.photo ? thumb(g.photo) : `<div class="ico">${stOf(g).icon}</div>`}<div class="grow"><div class="ellip">${esc(g.title)}${g.shop ? ` <span class="muted small">· ${esc(g.shop)}</span>` : ''}</div>
-        <div class="tags">${g.person_id ? tagP(g.person_id) : tagT(g.recipient_text)}${tagO(o ? occTitle(o) : '')}${o ? '' : '<span class="small muted">laukianti idėja</span>'}</div></div>${g.price != null ? `<b class="nowrap">${money(g.price)}</b>` : ''}</div>`;
+      return `<div class="li" data-g="${g.id}">${g.photo ? thumb(g.photo) : `<span class="ico">${stOf(g).icon}</span>`}<div class="grow"><div class="t">${esc(g.title)}</div>
+        <div class="s">${esc([g.person_id ? pname(g.person_id) : g.recipient_text, o ? occTitle(o) : 'laukianti idėja', g.shop].filter(Boolean).join(' · '))}</div></div><span class="end">${money(g.price)}</span></div>`;
     }).join('')}</div>` : (rs.length ? '' : `<div class="empty">Nieko nerasta.</div>`);
-    if (rs.length) h += receivedBlock(rs, '📥 Gautos dovanos', false);
+    if (rs.length) h += receivedBlock(rs, 'Gautos dovanos', false);
     $('#sr').innerHTML = h;
     $$('[data-g]', $('#sr')).forEach(el => el.onclick = () => { const g = I.gifts[el.dataset.g]; g.occasion_id ? giftSheet(g) : ideaSheet(clusterOf(g)); });
     bindReceived($('#sr'), {});
@@ -1291,7 +1357,7 @@ VIEWS.search = () => {
 
 // ============================================================ NUSTATYMAI
 VIEWS.settings = () => {
-  setTop('Nustatymai');
+  setTop('Nustatymai', '', true);
   const st = S.settings;
   view.innerHTML = `<div class="grid">
     <div class="card pad stack"><b>Artėjančios progos</b>

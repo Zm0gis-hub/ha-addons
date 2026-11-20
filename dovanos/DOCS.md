@@ -29,8 +29,37 @@ Sąsaja viena: kompiuteryje meniu kairėje ir kortelės keliais stulpeliais, tel
 
 ## 3. Kaip naudotis
 
+Apačioje trys skiltys (kompiuteryje – meniu kairėje):
+
 | Skiltis | Kas ten |
 |---|---|
+| **Šventės** | Viršuje – artimiausia šventė ir kiek gavėjų jau turi dovaną. Žemiau – visos artėjančios progos (gimtadieniai ir įjungtos šventės). Paspaudus – atidaroma proga. Apačioje – **Reikia nupirkti** ir **Visos progos** (ir praėjusių metų). |
+| **Idėjos** | Visos laukiančios idėjos. Viršuje – paieška ir filtrai (pvz. tik Kalėdoms ar tik vienam žmogui). Be filtro idėjos sugrupuotos pagal tai, kada tiktų. Žalia eilutė ↺ rodo, kur ir kam tokia dovana jau panaudota. Mygtukas su lapu viršuje – įklijuoti daug idėjų iš karto. |
+| **Žmonės** | Grupės ir žmonės su gimtadieniais. Žmogaus lange – jo idėjos, dydžiai ir pomėgiai, dovanos per progas ir gautos dovanos. |
+
+Viršuje dešinėje: **paieška** („Ar jau dovanojom?“) ir **⋮ meniu** – Visos progos, Reikia nupirkti, Statistika, Nustatymai.
+
+**Progos langas** – kiekvienas gavėjas su savo dovanomis.
+- **Apskritimas** prie dovanos – pažymėtas reiškia „nupirkta“. Paspaudus dar kartą žymė nuimama. Užsakyta, supakuota, įteikta – atidarius dovaną.
+- **+ Pridėti dovaną** – atsidaro dovanos langas, gavėjas ir proga jau pažymėti. **💡 Iš idėjų** toje pačioje eilutėje – pasirinkti iš laukiančių idėjų.
+- Viršuje filtras **Visi / Nupirkti / Be dovanos** – greitai matyti, ko dar trūksta.
+- **+ Pridėti žmogų ar grupę** – apačioje; **✕** prie vardo – pašalinti iš šios progos (gimtadienio žmogaus pašalinti negalima).
+- **Pieštukas** viršuje – biudžetas, pastabos, trynimas.
+- Kuriant naujų metų Kalėdas (ar kitą šventę), gavėjai nukopijuojami iš praėjusių metų.
+
+**+ Idėja** (apačioje dešinėje) – nauja idėja: **Ką dovanoti?**, **Kam?** (nebūtina; rodomi dažniausi, kiti – **Kiti…**; galima pažymėti kelis) ir **Kada tiktų?** (pvz. tik Kalėdoms, be metų). Galima įklijuoti ir parduotuvės nuorodą – pavadinimas, kaina ir nuotrauka užsipildo patys (jei parduotuvė leidžia). **Sąrašas** – daug idėjų iš karto. Žmonių skiltyje tas pats mygtukas yra **+ Žmogus**.
+
+Paspaudus idėją – ją galima pataisyti, pakeisti gavėjus, o **→ Proga** – pridėti prie konkrečios progos (tada pasirenkami ir metai).
+
+**Žmogaus profilis** – žmogaus lange **pieštukas**: dydžiai (drabužiai, avalynė, žiedas), ką mėgsta, ko nedovanoti, ką jau turi, spalva.
+
+**Priminimai telefone** – **⋮ → Nustatymai → Priminimai telefone**: pažymėkite telefoną, kiek dienų prieš (pvz. 14 d. ir 3 d.) ir kuriuo metu. Spauskite **Išbandyti pranešimą**. Priedas turi būti rodomas šoniniame meniu, kad paspaudus pranešimą atsidarytų Dovanos.
+
+**Spalvos** – žmogaus lange **pieštukas → Spalva** (pvz. vienos pusės giminei mėlyna, kitos – rožinė). Spalva matoma vardo raidžių apskritime ir taške prie vardo. Būsimos datos rodomos žaliai.
+
+**Žmonės ir grupės.** Kiekvienas žmogus įrašomas atskirai su gimimo data (`1990-01-15`, arba `01-15`, jei metų nežinote). **Grupė** (**+ Nauja grupė**, pvz. „A tėvai“) jungia kelis žmones – jai dovanojama kartu, pvz. per Kalėdas, o gimtadieniai lieka kiekvieno atskirai. Amžius rodomas „(37 m.)“, jubiliejai paryškinti. Žmogaus ar grupės, kuriems nebedovanojate, netrinkite – žmogaus lange spauskite **dėžutę** (archyvuoti): sąrašuose nebus rodomi, istorija liks. Grąžinti – Žmonių skilties apačioje **Archyvas → Grąžinti**.
+
+---|---|
 | ⏳ **Artėja** | Artimiausios progos (gimtadieniai ir įjungtos šventės). Matyti, kam jau nupirkta (✓), kam tik idėjos (💡), kam dar nieko (·). Paspaudus – atidaroma proga. |
 | 🎁 **Progos** | Visos progos pagal metus su sumomis. **＋ Nauja proga** – bet kuri proga, pvz. krikštynos. |
 | 💡 **Idėjos** | Laukiančios idėjos, sugrupuotos pagal tai, kuriai progai tinka (dauguma – „Bet kuriai progai“). Žalia eilutė ↺ rodo, kur ir kam tokia dovana jau panaudota. Paspaudus idėją – kam ją skirti, kuriai progai tinka, visas panaudojimo sąrašas; **→ Proga** – priskirti konkrečiai progai (tada pasirenkami ir metai). **📋 Įklijuoti sąrašą** – daug idėjų iš karto (kiekviena eilutė – idėja). |
@@ -94,6 +123,6 @@ Pvz. kai Claude paruošia idėjų sąrašą: **⚙️ → Importuoti JSON**.
 
 ## 6. Atsarginė kopija ir atnaujinimas
 
-**⚙️ → Atsisiųsti kopiją** – visi duomenys viename faile; **Atkurti iš kopijos** – grąžina juos (dabartiniai pakeičiami).
+**⋮ → Nustatymai → Atsisiųsti kopiją** – visi duomenys viename faile; **Atkurti iš kopijos** – grąžina juos (dabartiniai pakeičiami).
 
 Kai išleidžiama nauja versija, HA parodo **Yra atnaujinimas** – spauskite **Atnaujinti**. Duomenys nedingsta.

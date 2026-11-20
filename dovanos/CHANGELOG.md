@@ -1,5 +1,15 @@
 # Pakeitimai
 
+## 2.0.0
+- **Nauja išvaizda.** Programa perdaryta, kad būtų kaip įprasta telefono programėlė: ramios spalvos, telefono šriftas, paprasti sąrašai vietoj kortelių kortelėse, mažiau slinkimo.
+- **Trys skiltys:** Šventės, Idėjos, Žmonės. Visos progos, Reikia nupirkti, Statistika ir Nustatymai – viršuje **⋮** meniu (kompiuteryje – kairėje).
+- **Šventės:** viršuje artimiausia šventė su juosta „kiek gavėjų jau turi dovaną“.
+- **Progos lange** prie dovanos – apskritimas: pažymėta = nupirkta. Filtras **Visi / Nupirkti / Be dovanos**. „+ Pridėti dovaną“ ir „💡 Iš idėjų“ – vienoje eilutėje.
+- **Idėjos:** paieška ir filtrai (pagal šventę ar žmogų).
+- **Nauja idėja:** Ką dovanoti? Kam? Kada tiktų? Rodomi dažniausi žmonės, kiti – paspaudus **Kiti…**.
+- **Žmonės:** vardo raidės spalvotame apskritime, gimtadienis ir po kiek laiko.
+- Visos funkcijos ir duomenys liko tie patys.
+
 ## 1.11.0
 - **Spalvos:** žmogus ar grupė visur rodomi užpildytu ženkliuku (jo spalva, jei nustatyta, kitaip mėlynas), o proga – violetiniu rėmeliu. Taip iškart matosi, kas yra kam, o kas – kokia proga.
 - **Viena vieta idėjai įrašyti** – mygtukas **＋ Idėja** (žmogaus lange tas žmogus pažymimas iš karto). Ten pat **📋 Sąrašas** daug idėjų iš karto. Idėjų skilties ir žmogaus lango įvedimo laukeliai nebereikalingi.
