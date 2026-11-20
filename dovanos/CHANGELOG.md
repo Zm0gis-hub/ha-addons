@@ -1,5 +1,9 @@
 # Pakeitimai
 
+## 2.1.1
+- **Idėjos kompiuteryje – tanki lentelė per visą plotį:** idėja, kam, kada tiktų, parduotuvė, kur jau dovanota, kaina. Viename ekrane telpa kelis kartus daugiau idėjų. Paspaudus eilutę – idėjos langas.
+- Kompiuteryje visi sąrašai tankesni.
+
 ## 2.1.0
 - **Atskiras vaizdas kompiuteryje** (plačiame ekrane): viskas viename lange, kaip lentelėje.
 - Kairėje – **Artėja**: artimiausios progos su kalendoriaus lapeliu ir kiek dar nupirkti. Vienas paspaudimas – ir atsidaro proga.

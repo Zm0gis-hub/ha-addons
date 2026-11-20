@@ -263,7 +263,7 @@ function render() {
   $('#fab').hidden = !['soon', 'ideas', 'people', 'person'].includes(name);
   $('#fab-l').textContent = name === 'people' ? 'Žmogus' : 'Idėja';
   view.classList.toggle('wide', ['stats', 'settings', 'merge', 'occs'].includes(name));
-  view.classList.toggle('full', name === 'occ' && DESK());
+  view.classList.toggle('full', ['occ', 'ideas'].includes(name) && DESK());
   CL = [];
   VIEWS[name](route[1]);
   sideEvents();
@@ -1088,6 +1088,7 @@ VIEWS.ideas = () => {
     let h = '';
     if (!all.length) h = `<div class="card empty" style="margin-top:14px">Idėjų dar nėra. Spauskite <b>+ Idėja</b>, kai tik kas šaus į galvą.</div>`;
     else if (!list.length) h = `<div class="empty">Nieko nerasta</div>`;
+    else if (DESK()) h = ideaTable(list, !q && !f);
     else if (!q && !f) {
       // be filtro – sugrupuota pagal tai, kuriai progai tinka
       const byCat = new Map();
@@ -1105,6 +1106,26 @@ VIEWS.ideas = () => {
   $$('[data-f]', view).forEach(b => b.onclick = () => { UI.idf = b.dataset.f; saveUI(); $$('[data-f]', view).forEach(x => x.classList.toggle('on', x === b)); draw(); });
   $('#paste').onclick = pasteSheet;
 };
+
+// kompiuteryje – tanki lentelė per visą plotį (kaip Excel): idėja, kam, kada tiktų, parduotuvė, panaudota, kaina
+function ideaTable(list, grouped) {
+  const groups = new Map();
+  if (grouped) for (const c of list) { const k = KINDS[(c.gifts[0].cat || '').split('|')[0]] ? c.gifts[0].cat : ''; if (!groups.has(k)) groups.set(k, []); groups.get(k).push(c); }
+  else groups.set(null, list);
+  const keys = [...groups.keys()].sort((a, b) => (a ? 1 : 0) - (b ? 1 : 0) || lt(catLabel(a), catLabel(b)));
+  const row = c => {
+    const i = CL.push(c) - 1, g = c.gifts[0], uses = usesOf(g);
+    const usedFull = uses.map(useTxt).join('; ');
+    return `<tr data-c="${i}"><td class="it-t">${thumb(g.photo)}<span>${esc(g.title)}</span>${g.url ? ' <span class="small">🔗</span>' : ''}</td>
+      <td class="it-p">${c.pids.map(pid => `<span class="it-who">${ava(pid, 'xs')}${esc(pname(pid))}</span>`).join('')}</td>
+      <td class="it-c">${g.cat ? esc(catLabel(g.cat)) : '<span class="muted">Bet kada</span>'}</td>
+      <td class="it-s">${esc(g.shop || '')}</td>
+      <td class="it-u" title="${esc(usedFull)}">${uses.length ? `↺ ${uses.length > 1 ? uses.length + '× · ' : ''}${esc(uses.map(useShort).join(', '))}` : ''}</td>
+      <td class="it-m">${money(g.price)}</td></tr>`;
+  };
+  return `<div class="itbl-w"><table class="itbl"><thead><tr><th>Idėja</th><th>Kam</th><th>Kada tiktų</th><th>Parduotuvė</th><th>Jau dovanota</th><th class="it-m">Kaina</th></tr></thead>
+    ${keys.map(k => `<tbody>${grouped ? `<tr class="it-g"><td colspan="6">${k ? esc(catLabel(k)) : 'Bet kada'} <span>${groups.get(k).length}</span></td></tr>` : ''}${groups.get(k).map(row).join('')}</tbody>`).join('')}</table></div>`;
+}
 
 // ============================================================ PIRKINIAI
 // progoms priskirtos, bet dar nenupirktos dovanos (ir užsakytos) – būsimoms progoms

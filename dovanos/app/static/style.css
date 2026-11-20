@@ -447,3 +447,32 @@ details.more[open] summary { margin-bottom: 4px; }
   .ipanel .li .s { font-size: 12.5px; margin-top: 0; }
   .ipanel .th { width: 30px; height: 30px; }
 }
+
+/* ---------- kompiuteris: tankesni sąrašai ir idėjų lentelė ---------- */
+@media (min-width: 1100px) {
+  .list > .li { min-height: 46px; padding: 6px 14px; }
+  .li .t { font-size: 15px; }
+  .li .s { font-size: 13px; margin-top: 0; }
+  .li .ico { flex-basis: 34px; height: 34px; font-size: 17px; }
+  .li > .ava:not(.sm):not(.lg) { flex-basis: 34px; height: 34px; font-size: 13px; }
+  .cat-h { margin: 14px 4px 6px; }
+  #view.full > .searchbox { max-width: 520px; height: 40px; }
+  #view.full > .chips.filters { flex-wrap: wrap; overflow: visible; }
+  .itbl-w { margin-top: 12px; background: var(--card); border-radius: 12px; border: 1px solid var(--line); overflow: hidden; }
+  .itbl { width: 100%; border-collapse: collapse; table-layout: fixed; font-size: 14px; }
+  .itbl th { text-align: left; font-size: 12px; font-weight: 600; color: var(--muted); padding: 8px 12px; border-bottom: 1px solid var(--line); position: sticky; top: 0; background: var(--card); z-index: 1; }
+  .itbl th:nth-child(1) { width: 30%; } .itbl th:nth-child(2) { width: 22%; } .itbl th:nth-child(3) { width: 12%; }
+  .itbl th:nth-child(4) { width: 11%; } .itbl th:nth-child(5) { width: 17%; } .itbl th:nth-child(6) { width: 8%; }
+  .itbl td { padding: 5px 12px; border-bottom: 1px solid var(--line); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; vertical-align: middle; height: 24px; }
+  .itbl tbody tr[data-c] { cursor: pointer; }
+  .itbl tbody tr[data-c]:hover td { background: color-mix(in srgb, var(--accent) 7%, var(--card)); }
+  .itbl .it-g td { background: var(--bg); font-size: 12.5px; font-weight: 600; color: var(--muted); padding: 7px 12px; height: auto; }
+  .itbl .it-g span { font-weight: 500; margin-left: 4px; }
+  .itbl .it-t { color: var(--ink); }
+  .itbl .it-t .th { width: 22px; height: 22px; border-radius: 4px; vertical-align: middle; margin-right: 8px; object-fit: cover; }
+  .itbl .it-who { display: inline-flex; align-items: center; gap: 5px; margin-right: 10px; }
+  .itbl .ava.xs { flex: none; width: 18px; height: 18px; font-size: 8.5px; }
+  .itbl .it-c, .itbl .it-s { color: var(--muted); }
+  .itbl .it-u { color: var(--accent); font-size: 13px; }
+  .itbl .it-m { text-align: right; font-variant-numeric: tabular-nums; color: var(--muted); }
+}
