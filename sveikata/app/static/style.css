@@ -280,6 +280,7 @@ svg.head .zone.on { fill: color-mix(in srgb, var(--accent) 70%, transparent); st
 .wt svg.mini { width: 34px; height: 34px; display: block; }
 svg.mini .mo { fill: none; stroke: currentColor; stroke-width: 1.6; stroke-linecap: round; stroke-linejoin: round; }
 svg.mini .mf { fill: var(--accent); opacity: .85; }
+svg.mini .mf2 { fill: var(--accent); opacity: .3; }
 @media (max-width: 380px) { .head-side .legend { display: none; } }
 .wdose { padding: 10px 12px; margin-bottom: 8px; display: flex; flex-direction: column; gap: 8px; }
 .wdose input[type=time] { width: 104px; min-height: 36px; }

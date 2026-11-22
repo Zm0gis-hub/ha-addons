@@ -17,7 +17,7 @@ const WD = ['Pr', 'An', 'Tr', 'Kt', 'Pn', 'Št', 'Sk'];
 const DAYS = ['sekmadienis', 'pirmadienis', 'antradienis', 'trečiadienis', 'ketvirtadienis', 'penktadienis', 'šeštadienis'];
 
 // migrenos dienoraščio pasirinkimai (pagal gydytojų rekomenduojamus galvos skausmo dienoraščius)
-const LOCS = ['Kairė pusė', 'Dešinė pusė', 'Abi pusės', 'Kakta', 'Smilkiniai', 'Už akies', 'Pakaušis', 'Viršugalvis', 'Kaklas'];
+const LOCS = ['Kairė pusė', 'Dešinė pusė', 'Abi pusės', 'Abi – kairė stipriau', 'Abi – dešinė stipriau', 'Kakta', 'Smilkiniai', 'Už akies', 'Pakaušis', 'Viršugalvis', 'Kaklas'];
 const CHARS = ['Pulsuojantis', 'Spaudžiantis', 'Duriantis', 'Maudžiantis', 'Deginantis'];
 const SYMPTOMS = ['Pykinimas', 'Vėmimas', 'Jautrumas šviesai', 'Jautrumas garsui', 'Jautrumas kvapams', 'Aura (regos)', 'Svaigulys',
   'Nuovargis', 'Kaklo įtampa', 'Sunku susikaupti', 'Ašarojimas / nosies užgulimas', 'Stiprėja judant'];
@@ -551,7 +551,10 @@ const ICON = {
 };
 const KIND_ICON = { migrena: '⚡', itampos: '🪢', kita: '❔', '': '🤷' };
 const IMPACT_ICON = { nepaveike: '🙂', sumazejo: '😕', negalejo: '🛌' };
-const SIDES = ['Kairė pusė', 'Abi pusės', 'Dešinė pusė'];
+// kuri pusė skauda – pasirenkama viena; „Abi pusės“ = abi vienodai (senų įrašų reikšmė nekeičiama)
+const SIDES = ['Kairė pusė', 'Dešinė pusė', 'Abi pusės', 'Abi – kairė stipriau', 'Abi – dešinė stipriau'];
+const SIDE_LBL = { 'Abi pusės': 'Abi vienodai', 'Abi – kairė stipriau': 'Abi, kairė stipriau', 'Abi – dešinė stipriau': 'Abi, dešinė stipriau' };
+const sideOf = e => (e.locs || []).find(v => SIDES.includes(v)) || '';
 const iword = i => i == null ? 'Pasirinkite' : i === 0 ? 'Neskauda' : i <= 3 ? 'Lengvas' : i <= 6 ? 'Vidutinis' : i <= 8 ? 'Stiprus' : 'Labai stiprus';
 const plusMin = (ts, m) => { const d = new Date(ts); d.setMinutes(d.getMinutes() + m); return ds(d) + 'T' + String(d.getHours()).padStart(2, '0') + ':' + String(d.getMinutes()).padStart(2, '0'); };
 
@@ -618,6 +621,8 @@ function miniHead(kind) {
     'Kairė pusė': '<path class="mf" d="M18 4c-7 0-11 5-11 12 0 5 2 9 5 12 2 2 4 3 6 3z"/>',
     'Dešinė pusė': '<path class="mf" d="M18 4c7 0 11 5 11 12 0 5-2 9-5 12-2 2-4 3-6 3z"/>',
     'Abi pusės': '<path class="mf" d="M18 4c-7 0-11 5-11 12 0 5 2 9 5 12 2 2 4 3 6 3s4-1 6-3c3-3 5-7 5-12 0-7-4-12-11-12z"/>',
+    'Abi – kairė stipriau': '<path class="mf2" d="M18 4c7 0 11 5 11 12 0 5-2 9-5 12-2 2-4 3-6 3z"/><path class="mf" d="M18 4c-7 0-11 5-11 12 0 5 2 9 5 12 2 2 4 3 6 3z"/>',
+    'Abi – dešinė stipriau': '<path class="mf2" d="M18 4c-7 0-11 5-11 12 0 5 2 9 5 12 2 2 4 3 6 3z"/><path class="mf" d="M18 4c7 0 11 5 11 12 0 5-2 9-5 12-2 2-4 3-6 3z"/>',
     'Pakaušis': '<path class="mf" d="M7.6 19c3-1.4 6.6-2 10.4-2s7.4.6 10.4 2c-.6 3.4-2 6.6-4.4 9-2 2-4 3-6 3s-4-1-6-3c-2.4-2.4-3.8-5.6-4.4-9z"/>',
     'Kaklas': '<path class="mf" d="M13 29c2 1.4 3.4 2 5 2s3-.6 5-2v6h-10z"/>',
   }[kind] || '';
@@ -665,7 +670,7 @@ function episodeSheet(e, day, opt = {}) {
     },
     {
       t: 'Kur skauda?', h: () => {
-        const tile = v => `<button type="button" class="wt${w.locs.includes(v) ? ' on' : ''}" data-l="${esc(v)}"><i>${miniHead(v)}</i><span>${esc(v)}</span></button>`;
+        const tile = v => `<button type="button" class="wt${w.locs.includes(v) ? ' on' : ''}" data-l="${esc(v)}"><i>${miniHead(v)}</i><span>${esc(SIDE_LBL[v] || v)}</span></button>`;
         const extra = usedVals('locs', LOCS).filter(v => !LOCS.includes(v)).concat(w.locs.filter(v => !LOCS.includes(v)));
         return `<div class="headbox">
           <div class="head-view">${headSvg(w.locs, w.back)}</div>
@@ -673,8 +678,11 @@ function episodeSheet(e, day, opt = {}) {
             <button type="button" class="btn small" id="wz-rot">↻ ${w.back ? 'Iš priekio' : 'Iš nugaros'}</button>
             <div class="legend"><span><i class="on"></i>Skauda</span><span><i></i>Kitos sritys</span></div>
           </div></div>
-          <div class="small muted head-sel">${w.locs.length ? 'Pažymėta: ' + w.locs.map(esc).join(', ') : `Paspauskite vietą ant galvos${w.back ? '' : ' (pakaušis – apsukus galvą)'}`}</div>
-          <div class="wtiles">${SIDES.map(tile).join('')}${tile('Pakaušis')}${tile('Kaklas')}</div>
+          <div class="small muted head-sel">${w.locs.length ? 'Pažymėta: ' + w.locs.map(v => esc(SIDE_LBL[v] || v)).join(', ') : `Paspauskite vietą ant galvos${w.back ? '' : ' (pakaušis – apsukus galvą)'}`}</div>
+          <span class="lbl-s">Kuri pusė?</span>
+          <div class="wtiles">${SIDES.map(tile).join('')}</div>
+          <span class="lbl-s" style="margin-top:12px">Dar</span>
+          <div class="wtiles">${tile('Pakaušis')}${tile('Kaklas')}</div>
           <div style="margin-top:8px">${tilesHtml('wz-lx', [...new Set(extra)], w.locs.filter(v => !LOCS.includes(v)))}</div>`;
       },
       b: () => {
@@ -906,6 +914,11 @@ VIEWS.ataskaita = () => {
   const cafAvg = wdays.length ? wdays.reduce((a, x) => a + x.caf, 0) / wdays.length : 0;
   const kinds = {}; eps.forEach(e => kinds[e.kind || ''] = (kinds[e.kind || ''] || 0) + 1);
   const auraN = eps.filter(e => (e.symptoms || []).includes('Aura (regos)')).length;
+  const sides = { k: 0, d: 0, a: 0, n: 0 };
+  eps.forEach(e => { const v = sideOf(e); if (!v) sides.n++; else if (v === 'Abi pusės') sides.a++; else if (v.includes('airė')) sides.k++; else sides.d++; });
+  const sideN = eps.length - sides.n;
+  const sideBlock = sideN ? `<div class="card"><div style="padding:10px 14px 0"><b>Kuri pusė skauda</b></div><div class="bars">${[['Kairė', sides.k], ['Dešinė', sides.d], ['Abi vienodai', sides.a]].map(([k, v]) => `<span class="l">${k}</span><div class="bar"><i style="width:${Math.round(100 * v / sideN)}%"></i></div><span class="v">${v} <span class="small muted">(${Math.round(100 * v / sideN)}%)</span></span>`).join('')}</div>
+    <p class="small muted" style="margin:6px 14px 12px">${sides.k > sides.d && sides.k >= sides.a ? `Dažniau kairėje: ${sides.k} iš ${sideN}.` : sides.d > sides.k && sides.d >= sides.a ? `Dažniau dešinėje: ${sides.d} iš ${sideN}.` : 'Pusės pasiskirsčiusios panašiai.'} Kairė / dešinė įskaičiuoja ir „abi, bet viena stipriau“.${sides.n ? ` Pusė nepažymėta: ${sides.n}.` : ''}</p></div>` : '';
   const impact = {}; eps.forEach(e => { if (e.impact) impact[e.impact] = (impact[e.impact] || 0) + 1; });
 
   view.innerHTML = `<div class="rep-tools">${segHtml('r-n', { 1: '1 mėn.', 3: '3 mėn.', 6: '6 mėn.', 12: '12 mėn.', x: 'Pasirinkti' }, n)}
@@ -941,7 +954,8 @@ VIEWS.ataskaita = () => {
   <div class="grid" style="margin-top:14px">
     ${barsBlock('Dažniausi galimi provokatoriai', counts('triggers'))}
     ${barsBlock('Simptomai', counts('symptoms'))}
-    ${barsBlock('Skausmo vieta', counts('locs'))}
+    ${sideBlock}
+    ${barsBlock('Skausmo vieta', counts('locs').filter(([k]) => !SIDES.includes(k)))}
     ${barsBlock('Skausmo pobūdis', counts('chars'))}
   </div>
   <h2>Visi įrašai</h2>
