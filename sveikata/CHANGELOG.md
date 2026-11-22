@@ -1,5 +1,8 @@
 # Pakeitimai
 
+## 1.4.1
+- Importo failo pasirinkimas veikia ir HA programėlėje telefone (be failų tipo apribojimo).
+
 ## 1.4.0
 - **Kuri pusė skauda:** kairė, dešinė, abi vienodai, abi – kairė stipriau, abi – dešinė stipriau (mažos galvutės rodo, kuri pusė stipresnė). Seni įrašai lieka kaip buvo („Abi pusės“ = abi vienodai).
 - **Ataskaitoje** – atskiras blokas „Kuri pusė skauda“: kiek kartų kairėje, dešinėje, abiejose ir kuri dažniau.

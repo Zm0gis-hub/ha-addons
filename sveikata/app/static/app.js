@@ -1013,7 +1013,7 @@ VIEWS.nustatymai = () => {
       <div class="small muted">Duomenys automatiškai patenka į Home Assistant atsargines kopijas. Čia galima atsisiųsti atskirai.</div>
       <a class="btn" href="api/export.csv" download>⬇ Galvos skausmų įrašai (CSV, Excel)</a>
       <a class="btn" href="api/export" download>💾 Visi mano duomenys (JSON)</a>
-      <label class="btn">⬆ Importuoti galvos skausmų įrašus<input type="file" id="imp-f" accept=".json,application/json" hidden></label></div>
+      <label class="btn">⬆ Importuoti galvos skausmų įrašus<input type="file" id="imp-f" hidden></label></div>
 
     <div class="card pad stack"><b>👤 Profilis</b>
       <label class="field"><span>Profilio PIN (nebūtina)</span><input type="password" inputmode="numeric" id="p-pin" placeholder="${p.has_pin ? 'Nustatytas – įrašykite naują arba palikite' : 'Nenustatytas'}"></label>
