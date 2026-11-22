@@ -1,5 +1,8 @@
 # Pakeitimai
 
+## 1.12.1
+- Patiekalo ir originalo nuotraukų pridėjimas telefone (HA programėlėje) vėl veikia; originalo nuotraukos renkamos po vieną, mygtuką galima spausti kelis kartus.
+
 ## 1.12.0
 - Pirkinių sąrašas laikrodyje: nauja Wear OS programėlė „Pirkiniai“ rodo tą patį sąrašą, leidžia slinkti ir žymėti prekes. Nustatymas: **Daugiau → Laikrodis**, diegimas aprašytas Dokumentacijoje.
 - Jutiklis `sensor.receptai_pirkiniai` atsinaujina iškart pažymėjus prekę (anksčiau – per 20 s).

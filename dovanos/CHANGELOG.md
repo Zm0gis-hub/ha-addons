@@ -1,5 +1,8 @@
 # Pakeitimai
 
+## 2.1.2
+- Dovanos nuotraukos pridėjimas telefone (HA programėlėje) vėl veikia.
+
 ## 2.1.1
 - **Idėjos kompiuteryje – tanki lentelė per visą plotį:** idėja, kam, kada tiktų, parduotuvė, kur jau dovanota, kaina. Viename ekrane telpa kelis kartus daugiau idėjų. Paspaudus eilutę – idėjos langas.
 - Kompiuteryje visi sąrašai tankesni.

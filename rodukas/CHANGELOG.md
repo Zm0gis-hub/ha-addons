@@ -1,5 +1,10 @@
 # Pakeitimai
 
+## 1.5.1
+- Nuotraukų pridėjimas telefone (HA programėlėje) vėl veikia: skanukai, vaistinėlė, sveikatos įrašai, dokumentai, profilio nuotrauka.
+- Nuotraukos renkamos po vieną, bet mygtuką galima spausti kelis kartus – pasirinktos rodomos su mažu paveikslėliu ir ✕ pašalinimui.
+- Renkant nuotrauką ekranas nebeperpiešiamas, todėl pasirinkimas nedingsta.
+
 ## 1.5.0
 - Maistas: „Nustatyti maitinimą“ ir „Keisti kiekį ar maistą“ dabar paprasta forma – gramai įvedami ranka. Skaičiuoklė lieka atskira pagalbinė funkcija (🧮 viršuje arba mygtukas formoje); jos rezultatą galima perkelti mygtuku „Naudoti kaip maitinimą“.
 - Nauja skiltis „Skanukai“: pavadinimas, nuotrauka, aprašymas – be jokio dozavimo, tiesiog žinoti, ką duodam. Anksčiau įvesti „Skanėstas“ tipo maistai rodomi čia.

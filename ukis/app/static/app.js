@@ -59,7 +59,11 @@ async function load(noRender) {
 }
 
 // sinchronizacija tarp telefonų
-const busy = () => !$('#sheet').hidden || (document.activeElement && /INPUT|TEXTAREA|SELECT/.test(document.activeElement.tagName)) || DRAGGING;
+// renkant failą (galerija / kamera) ekrano neperpiešiam
+let PICK_AT = 0;
+document.addEventListener('click', e => { if (e.target.matches?.('input[type=file]')) PICK_AT = Date.now(); }, true);
+['change', 'cancel'].forEach(ev => document.addEventListener(ev, e => { if (e.target.matches?.('input[type=file]')) PICK_AT = 0; }, true));
+const busy = () => Date.now() - PICK_AT < 120000 || !$('#sheet').hidden || (document.activeElement && /INPUT|TEXTAREA|SELECT/.test(document.activeElement.tagName)) || DRAGGING;
 setInterval(async () => {
   if (!S || document.hidden || busy()) return;
   try {
@@ -454,7 +458,7 @@ routes.task = id => {
   <h2>📎 Failai ir nuotraukos</h2>
   <div class="card pad">
     ${files.length ? `<div class="thumbs" style="margin-bottom:12px">${files.map(thumbHtml).join('')}</div>` : ''}
-    <label class="btn block">📷 Pridėti nuotrauką ar failą<input type="file" id="td-file" multiple accept="image/*,application/pdf,video/*,.doc,.docx,.xls,.xlsx,.txt" hidden></label>
+    <label class="btn block">📷 Pridėti nuotrauką ar failą<input type="file" id="td-file" accept="image/*,application/pdf,video/*,.doc,.docx,.xls,.xlsx,.txt" hidden></label>
   </div>
 
   <h2>💬 Komentarai</h2>
@@ -512,7 +516,7 @@ routes.task = id => {
   if ($('#sub-sort')) $('#sub-sort').onclick = () => { UI.sortMode = !UI.sortMode; saveUI(); render(); };
   // failai
   $('#td-file').onchange = async e => {
-    const fs = [...e.target.files]; if (!fs.length) return;
+    const fs = [...e.target.files]; e.target.value = ''; if (!fs.length) return;
     for (const f of fs) { const uid = await uploadFile(f, 'Įkeliama: ' + f.name); await api('api/do/file_add', { upload: uid, orig_name: f.name, mime: f.type, task_id: t.id }); }
     await load(); toast(fs.length > 1 ? `Įkelta failų: ${fs.length}` : 'Įkelta');
   };
@@ -973,7 +977,7 @@ function roundSheet(r) {
       <label class="field" style="margin-top:8px"><span>Kaina, €/kWh</span><input type="text" inputmode="decimal" name="price" value="${esc(fmt(r ? r.price : S.settings.well_price, 4))}"></label>
       <label class="field"><span>Pastaba</span><input type="text" name="note" value="${esc(r?.note || '')}"></label></details>
     ${r ? `<div class="thumbs" style="margin-top:12px">${files.map(thumbHtml).join('')}</div>` : ''}
-    <label class="btn block" style="margin-top:12px">📷 ${r ? 'Pridėti nuotrauką' : 'Pridėti skaitiklių nuotraukas'}<input type="file" id="wr-file" multiple accept="image/*" hidden></label>
+    <label class="btn block" style="margin-top:12px">📷 ${r ? 'Pridėti nuotrauką' : 'Pridėti skaitiklių nuotraukas'}<input type="file" id="wr-file" accept="image/*,application/pdf" hidden></label>
     <div class="muted small" id="wr-fn"></div>
     <div class="sheet-actions">${r ? '<button type="button" class="btn danger" id="wr-del">Ištrinti</button>' : ''}<button class="btn primary">💾 Išsaugoti</button></div></form>`, () => {
     const f = $('#wr'); let pending = [];
@@ -984,7 +988,12 @@ function roundSheet(r) {
       el.innerHTML = `Praeitą kartą ${esc(shortDate(pv.date))}: ${fmt(pv.v, mDec(m))}` + (x != null ? ` · <b style="color:${x < pv.v ? 'var(--danger)' : 'var(--ok)'}">${x >= pv.v ? '+' : ''}${fmt(x - pv.v, mDec(m))} ${mUnit(m)}</b>` : '');
     });
     $$('[data-mv]', f).forEach(i => i.oninput = hint); f.elements.date.onchange = hint; hint();
-    $('#wr-file').onchange = e => { pending = [...e.target.files]; $('#wr-fn').textContent = pending.length ? `Pasirinkta nuotraukų: ${pending.length}` : ''; };
+    // po vieną (HA programėlė telefone negrąžina kelių iš karto), bet galima pridėti kelis kartus
+    const drawPend = () => {
+      $('#wr-fn').innerHTML = pending.length ? `<div class="pick-list">${pending.map((x, i) => `<span class="pick">${/^image\//.test(x.type) ? `<img src="${URL.createObjectURL(x)}" alt="">` : '📄'}<span>${esc(x.name)}</span><button type="button" data-pk="${i}" aria-label="Pašalinti">✕</button></span>`).join('')}</div><div>Galite pridėti dar – spauskite mygtuką dar kartą.</div>` : '';
+      $$('[data-pk]', f).forEach(b => b.onclick = () => { pending.splice(+b.dataset.pk, 1); drawPend(); });
+    };
+    $('#wr-file').onchange = e => { const fs = [...e.target.files]; e.target.value = ''; if (!fs.length) return; pending.push(...fs); drawPend(); };
     $$('[data-file]', f).forEach(el => el.onclick = () => fileViewer(I.files[el.dataset.file]));
     f.onsubmit = async e => {
       e.preventDefault();
@@ -1303,7 +1312,7 @@ routes.settings = () => {
     <label class="li go"><span class="ic">♻️</span><div class="grow"><div class="t">Atkurti iš kopijos</div><div class="s">Dabartiniai duomenys bus pakeisti</div></div><input type="file" id="st-restore" accept=".zip" hidden></label>
     <label class="li go"><span class="ic">📥</span><div class="grow"><div class="t">Importuoti užduotis (.json)</div><div class="s">Tik papildo, nieko netrina</div></div><input type="file" id="st-import" accept=".json,application/json" hidden></label>
   </div>
-  <p class="muted small center" style="margin-top:18px">Ūkis 1.8.0 · Duomenys patenka į Home Assistant atsargines kopijas</p>`;
+  <p class="muted small center" style="margin-top:18px">Ūkis 1.8.1 · Duomenys patenka į Home Assistant atsargines kopijas</p>`;
   $('#st-sec-new').onclick = () => sectionSheet();
   $('#st-tag-new').onclick = () => tagSheet();
   $$('[data-sedit]').forEach(el => el.onclick = () => sectionMenu(I.sections[el.dataset.sedit]));

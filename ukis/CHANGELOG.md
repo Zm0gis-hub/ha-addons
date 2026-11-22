@@ -1,5 +1,9 @@
 # Pakeitimai
 
+## 1.8.1
+- Nuotraukų pridėjimas telefone (HA programėlėje): renkama po vieną (kelių iš karto programėlė neperduoda), mygtuką galima spausti kelis kartus.
+- Gręžinio skaitiklių nuotraukos vėl prisideda; pasirinktos rodomos su mažu paveikslėliu ir ✕.
+
 ## 1.8.0
 - 🏠 Naujas skirtukas **Namas** – namo pabaigimo skiltis (kaip Gręžinys). Darbai ir pirkiniai skirstomi į **❗ Būtina pridavimui** ir **🛋️ Kita (nebūtina)**.
 - Viena bendra pridavimo (bankui) data: „liko X d.“ ir įspėjimas, jei būtinų darbų tempas nespėja iki datos.

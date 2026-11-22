@@ -856,9 +856,9 @@ routes.edit = id => {
     <h2>Nuotraukos</h2>
     <div class="card pad stack">
       <div><b>Patiekalo nuotrauka</b><div class="photos" style="margin-top:6px">${existing.filter(p => p.kind === 'dish').map(p => `<div class="ph" style="background-image:url('photos/${p.filename}')"><button type="button" data-delph="${p.id}">×</button></div>`).join('')}${d.new_photos.filter(p => p.kind === 'dish').map(p => `<div class="ph" style="background-image:url('${p.data}')"></div>`).join('')}</div>
-        <label class="btn small" style="margin-top:6px">📷 Pridėti<input type="file" accept="image/*" data-kind="dish" hidden></label></div>
+        <label class="btn small" style="margin-top:6px">📷 Pridėti<input type="file" accept="image/*,application/pdf" data-kind="dish" hidden></label></div>
       <div><b>Originalo nuotraukos</b> <span class="muted small">(knygos puslapis, ekrano kopija, užrašai)</span><div class="photos" style="margin-top:6px">${existing.filter(p => p.kind === 'original').map(p => `<div class="ph" style="background-image:url('photos/${p.filename}')"><button type="button" data-delph="${p.id}">×</button></div>`).join('')}${d.new_photos.filter(p => p.kind === 'original').map(p => `<div class="ph" style="background-image:url('${p.data}')"></div>`).join('')}</div>
-        <label class="btn small" style="margin-top:6px">📷 Pridėti<input type="file" accept="image/*" multiple data-kind="original" hidden></label></div>
+        <label class="btn small" style="margin-top:6px">📷 Pridėti<input type="file" accept="image/*,application/pdf" data-kind="original" hidden></label></div>
     </div>
 
     <button class="btn primary block" style="min-height:52px;margin-top:16px">💾 Išsaugoti</button>
@@ -900,9 +900,12 @@ routes.edit = id => {
     };
   });
   $$('[data-star]').forEach(b => b.onclick = () => { syncFields(); d.rating = d.rating === +b.dataset.star ? 0 : +b.dataset.star; render(); });
+  // „image/*,application/pdf“, nes vien „image/*“ HA programėlėje telefone nuotraukos negrąžina; renkama po vieną
   $$('input[type=file]').forEach(inp => inp.onchange = async () => {
+    const fs = [...inp.files]; inp.value = ''; if (!fs.length) return;
+    if (fs.some(f => !/^image\//.test(f.type) && !/\.(jpe?g|png|webp|heic|heif|gif)$/i.test(f.name))) return toast('Pasirinkite nuotrauką');
     syncFields();
-    for (const file of inp.files) d.new_photos.push({ kind: inp.dataset.kind, data: await resizeImage(file, inp.dataset.kind === 'original' ? 2000 : 1400) });
+    for (const file of fs) d.new_photos.push({ kind: inp.dataset.kind, data: await resizeImage(file, inp.dataset.kind === 'original' ? 2000 : 1400) });
     render();
   });
   $$('[data-delph]').forEach(b => b.onclick = async () => { if (confirm('Ištrinti nuotrauką?')) { syncFields(); await act('photo_delete', { id: +b.dataset.delph }); } });
@@ -1138,7 +1141,7 @@ routes.more = () => {
     <a class="menu-link" href="#stats"><span>📊</span><span>Statistika ir istorija</span></a>
     <a class="menu-link" href="#data"><span>💾</span><span>Importas ir eksportas</span></a>
   </div>
-  <p class="muted small center" style="margin-top:20px">Receptai v1.12.0 · ${S.recipes.length} receptai · ${S.products.length} produktai</p>`;
+  <p class="muted small center" style="margin-top:20px">Receptai v1.12.1 · ${S.recipes.length} receptai · ${S.products.length} produktai</p>`;
 };
 
 // --- Parduotuvės skyriai (tempimas aukštyn/žemyn)

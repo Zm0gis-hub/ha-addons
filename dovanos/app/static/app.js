@@ -841,10 +841,12 @@ function photoField(box, get, set) {
   const draw = () => {
     const ph = get();
     box.innerHTML = `${ph ? `<a href="photos/${esc(ph)}" target="_blank" rel="noopener">${thumb(ph, 'l')}</a><button type="button" class="btn small" data-phx>✕ Pašalinti</button>` : ''}
-      <label class="btn small">📷 ${ph ? 'Pakeisti' : 'Pridėti'}<input type="file" accept="image/*" hidden></label>`;
+      <label class="btn small">📷 ${ph ? 'Pakeisti' : 'Pridėti'}<input type="file" accept="image/*,application/pdf" hidden></label>`;
     if ($('[data-phx]', box)) $('[data-phx]', box).onclick = () => { set(''); draw(); };
     $('input', box).onchange = async e => {
-      const f = e.target.files[0]; if (!f) return;
+      const f = e.target.files[0]; e.target.value = ''; if (!f) return;
+      // „image/*,application/pdf“, nes vien „image/*“ HA programėlėje telefone nuotraukos negrąžina
+      if (!/^image\//.test(f.type) && !/\.(jpe?g|png|webp|heic|heif|gif)$/i.test(f.name)) return toast('Pasirinkite nuotrauką');
       toast('Įkeliama nuotrauka…');
       try { set(await uploadPhoto(f)); draw(); toast('📷 Nuotrauka pridėta'); } catch (err) { }
     };

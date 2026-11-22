@@ -54,14 +54,19 @@ async function load(noRender) {
 }
 
 // sinchronizacija tarp telefonų
+// renkant failą (galerija / kamera) ekrano neperpiešiam – kitaip pasirinkta nuotrauka dingsta
+let PICK_AT = 0;
+const picking = () => Date.now() - PICK_AT < 120000;
+document.addEventListener('click', e => { if (e.target.matches?.('input[type=file]')) PICK_AT = Date.now(); }, true);
+['change', 'cancel'].forEach(ev => document.addEventListener(ev, e => { if (e.target.matches?.('input[type=file]')) PICK_AT = 0; }, true));
 setInterval(async () => {
-  if (!S || document.hidden || !$('#sheet').hidden) return;
+  if (!S || document.hidden || !$('#sheet').hidden || picking()) return;
   try {
     const v = await (await fetch('api/version')).json();
     if (v.version !== S.version) { const y = scrollY; await load(); scrollTo(0, y); }
   } catch (e) { }
 }, 5000);
-document.addEventListener('visibilitychange', () => { if (!document.hidden && S && $('#sheet').hidden) load().catch(() => { }); });
+document.addEventListener('visibilitychange', () => { if (!document.hidden && S && $('#sheet').hidden && !picking()) load().catch(() => { }); });
 
 // ---- datos ir skaičiai
 const pd = s => { const [y, m, d] = s.split('-').map(Number); return new Date(y, m - 1, d); };
@@ -520,12 +525,12 @@ routes.sup = id => {
     </div>
     ${s.usage ? `<h2>Kaip naudojama</h2><div class="card pad pre">${esc(s.usage)}</div>` : ''}
     ${s.notes ? `<h2>Pastabos</h2><div class="card pad pre">${esc(s.notes)}</div>` : ''}
-    <h2>Nuotraukos <label class="btn small">📷 Pridėti<input type="file" id="su-ph" accept="image/*,application/pdf" multiple hidden></label></h2>
+    <h2>Nuotraukos <label class="btn small">📷 Pridėti<input type="file" id="su-ph" accept="image/*,application/pdf" hidden></label></h2>
     ${photos.length ? `<div class="thumbs">${photos.map(thumbHtml).join('')}</div>` : '<div class="muted small" style="margin:0 4px">Nufotografuokite pakuotę ir sudėtį – praverčia ieškant alergijos priežasties.</div>'}
     <div style="margin-top:16px">${active ? '<button class="btn block" id="su-stop">⏹ Nebenaudojame</button>' : '<button class="btn block" id="su-again">↺ Vėl naudojame</button>'}</div>`;
   $('#su-edit').onclick = () => supplySheet(s);
   $('#su-ph').onchange = async e => {
-    const files = [...e.target.files];
+    const files = [...e.target.files]; e.target.value = ''; if (!files.length) return;
     for (let i = 0; i < files.length; i++) await uploadDoc(files[i], { title: `${s.name} – nuotrauka`, date: T(), supply_id: s.id });
     await load(); toast('Įkelta');
   };
@@ -535,6 +540,7 @@ routes.sup = id => {
 
 function supplySheet(s) {
   s = s || {};
+  let pickedS = () => [];
   formSheet({
     title: s.id ? 'Redaguoti priemonę' : 'Nauja priežiūros priemonė',
     values: { start: T(), purpose: S.settings.supply_purposes[0] || 'Kita', ...s },
@@ -549,12 +555,12 @@ function supplySheet(s) {
       { k: 'notes', label: 'Pastabos (kaip tiko, reakcijos)', type: 'textarea' },
       { k: 'unsuitable', label: '⚠️ Netinka (sukėlė reakciją)', type: 'switch' },
     ],
-    extra: s.id ? '' : `<label class="btn block">📷 Pakuotės / sudėties nuotraukos<input type="file" id="sup-files" multiple accept="image/*,application/pdf" hidden></label><div class="muted small" id="sup-fl"></div>`,
-    bind: f => { const fi = $('#sup-files', f); if (fi) fi.onchange = e => $('#sup-fl').textContent = [...e.target.files].map(x => x.name).join(', '); },
+    extra: s.id ? '' : `<label class="btn block">📷 Pakuotės / sudėties nuotraukos<input type="file" id="sup-files" accept="image/*,application/pdf" hidden></label><div class="muted small" id="sup-fl"></div>`,
+    bind: f => { const fi = $('#sup-files', f); if (fi) pickedS = pickFiles(fi, $('#sup-fl')); },
     onSave: async (v, f) => {
       if (!v.name) { toast('Įrašykite pavadinimą'); return false; }
       const res = await api('api/do/save', { t: 'supplies', row: { ...v, unsuitable: v.unsuitable ? 1 : 0, id: s.id } });
-      const files = s.id ? [] : [...($('#sup-files', f)?.files || [])];
+      const files = s.id ? [] : pickedS();
       for (const file of files) await uploadDoc(file, { title: `${v.name} – nuotrauka`, date: T(), supply_id: res.id });
       await load();
       if (!s.id) go('#sup/' + res.id);
@@ -670,6 +676,7 @@ function medSheet(m) {
 
 function journalSheet(j) {
   j = j || {};
+  let pickedJ = () => [];
   const docs = j.id ? docsOf('journal_id', j.id) : [];
   formSheet({
     title: j.id ? (j.category || 'Įrašas') : (j.category === 'Pastaba' ? 'Pastaba' : 'Sveikatos įrašas'),
@@ -681,14 +688,14 @@ function journalSheet(j) {
       { k: 'text', label: 'Kas nutiko, kaip elgėsi, ką darėte', type: 'textarea' },
     ],
     extra: `${docs.length ? `<div class="thumbs">${docs.map(thumbHtml).join('')}</div>` : ''}
-      <label class="btn block">📷 Pridėti nuotrauką ar failą<input type="file" id="j-files" multiple accept="image/*,application/pdf,video/*" hidden></label>
+      <label class="btn block">📷 Pridėti nuotrauką ar failą<input type="file" id="j-files" accept="image/*,application/pdf,video/*" hidden></label>
       <div class="muted small" id="j-fl"></div>`,
     bind: f => {
-      $('#j-files', f).onchange = e => $('#j-fl').textContent = [...e.target.files].map(x => x.name).join(', ');
+      pickedJ = pickFiles($('#j-files', f), $('#j-fl'));
       $$('[data-doc]', f).forEach(el => el.onclick = () => { closeSheet(); go('#doc/' + el.dataset.doc); });
     },
     onSave: async (v, f) => {
-      const files = [...$('#j-files', f).files];
+      const files = pickedJ();
       const res = await api('api/do/save', { t: 'journal', row: { ...v, id: j.id } });
       for (let i = 0; i < files.length; i++) await uploadDoc(files[i], { title: `${v.category} ${v.date}${files.length > 1 ? ` (${i + 1})` : ''}`, date: v.date, journal_id: res.id });
       await load();
@@ -842,17 +849,18 @@ routes.treat = id => {
   const photos = docsOf('food_id', f.id);
   view.innerHTML = `${f.unsuitable ? '<div class="card pad warnbox">⚠️ Pažymėta, kad <b>netinka</b></div>' : ''}
     <h2>Aprašymas</h2><div class="card pad ${f.notes ? 'pre' : 'muted'}">${f.notes ? esc(f.notes) : 'Aprašymo nėra – spauskite ✏️'}</div>
-    <h2>Nuotraukos <label class="btn small">📷 Pridėti<input type="file" id="tr-ph" accept="image/*" multiple hidden></label></h2>
+    <h2>Nuotraukos <label class="btn small">📷 Pridėti<input type="file" id="tr-ph" accept="${PHOTO_ACCEPT}" hidden></label></h2>
     ${photos.length ? `<div class="thumbs">${photos.map(thumbHtml).join('')}</div>` : '<div class="muted small" style="margin:0 4px">Nufotografuokite pakuotę – lengviau rasti parduotuvėje.</div>'}`;
   $('#tr-edit').onclick = () => treatSheet(f);
   $('#tr-ph').onchange = async e => {
-    const files = [...e.target.files];
+    const files = [...e.target.files]; e.target.value = ''; if (!files.length || files.some(notImage)) return;
     for (const file of files) await uploadDoc(file, { title: `${f.name} – nuotrauka`, date: T(), food_id: f.id });
     await load(); toast('Įkelta');
   };
 };
 function treatSheet(f) {
   f = f || {};
+  let pickedT = () => [];
   formSheet({
     title: f.id ? 'Redaguoti skanuką' : 'Naujas skanukas', values: f,
     fields: [
@@ -860,12 +868,12 @@ function treatSheet(f) {
       { k: 'notes', label: 'Aprašymas (kas tai, kaip patinka, kada duodam)', type: 'textarea' },
       { k: 'unsuitable', label: '⚠️ Netinka', type: 'switch' },
     ],
-    extra: f.id ? '' : `<label class="btn block">📷 Nuotrauka<input type="file" id="tr-files" multiple accept="image/*" hidden></label><div class="muted small" id="tr-fl"></div>`,
-    bind: fm => { const fi = $('#tr-files', fm); if (fi) fi.onchange = e => $('#tr-fl').textContent = [...e.target.files].map(x => x.name).join(', '); },
+    extra: f.id ? '' : `<label class="btn block">📷 Nuotrauka<input type="file" id="tr-files" accept="${PHOTO_ACCEPT}" hidden></label><div class="muted small" id="tr-fl"></div>`,
+    bind: fm => { const fi = $('#tr-files', fm); if (fi) pickedT = pickFiles(fi, $('#tr-fl')); },
     onSave: async (v, fm) => {
       if (!v.name) { toast('Įrašykite pavadinimą'); return false; }
       const res = await api('api/do/save', { t: 'foods', row: { ...v, kind: 'Skanėstas', unsuitable: v.unsuitable ? 1 : 0, id: f.id } });
-      const files = f.id ? [] : [...($('#tr-files', fm)?.files || [])];
+      const files = f.id ? [] : pickedT();
       for (const file of files) await uploadDoc(file, { title: `${v.name} – nuotrauka`, date: T(), food_id: res.id });
       await load();
       if (!f.id) go('#treat/' + res.id);
@@ -1171,7 +1179,21 @@ async function uploadDoc(file, meta) {
   return api('api/do/doc_add', { upload: uid, orig_name: file.name, mime: file.type, ...meta });
 }
 
+// failai renkami po vieną (HA programėlė telefone negrąžina kelių iš karto), bet mygtuką galima spausti kelis kartus
+const PHOTO_ACCEPT = 'image/*,application/pdf'; // vien „image/*“ HA programėlėje atidaro rinkiklį, kuris nuotraukos negrąžina
+function pickFiles(inp, out, onAdd) {
+  const list = [];
+  const draw = () => {
+    out.innerHTML = list.length ? `<div class="pick-list">${list.map((f, i) => `<span class="pick">${/^image\//.test(f.type) ? `<img src="${URL.createObjectURL(f)}" alt="">` : '📄'}<span>${esc(f.name)}</span><button type="button" data-pk="${i}" aria-label="Pašalinti">✕</button></span>`).join('')}</div><div>Galite pridėti dar – spauskite mygtuką dar kartą.</div>` : '';
+    $$('[data-pk]', out).forEach(b => b.onclick = () => { list.splice(+b.dataset.pk, 1); draw(); });
+  };
+  inp.onchange = () => { const fs = [...inp.files]; inp.value = ''; if (!fs.length) return; list.push(...fs); draw(); onAdd && onAdd(fs); };
+  return () => list;
+}
+const notImage = f => { if (/^image\//.test(f.type) || /\.(jpe?g|png|webp|heic|heif|gif)$/i.test(f.name)) return false; toast('Pasirinkite nuotrauką'); return true; };
+
 function docUploadSheet(o) {
+  let pickedU = () => [];
   formSheet({
     title: 'Įkelti dokumentą', values: { date: o.date || T(), title: o.title || '', visit_id: o.visit_id || '' },
     fields: [
@@ -1180,15 +1202,11 @@ function docUploadSheet(o) {
       { k: 'visit_id', label: 'Susietas vizitas', type: 'select', opts: visitOpts(), half: true },
       { k: 'note', label: 'Pastaba', type: 'textarea' },
     ],
-    pre: `<label class="btn block primary" style="margin-bottom:12px">📎 Pasirinkti failą (-us) ar fotografuoti<input type="file" id="u-files" multiple accept="image/*,application/pdf,video/*" hidden></label><div class="muted small" id="u-fl" style="margin:-6px 4px 10px"></div>`,
+    pre: `<label class="btn block primary" style="margin-bottom:12px">📎 Pasirinkti failą (-us) ar fotografuoti<input type="file" id="u-files" accept="image/*,application/pdf,video/*" hidden></label><div class="muted small" id="u-fl" style="margin:-6px 4px 10px"></div>`,
     saveLabel: '⬆ Įkelti',
-    bind: f => $('#u-files', f).onchange = e => {
-      const fs = [...e.target.files];
-      $('#u-fl').textContent = fs.map(x => `${x.name} (${fmtNum(x.size / 1048576, 1)} MB)`).join(', ');
-      if (!f.elements.title.value && fs[0]) f.elements.title.value = fs[0].name.replace(/\.[^.]+$/, '');
-    },
+    bind: f => { pickedU = pickFiles($('#u-files', f), $('#u-fl'), fs => { if (!f.elements.title.value && fs[0]) f.elements.title.value = fs[0].name.replace(/\.[^.]+$/, ''); }); },
     onSave: async (v, f) => {
-      const files = [...$('#u-files', f).files];
+      const files = pickedU();
       if (!files.length) { toast('Pasirinkite failą'); return false; }
       let last;
       for (let i = 0; i < files.length; i++) {
@@ -1278,7 +1296,7 @@ routes.settings = () => {
   const st = S.settings;
   view.innerHTML = `<h2>Profilis</h2><div class="card list">
       <a class="li go" href="#profile"><div class="avatar" style="width:48px;height:48px;font-size:26px;${P.photo ? `background-image:url('files/${esc(P.photo)}')` : ''}">${P.photo ? '' : '🐶'}</div><div class="grow"><div class="t">${esc(P.name)}</div><div class="s">Visa informacija, kortelė, lapas veterinarui</div></div></a>
-      <label class="li go"><span class="ic">📷</span><span class="grow">Keisti nuotrauką</span><input type="file" id="s-photo" accept="image/*" hidden></label>
+      <label class="li go"><span class="ic">📷</span><span class="grow">Keisti nuotrauką</span><input type="file" id="s-photo" accept="${PHOTO_ACCEPT}" hidden></label>
     </div>
     <h2>🔔 Priminimai</h2><div class="card list">
       <div class="li go" id="s-notify"><span class="ic">📱</span><div class="grow"><div class="t">Telefonas ir skiepų priminimai</div><div class="s" id="s-notify-s">${st.notify_service ? esc(st.notify_service.replace('mobile_app_', '')) : 'Telefonas nepasirinktas'}${st.prevention_notify ? ` · skiepai prieš ${st.prevention_days} d.` : ''}</div></div></div>
@@ -1295,7 +1313,7 @@ routes.settings = () => {
       <label class="li"><span class="ic">♻️</span><div class="grow"><div class="t">Atkurti iš atsarginės kopijos (.zip)</div><div class="s">Dėmesio: visi dabartiniai duomenys bus pakeisti</div></div><input type="file" id="s-rest" accept=".zip,application/zip" hidden></label>
     </div>
     <p class="muted small center" style="margin-top:20px">Rodukas v1.3 · ${S.visits.length} vizitai · ${S.documents.length} failai · ${S.supplies.length} priemonės</p>`;
-  $('#s-photo').onchange = async e => { const f = e.target.files[0]; if (!f) return; const uid = await uploadFile(f, 'Įkeliama nuotrauka'); await act('profile_photo', { upload: uid, orig_name: f.name }); toast('Nuotrauka pakeista'); };
+  $('#s-photo').onchange = async e => { const f = e.target.files[0]; e.target.value = ''; if (!f || notImage(f)) return; const uid = await uploadFile(f, 'Įkeliama nuotrauka'); await act('profile_photo', { upload: uid, orig_name: f.name }); toast('Nuotrauka pakeista'); };
   $('#s-notify').onclick = notifySheet;
   $('#s-proc-add').onclick = () => procSheet();
   $$('[data-pe]').forEach(el => el.onclick = () => procSheet(I.procedures[el.dataset.pe]));
