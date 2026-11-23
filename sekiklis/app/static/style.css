@@ -1,0 +1,100 @@
+:root {
+  --bg: #f7f2ea; --card: #fff; --ink: #2a221b; --muted: #7d7062; --line: #e8dfd2;
+  --accent: #7a4e2d; --accent-ink: #fff; --accent-soft: #f1e3d3;
+  --ok: #2f7a4f; --ok-soft: #e1f0e6; --warn: #b5651d; --warn-soft: #fbe9d7;
+  --danger: #b3261e; --danger-soft: #f9dedc; --chip: #efe7db;
+  --shadow: 0 1px 2px rgba(50,30,10,.06), 0 2px 8px rgba(50,30,10,.05); --radius: 14px;
+}
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg: #171412; --card: #221e1b; --ink: #eee8e1; --muted: #a39788; --line: #35302b;
+    --accent: #d9a273; --accent-ink: #1d130b; --accent-soft: #3a2b1f;
+    --ok: #6cc690; --ok-soft: #1d3326; --warn: #eaa064; --warn-soft: #3b2a1c;
+    --danger: #f08178; --danger-soft: #3d201e; --chip: #2d2824; --shadow: none;
+  }
+}
+[hidden] { display: none !important; }
+* { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+html, body { margin: 0; background: var(--bg); color: var(--ink); }
+body { font-family: Nunito, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; font-size: 16px; line-height: 1.4; padding-bottom: 40px; }
+button, input, select { font: inherit; color: inherit; }
+a { color: var(--accent); }
+.muted { color: var(--muted); } .small { font-size: 13.5px; } .center { text-align: center; }
+
+header#top {
+  position: sticky; top: 0; z-index: 20; display: flex; align-items: center; gap: 4px;
+  padding: calc(env(safe-area-inset-top) + 8px) 12px 8px; background: var(--bg); border-bottom: 1px solid var(--line);
+}
+header h1 { font-size: 21px; margin: 0; flex: 1; }
+.icon-btn { border: 0; background: transparent; min-width: 42px; height: 42px; border-radius: 10px; font-size: 22px; cursor: pointer; }
+.icon-btn:active { background: var(--chip); }
+.icon-btn.spin { animation: spin 1s linear infinite; }
+@keyframes spin { to { transform: rotate(360deg); } }
+main#view { padding: 12px; max-width: 720px; margin: 0 auto; display: flex; flex-direction: column; gap: 12px; }
+
+.card { background: var(--card); border: 1px solid var(--line); border-radius: var(--radius); box-shadow: var(--shadow); }
+.btn { border: 1px solid var(--line); background: var(--card); border-radius: 11px; padding: 10px 14px; font-weight: 700; cursor: pointer; }
+.btn.primary { background: var(--accent); color: var(--accent-ink); border-color: var(--accent); }
+.btn.danger { color: var(--danger); }
+.btn.block { width: 100%; }
+.btn:active { transform: scale(.98); }
+.btn:disabled { opacity: .55; }
+
+/* sveikatos juosta */
+.health { padding: 12px 14px; display: flex; gap: 10px; align-items: flex-start; }
+.health .dot { font-size: 20px; line-height: 1.2; }
+.health b { display: block; }
+.health.bad { background: var(--danger-soft); border-color: transparent; }
+.health.warn { background: var(--warn-soft); border-color: transparent; }
+.health ul { margin: 4px 0 0; padding-left: 18px; }
+
+.add { display: flex; gap: 8px; padding: 8px; }
+.add input { flex: 1; min-width: 0; border: 0; background: transparent; padding: 8px; outline: none; }
+
+/* prekės */
+#list { display: flex; flex-direction: column; gap: 8px; }
+.shop-h { margin: 8px 4px 0; font-size: 13px; font-weight: 800; letter-spacing: .04em; text-transform: uppercase; color: var(--muted); }
+.item { display: flex; gap: 12px; align-items: center; padding: 12px 14px; cursor: pointer; }
+.item:active { background: var(--chip); }
+.item .badge { flex: 0 0 44px; height: 44px; border-radius: 12px; display: flex; align-items: center; justify-content: center; font-size: 22px; background: var(--chip); }
+.item .body { flex: 1; min-width: 0; }
+.item .name { font-weight: 700; overflow: hidden; text-overflow: ellipsis; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; }
+.item .meta { font-size: 13.5px; color: var(--muted); margin-top: 2px; }
+.item .pill { flex: 0 0 auto; font-size: 13px; font-weight: 800; padding: 5px 10px; border-radius: 999px; background: var(--chip); color: var(--muted); }
+.item.s-in, .item.s-pre { border: 2px solid var(--ok); background: var(--ok-soft); }
+.s-in .badge, .s-pre .badge { background: var(--ok); }
+.s-in .pill, .s-pre .pill { background: var(--ok); color: #fff; }
+.s-blocked .pill { background: var(--warn-soft); color: var(--warn); }
+.s-error .pill { background: var(--danger-soft); color: var(--danger); }
+.item.off { opacity: .55; }
+.note { font-size: 13px; color: var(--warn); margin-top: 3px; }
+
+/* lapas */
+#sheet-bg { position: fixed; inset: 0; background: rgba(0,0,0,.45); z-index: 40; }
+#sheet {
+  position: fixed; left: 50%; bottom: 0; transform: translateX(-50%); width: 100%; max-width: 560px; max-height: 88vh; overflow: auto;
+  z-index: 50; background: var(--bg); border: 1px solid var(--line); border-bottom: 0; border-radius: 18px 18px 0 0;
+  box-shadow: 0 -6px 30px rgba(0,0,0,.2); padding: 16px 16px calc(env(safe-area-inset-bottom) + 18px);
+}
+#sheet h2 { margin: 0 0 4px; font-size: 19px; }
+.stack { display: flex; flex-direction: column; gap: 10px; }
+.row { display: flex; gap: 8px; }
+.row > * { flex: 1; }
+.field { display: flex; flex-direction: column; gap: 4px; font-size: 14px; color: var(--muted); }
+.field input, .field select { border: 1px solid var(--line); background: var(--card); border-radius: 10px; padding: 10px; color: var(--ink); font-size: 16px; }
+.group { padding: 4px 12px; }
+.check { display: flex; align-items: center; gap: 10px; padding: 9px 0; border-bottom: 1px solid var(--line); }
+.check:last-child { border-bottom: 0; }
+.check input { width: 20px; height: 20px; accent-color: var(--accent); }
+.check span { flex: 1; }
+.hist { font-size: 14px; margin: 0; padding-left: 18px; color: var(--muted); }
+.result { font-size: 14px; padding: 10px 12px; border-radius: 10px; }
+.result.ok { background: var(--ok-soft); color: var(--ok); }
+.result.bad { background: var(--danger-soft); color: var(--danger); }
+h3 { margin: 10px 0 0; font-size: 15px; }
+
+#toast {
+  position: fixed; left: 50%; bottom: calc(env(safe-area-inset-bottom) + 20px); transform: translateX(-50%); z-index: 60;
+  background: var(--ink); color: var(--bg); padding: 10px 16px; border-radius: 12px; font-size: 15px; max-width: 90vw;
+}
+.pad { padding: 16px; }

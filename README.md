@@ -8,6 +8,7 @@ Paprastos lietuviškos programos (priedai), veikiančios Home Assistant viduje. 
 | 🐶 **Rodukas** | Augintinio priežiūra: maistas, svoris, skiepai, vizitai, dokumentai, procedūros, priminimai |
 | 🏡 **Ūkis** | Namų užduotys kaip paprasta Asana: sekcijos, datos, pasikartojimai, HA kortelė ir kalendorius |
 | 🎁 **Dovanos** | Dovanų idėjos, progos (Kalėdos, gimtadieniai, šventės), gavėjai, išlaidos ir istorija |
+| 🎮 **Sekiklis** | Seka, kada prekė atsiras parduotuvėse (Gameroom, Senukai…), ir iškart praneša į visus telefonus |
 | 💧 **Sveikata** | Galvos skausmų (migrenos) dienoraštis su ataskaita gydytojui ir išgerto vandens sekimas; kiekvienam savo profilis |
 
 ## Įdiegimas
