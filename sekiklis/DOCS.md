@@ -27,7 +27,10 @@ Sekiklis kas kelias minutes patikrina prekių puslapius parduotuvėse ir, kai ti
 - **Pridėti prekę** – įklijuokite prekės nuorodą į laukelį viršuje ir spauskite **Sekti**. Pavadinimas ir kaina užsipildys patys.
 - **Būsenos:** ✅ YRA · 🟢 galima užsakyti iš anksto · ❌ nėra · 🛡️ parduotuvė blokuoja automatinį tikrinimą · ⚠️ nepavyko patikrinti.
 - Prekei atsiradus ateina pranešimas su mygtukais **🛒 Atidaryti** ir **🔕 Nutildyti**. Kol nenutildysite – kartojama (iš anksto kas 10 min., iki 6 kartų).
-- Paspaudus prekę: tikrinti dabar, sustabdyti, pervadinti, istorija, nebesekti.
+- Paspaudus prekę: tikrinti dabar, sustabdyti, **🔔 Pranešti / 👁 Tik stebėti**, **kainos riba**, pervadinti, istorija, nebesekti.
+- **💸 Per brangu** – prekė yra, bet brangesnė nei nustatyta riba (baltiems iš karto 100 €). Telefonas neskambina.
+- **🔀 Pakeista** – parduotuvė nuorodą nukreipė į kitą prekę. Jei tai ta pati prekė, spauskite „Tai ta pati prekė“.
+- **🔎 Naujų nuorodų paieška** (sąrašo apačioje) – kas 15 min. ieško naujų GTA VI pultelių Senukai, Varle, Pigu ir Gameroom. Radus – įtraukia ir praneša „🆕 Nauja prekė“ (baltų brangesnių nei 100 € – tyliai).
 - **⚙️ Nustatymai:** tikrinimo dažnis (iš anksto 5 min.), kuriuos telefonus naudoti (iš anksto – visus), pakartojimai, sargas.
 
 **Sargas:** jei 30 min. nepavyksta patikrinti nė vienos parduotuvės (dingo internetas, parduotuvė pakeitė puslapį), ateis pranešimas „⚠️ Sekiklis neveikia“. Kai vėl veiks – „✅ Sekiklis vėl veikia“.

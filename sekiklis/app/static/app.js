@@ -13,6 +13,8 @@ const STATUS = {
   blocked: { ico: '🛡️', pill: 'Blokuoja', text: 'Parduotuvė blokuoja automatinį tikrinimą' },
   error:   { ico: '⚠️', pill: 'Klaida', text: 'Nepavyko patikrinti' },
   unknown: { ico: '❔', pill: 'Neaišku', text: 'Puslapyje nerasta prekės būsena' },
+  pricey:  { ico: '💸', pill: 'Per brangu', text: 'Yra, bet brangiau nei tavo riba' },
+  changed: { ico: '🔀', pill: 'Pakeista', text: 'Puslapyje dabar kita prekė' },
   new:     { ico: '⏳', pill: 'Tikrinama', text: 'Dar netikrinta' },
 };
 
@@ -85,24 +87,28 @@ function renderHealth() {
 
 // ------------------------------------------------------------ sąrašas
 function sortKey(it) {
-  const order = { in: 0, pre: 0, new: 1, out: 2, unknown: 3, error: 3, blocked: 4 };
+  const order = { in: 0, pre: 0, new: 1, out: 2, pricey: 2, unknown: 3, error: 3, changed: 3, blocked: 4 };
   return (it.enabled ? 0 : 10) + (order[it.status] ?? 5);
 }
 
 function itemHtml(it) {
   const st = STATUS[it.status] || STATUS.unknown;
   const checking = S.checking === it.id;
-  const meta = [euro(it.price),
+  const meta = [euro(it.price), it.max_price ? `riba ≤ ${euro(it.max_price)}` : '',
     checking ? 'tikrinama…' : `tikrinta ${ago(it.checked_at)}`,
     it.enabled ? (checking ? '' : `kitas ${inTxt(it.next_at)}`) : 'sustabdyta'].filter(Boolean).join(' · ');
   let note = '';
   if (it.probe === 'blocked') note = '🛡️ Paskutinį kartą parduotuvė užblokavo – rodoma ankstesnė būsena';
   else if (it.probe === 'error') note = '⚠️ Paskutinis tikrinimas nepavyko – rodoma ankstesnė būsena';
   else if (it.status === 'blocked') note = 'Apsauga nuo botų – tikrinama kas 30 min., jei kartais praleistų';
+  else if (it.status === 'pricey') note = `Yra už ${euro(it.price)} – brangiau nei ${euro(it.max_price)}, todėl neskambinu`;
+  else if (it.status === 'changed') note = it.error;
   else if ((it.status === 'in' || it.status === 'pre') && it.muted) note = '🔕 Nutildyta';
+  if (it.mode === 'watch') note = '👁 Tik stebima – telefonas neskambės' + (note ? ' · ' + note : '');
+  const tag = it.source === 'search' ? '<span class="tag">🆕 rasta paieškoje</span>' : '';
   return `<div class="card item s-${it.status} ${it.enabled ? '' : 'off'}" data-id="${it.id}">
     <div class="badge">${st.ico}</div>
-    <div class="body"><div class="name">${esc(title(it))}</div><div class="meta">${esc(meta)}</div>
+    <div class="body"><div class="name">${tag}${esc(title(it))}</div><div class="meta">${esc(meta)}</div>
       ${note ? `<div class="note">${esc(note)}</div>` : ''}</div>
     <span class="pill">${esc(st.pill)}</span>
     <a class="go" href="${esc(it.url)}" target="_blank" rel="noopener" title="Atidaryti parduotuvėje" aria-label="Atidaryti parduotuvėje">🛒</a></div>`;
@@ -118,8 +124,23 @@ function renderList() {
   for (const sh of shops) html += `<div class="shop-h">${esc(sh)}</div>` + rest.filter(it => it.shop === sh).map(itemHtml).join('');
   if (!items.length) html = '<p class="muted center">Dar nieko nesekama. Įklijuok prekės nuorodą viršuje.</p>';
   $('#list').innerHTML = html;
-  $('#foot').textContent = `Tikrinama kas ${S.settings.interval} min. Sekama prekių: ${items.filter(i => i.enabled).length}.`;
+  renderSearches();
+  $('#foot').textContent = `Tikrinama kas ${S.settings.interval} min. Sekama prekių: ${items.filter(i => i.enabled).length}. Versija ${S.version || ''}`;
   $('#btn-check').classList.toggle('spin', S.checking != null);
+}
+
+function renderSearches() {
+  const el = $('#searches');
+  if (!S.searches || !S.searches.length) { el.innerHTML = ''; return; }
+  const rows = S.searches.map(sr => {
+    const st = sr.status === 'ok' ? `✓ rasta ${sr.found}` : sr.status === 'blocked' ? '🛡️ blokuoja' :
+      sr.status === 'error' ? '⚠️ klaida' : '⏳ tikrinama';
+    const last = (sr.added || [])[0];
+    return `<div class="srow" data-sid="${sr.id}"><b>${esc(sr.shop)}</b>
+      <span class="muted small">${esc(st)} · ${esc(ago(sr.checked_at))}${last ? ` · paskutinė nauja: ${esc(last.name.slice(0, 40))}` : ''}</span></div>`;
+  }).join('');
+  el.innerHTML = `<div class="shop-h">🔎 Naujų nuorodų paieška</div>
+    <div class="card group">${rows}<p class="small muted" style="margin:6px 0 8px">Kas 15 min. ieškau „DualSense GTA VI“. Radęs naują pultelį (bet kuria kalba) – įtraukiu į sąrašą ir pranešu.</p></div>`;
 }
 
 function render() {
@@ -144,7 +165,7 @@ function itemSheet(id, refresh) {
   openId = id;
   const st = STATUS[it.status] || STATUS.unknown;
   const keepResult = refresh ? ($('#sim-res')?.outerHTML || '') : '';
-  const keepName = refresh && document.activeElement?.id === 'f-name' ? document.activeElement.value : null;
+  const keepName = refresh && ['f-name', 'f-max'].includes(document.activeElement?.id) ? document.activeElement.value : null;
   if (refresh && keepName !== null) return; // nerašom ant viršaus, kol vedamas pavadinimas
   const hist = (it.history || []).slice(0, 8).map(h => {
     const when = esc(new Date(h.at).toLocaleString('lt-LT', { month: 'numeric', day: 'numeric', hour: '2-digit', minute: '2-digit' }));
@@ -162,6 +183,9 @@ function itemSheet(id, refresh) {
       <button class="btn" id="b-pause">${it.enabled ? '⏸ Sustabdyti' : '▶ Tęsti'}</button>
     </div>
     ${(it.status === 'in' || it.status === 'pre') ? `<button class="btn block" id="b-mute">${it.muted ? '🔔 Vėl priminti' : '🔕 Nutildyti priminimus'}</button>` : ''}
+    <div class="seg"><button id="m-alert" class="${it.mode !== 'watch' ? 'on' : ''}">🔔 Pranešti</button><button id="m-watch" class="${it.mode === 'watch' ? 'on' : ''}">👁 Tik stebėti</button></div>
+    <label class="field">Pranešti tik jei kaina ne didesnė nei (€)<input id="f-max" inputmode="decimal" value="${it.max_price ?? ''}" placeholder="be ribos"></label>
+    ${it.status === 'changed' ? '<button class="btn block" id="b-accept">✓ Tai ta pati prekė – sekti toliau</button>' : ''}
     <button class="btn block" id="b-sim">🧪 Imituoti atsiradimą (bandymas)</button>
     ${keepResult || '<div id="sim-res" hidden></div>'}
     <p class="small muted" style="margin:0">Imitacija išsiunčia tikrą „Atsirado!“ pranešimą su šios prekės nuoroda į visus telefonus – taip patikrinsi, ar ateina garsas ir ar paspaudus atsidaro parduotuvė. Prekės būsena nesikeičia.</p>
@@ -175,6 +199,10 @@ function itemSheet(id, refresh) {
   $('#b-pause').onclick = () => act('update', { id, enabled: !it.enabled });
   if ($('#b-mute')) $('#b-mute').onclick = () => act('update', { id, muted: !it.muted });
   $('#f-name').onchange = e => act('update', { id, custom_name: e.target.value });
+  $('#m-alert').onclick = () => act('update', { id, mode: 'alert' });
+  $('#m-watch').onclick = () => act('update', { id, mode: 'watch' });
+  $('#f-max').onchange = e => act('update', { id, max_price: e.target.value }).then(() => toast('Riba išsaugota'));
+  if ($('#b-accept')) $('#b-accept').onclick = () => act('update', { id, accept_name: true });
   $('#b-del').onclick = () => { if (confirm('Nebesekti šios prekės?')) act('delete', { id }).then(closeSheet); };
   $('#b-sim').onclick = async e => {
     e.target.disabled = true;

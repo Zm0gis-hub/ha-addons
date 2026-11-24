@@ -108,3 +108,10 @@ h3 { margin: 10px 0 0; font-size: 15px; }
 html.modal-open, html.modal-open body { overflow: hidden; overscroll-behavior: none; }
 #sheet { overscroll-behavior: contain; }
 #sheet-bg, #pop-bg { touch-action: none; overscroll-behavior: none; }
+.s-pricey .pill { background: var(--warn-soft); color: var(--warn); }
+.s-changed .pill { background: var(--danger-soft); color: var(--danger); }
+.tag { display: inline-block; font-size: 11.5px; font-weight: 800; background: var(--accent-soft); color: var(--accent); border-radius: 6px; padding: 1px 6px; margin-right: 6px; vertical-align: 1px; }
+.srow { display: flex; flex-direction: column; padding: 9px 0; border-bottom: 1px solid var(--line); }
+.seg { display: flex; background: var(--chip); border-radius: 12px; padding: 3px; gap: 3px; }
+.seg button { flex: 1; border: 0; background: transparent; padding: 9px; border-radius: 9px; font-weight: 700; cursor: pointer; color: var(--muted); }
+.seg button.on { background: var(--card); color: var(--ink); box-shadow: var(--shadow); }
