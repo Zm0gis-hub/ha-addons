@@ -1,5 +1,9 @@
 # Pakeitimai
 
+## 1.8.2
+- Iššokantys langai telefone: kol langas atidarytas, fono sąrašas nebejuda tempiant pirštu.
+- Telefono mygtukas „Atgal“ dabar uždaro atidarytą langą, o ne išeina iš priedo.
+
 ## 1.8.1
 - Nuotraukų pridėjimas telefone (HA programėlėje): renkama po vieną (kelių iš karto programėlė neperduoda), mygtuką galima spausti kelis kartus.
 - Gręžinio skaitiklių nuotraukos vėl prisideda; pasirinktos rodomos su mažu paveikslėliu ir ✕.

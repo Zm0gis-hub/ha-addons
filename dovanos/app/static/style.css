@@ -476,3 +476,8 @@ details.more[open] summary { margin-bottom: 4px; }
   .itbl .it-u { color: var(--accent); font-size: 13px; }
   .itbl .it-m { text-align: right; font-variant-numeric: tabular-nums; color: var(--muted); }
 }
+
+/* Kol atidarytas iššokantis langas – fonas neslenka (telefone pirštu tempiant langą) */
+html.modal-open, html.modal-open body { overflow: hidden; overscroll-behavior: none; }
+#sheet { overscroll-behavior: contain; }
+#sheet-bg, #pop-bg { touch-action: none; overscroll-behavior: none; }

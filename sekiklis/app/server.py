@@ -295,6 +295,7 @@ def apply_result(it, status, err, name, price):
     s = STATE["settings"]
     prev = it["status"]
     t = now_ts()
+    old_price = it.get("price")
     it["checked_at"] = t
     it["error"] = err
     if name:
@@ -319,13 +320,16 @@ def apply_result(it, status, err, name, price):
     it["probe"] = ""
     if status != prev:
         it["changed_at"] = t
-        it["history"] = ([{"at": iso(t), "status": status}] + it.get("history", []))[:30]
+        it["history"] = ([{"at": iso(t), "status": status, "price": it.get("price")}] + it.get("history", []))[:30]
         it["status"] = status
         if status in AVAILABLE and prev not in AVAILABLE:
             it["alerts"], it["last_alert"], it["muted"] = 0, 0, False
             return True
         if status not in AVAILABLE:
             it["alerts"], it["muted"] = 0, False
+    elif price is not None and old_price is not None and abs(price - old_price) >= 0.005:
+        # būsena ta pati, bet pasikeitė kaina – irgi į istoriją
+        it["history"] = ([{"at": iso(t), "status": status, "price": price, "old_price": old_price}] + it.get("history", []))[:30]
     return False
 
 

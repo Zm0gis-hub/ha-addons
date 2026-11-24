@@ -104,7 +104,8 @@ function itemHtml(it) {
     <div class="badge">${st.ico}</div>
     <div class="body"><div class="name">${esc(title(it))}</div><div class="meta">${esc(meta)}</div>
       ${note ? `<div class="note">${esc(note)}</div>` : ''}</div>
-    <span class="pill">${esc(st.pill)}</span></div>`;
+    <span class="pill">${esc(st.pill)}</span>
+    <a class="go" href="${esc(it.url)}" target="_blank" rel="noopener" title="Atidaryti parduotuvėje" aria-label="Atidaryti parduotuvėje">🛒</a></div>`;
 }
 
 function renderList() {
@@ -145,8 +146,12 @@ function itemSheet(id, refresh) {
   const keepResult = refresh ? ($('#sim-res')?.outerHTML || '') : '';
   const keepName = refresh && document.activeElement?.id === 'f-name' ? document.activeElement.value : null;
   if (refresh && keepName !== null) return; // nerašom ant viršaus, kol vedamas pavadinimas
-  const hist = (it.history || []).slice(0, 8).map(h =>
-    `<li>${esc(new Date(h.at).toLocaleString('lt-LT', { month: 'numeric', day: 'numeric', hour: '2-digit', minute: '2-digit' }))} – ${esc((STATUS[h.status] || STATUS.unknown).text)}</li>`).join('');
+  const hist = (it.history || []).slice(0, 8).map(h => {
+    const when = esc(new Date(h.at).toLocaleString('lt-LT', { month: 'numeric', day: 'numeric', hour: '2-digit', minute: '2-digit' }));
+    const what = h.old_price != null ? `kaina pasikeitė: ${euro(h.old_price)} → <b>${euro(h.price)}</b>`
+      : esc((STATUS[h.status] || STATUS.unknown).text) + (h.price != null ? ` · <b>${euro(h.price)}</b>` : '');
+    return `<li>${when} – ${what}</li>`;
+  }).join('');
   openSheet(`<div class="stack">
     <div><h2>${st.ico} ${esc(title(it))}</h2>
       <div class="muted small">${esc(it.shop)}${it.price != null ? ' · ' + euro(it.price) : ''} · ${esc(st.text)}</div>
@@ -245,7 +250,7 @@ function settingsSheet() {
 }
 
 // ------------------------------------------------------------ įvykiai
-$('#list').onclick = e => { const c = e.target.closest('.item'); if (c) itemSheet(+c.dataset.id); };
+$('#list').onclick = e => { if (e.target.closest('a.go')) return; const c = e.target.closest('.item'); if (c) itemSheet(+c.dataset.id); };
 $('#btn-settings').onclick = settingsSheet;
 $('#btn-check').onclick = () => act('check_now').then(() => toast('Tikrinama visa…'));
 $('#add').onsubmit = async e => {
@@ -261,3 +266,42 @@ async function refresh() {
 }
 refresh();
 setInterval(refresh, 8000);
+
+// ============================================================ iššokantys langai telefone (vienodai visuose prieduose)
+// 1) kol atidarytas langas, fono sąrašas nejuda;  2) telefono „Atgal“ uždaro langą, o ne išeina iš priedo.
+// Langas atidarius įdeda vieną įrašą į naršyklės istoriją; „Atgal“ jį nuima ir uždaro langą.
+// Uždarius kitaip (✕, Išsaugoti, paspaudus šalia) – tas įrašas nuimamas patiems.
+(() => {
+  const TOK = 'm' + Math.random().toString(36).slice(2);
+  const sheetEl = () => document.getElementById('sheet');
+  const isOpen = () => { const s = sheetEl(); return !!(s && !s.hidden) || !!document.getElementById('pop'); };
+  let pushed = false;   // istorijoje yra mūsų įrašas
+  let backing = false;  // laukiama, kol baigsis mūsų pačių history.back()
+  const sync = () => {
+    const open = isOpen();
+    document.documentElement.classList.toggle('modal-open', open);
+    if (backing) return;
+    if (open && !pushed) { try { history.pushState({ modal: TOK }, ''); pushed = true; } catch (e) { /* nieko */ } }
+    else if (!open && pushed) {
+      pushed = false;
+      if (history.state && history.state.modal === TOK) { backing = true; history.back(); }
+    }
+  };
+  const closeTop = () => {
+    const pb = document.getElementById('pop-bg');
+    if (pb) { pb.click(); return; }
+    const bg = document.getElementById('sheet-bg');
+    if (bg && !bg.hidden) bg.click();
+  };
+  addEventListener('popstate', e => {
+    if (backing) { backing = false; sync(); return; }
+    if (pushed && isOpen()) { pushed = false; closeTop(); sync(); return; } // „Atgal“ – uždaryti langą
+    pushed = false;
+    // likęs senas lango įrašas (pvz. iš lango buvo pereita į kitą puslapį) – praleisti
+    if (e.state && e.state.modal && !isOpen()) { backing = true; history.back(); }
+  });
+  const mo = new MutationObserver(sync);
+  if (sheetEl()) mo.observe(sheetEl(), { attributes: true, attributeFilter: ['hidden'] });
+  mo.observe(document.body, { childList: true });
+  sync();
+})();

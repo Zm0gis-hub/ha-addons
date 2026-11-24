@@ -1,5 +1,9 @@
 # Pakeitimai
 
+## 1.4.2
+- Iššokantys langai telefone: kol langas atidarytas, fono sąrašas nebejuda tempiant pirštu.
+- Telefono mygtukas „Atgal“ dabar uždaro atidarytą langą, o ne išeina iš priedo.
+
 ## 1.4.1
 - Importo failo pasirinkimas veikia ir HA programėlėje telefone (be failų tipo apribojimo).
 

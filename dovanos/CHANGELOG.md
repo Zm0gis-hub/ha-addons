@@ -1,5 +1,9 @@
 # Pakeitimai
 
+## 2.1.3
+- Iššokantys langai telefone: kol langas atidarytas, fono sąrašas nebejuda tempiant pirštu.
+- Telefono mygtukas „Atgal“ dabar uždaro atidarytą langą, o ne išeina iš priedo.
+
 ## 2.1.2
 - Dovanos nuotraukos pridėjimas telefone (HA programėlėje) vėl veikia.
 

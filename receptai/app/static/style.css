@@ -502,3 +502,8 @@ body.typing #toast { bottom: auto; top: calc(env(safe-area-inset-top) + 64px); }
 .sheet-actions { display: flex; gap: 10px; margin-top: 16px; }
 .sheet-actions .btn { flex: 1; min-height: 50px; }
 .sheet-actions .btn.primary { flex: 1.4; }
+
+/* Kol atidarytas iššokantis langas – fonas neslenka (telefone pirštu tempiant langą) */
+html.modal-open, html.modal-open body { overflow: hidden; overscroll-behavior: none; }
+#sheet { overscroll-behavior: contain; }
+#sheet-bg, #pop-bg { touch-action: none; overscroll-behavior: none; }

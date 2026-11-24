@@ -1217,3 +1217,42 @@ async function boot() {
 }
 
 boot();
+
+// ============================================================ iššokantys langai telefone (vienodai visuose prieduose)
+// 1) kol atidarytas langas, fono sąrašas nejuda;  2) telefono „Atgal“ uždaro langą, o ne išeina iš priedo.
+// Langas atidarius įdeda vieną įrašą į naršyklės istoriją; „Atgal“ jį nuima ir uždaro langą.
+// Uždarius kitaip (✕, Išsaugoti, paspaudus šalia) – tas įrašas nuimamas patiems.
+(() => {
+  const TOK = 'm' + Math.random().toString(36).slice(2);
+  const sheetEl = () => document.getElementById('sheet');
+  const isOpen = () => { const s = sheetEl(); return !!(s && !s.hidden) || !!document.getElementById('pop'); };
+  let pushed = false;   // istorijoje yra mūsų įrašas
+  let backing = false;  // laukiama, kol baigsis mūsų pačių history.back()
+  const sync = () => {
+    const open = isOpen();
+    document.documentElement.classList.toggle('modal-open', open);
+    if (backing) return;
+    if (open && !pushed) { try { history.pushState({ modal: TOK }, ''); pushed = true; } catch (e) { /* nieko */ } }
+    else if (!open && pushed) {
+      pushed = false;
+      if (history.state && history.state.modal === TOK) { backing = true; history.back(); }
+    }
+  };
+  const closeTop = () => {
+    const pb = document.getElementById('pop-bg');
+    if (pb) { pb.click(); return; }
+    const bg = document.getElementById('sheet-bg');
+    if (bg && !bg.hidden) bg.click();
+  };
+  addEventListener('popstate', e => {
+    if (backing) { backing = false; sync(); return; }
+    if (pushed && isOpen()) { pushed = false; closeTop(); sync(); return; } // „Atgal“ – uždaryti langą
+    pushed = false;
+    // likęs senas lango įrašas (pvz. iš lango buvo pereita į kitą puslapį) – praleisti
+    if (e.state && e.state.modal && !isOpen()) { backing = true; history.back(); }
+  });
+  const mo = new MutationObserver(sync);
+  if (sheetEl()) mo.observe(sheetEl(), { attributes: true, attributeFilter: ['hidden'] });
+  mo.observe(document.body, { childList: true });
+  sync();
+})();
