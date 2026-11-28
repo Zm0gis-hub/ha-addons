@@ -1129,21 +1129,18 @@ routes.house = () => {
   const B = all.filter(t => hcOf(t) === 'butina'), K = all.filter(t => hcOf(t) === 'kita');
   const sB = hStat(B), sK = hStat(K);
   const kindSt = (list, k) => hStat(list.filter(t => (t.kind || 'darbas') === k));
-  let h = `<div class="card pad h-top ${P.warn ? 'warn' : ''}" id="h-due">
-    <div class="row"><div class="grow"><div class="k">🏦 ${esc(S.settings.house_name || 'Pridavimas')}</div>
-      <div class="t">${P.due ? esc(longDate(P.due)) : '<span class="muted">Data nenustatyta – paspauskite</span>'}</div></div>
-      ${P.due ? `<div class="h-days ${P.left < 0 ? 'over' : P.left <= 14 ? 'soon' : ''}"><b>${P.left < 0 ? -P.left : P.left}</b><span>${P.left < 0 ? 'd. praėjo' : 'd. liko'}</span></div>` : ''}</div>
-    <div class="h-big"><div class="row"><span class="grow">Būtini darbai ir pirkiniai</span><b>${sB.pc}%</b></div>${hBar(sB.pc, 'big')}
-      <div class="s">Atlikta ${sB.done} iš ${sB.n}${P.due && P.rest ? ` · reikia ~${fmtN(P.need, 1)}/sav., dabar ${fmtN(P.rate)}/sav.` : ''}</div></div>
+  const dTxt = P.due ? `<span class="h-dl ${P.left < 0 ? 'over' : P.left <= 14 ? 'soon' : ''}">${esc(leftTxt(P.left))}</span>` : '';
+  let h = `<div class="card h-top ${P.warn ? 'warn' : ''}" id="h-due">
+    <div class="row h-head"><span class="k">🏦 ${esc(S.settings.house_name || 'Pridavimas')}</span><span class="grow t">${P.due ? esc(`${P.due.slice(0, 4)} m. ${MONTHS_G[pd(P.due).getMonth()]} ${pd(P.due).getDate()} d.`) : '<span class="muted">data nenustatyta</span>'}</span>${dTxt}</div>
+    <div class="row h-line">${hBar(sB.pc, 'big')}<b>${sB.pc}%</b></div>
+    <div class="s">Būtina atlikta ${sB.done} iš ${sB.n}${P.due && P.rest ? ` · reikia ~${fmtN(P.need, 1)}/sav., dabar ${fmtN(P.rate)}/sav.` : ''}</div>
     ${P.warn ? `<div class="h-warn">⚠️ ${esc(P.warn)}</div>` : P.due && P.st.n && !P.rest ? '<div class="h-ok">✓ Visi būtini darbai atlikti</div>' : ''}
     ${P.late.length ? `<div class="h-warn">📅 ${P.late.length} būtin${P.late.length === 1 ? 'os užduoties' : 'ų užduočių'} terminas vėlesnis nei pridavimas</div>` : ''}
+    <div class="h-mini">${[['butina', '🔨', 'Būtini', kindSt(B, 'darbas')], ['butina', '🛒', 'Būtini', kindSt(B, 'pirkinys')], ['kita', '🔨', 'Kiti', kindSt(K, 'darbas')], ['kita', '🛒', 'Kiti', kindSt(K, 'pirkinys')]]
+      .map(([c, i, l, x]) => `<div class="h-m ${c}"><div class="l">${i} ${l}</div><b>${x.done}/${x.n}</b>${hBar(x.pc, c === 'kita' ? 'alt' : '')}</div>`).join('')}</div>
   </div>
-  <div class="stats">
-    ${[['butina', '🔨 Būtini darbai', kindSt(B, 'darbas')], ['butina', '🛒 Būtini pirkiniai', kindSt(B, 'pirkinys')], ['kita', '🔨 Kiti darbai', kindSt(K, 'darbas')], ['kita', '🛒 Kiti pirkiniai', kindSt(K, 'pirkinys')]]
-      .map(([c, l, x]) => `<div class="card stat h-st ${c}"><div class="k">${l}</div><div class="v">${x.done}/${x.n}</div>${hBar(x.pc, c === 'kita' ? 'alt' : '')}</div>`).join('')}
-  </div>
-  <div class="seg" id="h-kind" style="margin-top:14px">${[['', 'Visi'], ['darbas', '🔨 Darbai'], ['pirkinys', '🛒 Pirkiniai']].map(([v, l]) => `<button data-hk="${v}" class="${kf === v ? 'on' : ''}">${l}</button>`).join('')}</div>
-  <div class="chips">${['', ...zones].map(z => { const x = z ? hStat(all.filter(t => t.zone === z)) : null; return `<button class="chip ${zf === z ? 'on' : ''}" data-hz="${esc(z)}">${z ? '📍 ' + esc(z) + (x.n ? ` <span class="n">${x.pc}%</span>` : '') : 'Visos patalpos'}</button>`; }).join('')}</div>`;
+  <div class="seg h-seg" id="h-kind">${[['', 'Visi'], ['darbas', '🔨 Darbai'], ['pirkinys', '🛒 Pirkiniai']].map(([v, l]) => `<button data-hk="${v}" class="${kf === v ? 'on' : ''}">${l}</button>`).join('')}</div>
+  <div class="chips h-chips">${['', ...zones].map(z => { const x = z ? hStat(all.filter(t => t.zone === z)) : null; return `<button class="chip ${zf === z ? 'on' : ''}" data-hz="${esc(z)}">${z ? '📍 ' + esc(z) + (x.n ? ` <span class="n">${x.pc}%</span>` : '') : 'Visos patalpos'}</button>`; }).join('')}</div>`;
   for (const [c, list, st] of [['butina', B, sB], ['kita', K, sK]]) {
     const vis = list.filter(match), shown = vis.filter(t => UI.showDone['h' + c] || doneVisible(t)), hidden = vis.length - shown.length;
     h += `<h2>${HC[c][0]} ${HC[c][1]} <span class="muted small">${st.done}/${st.n}</span></h2>

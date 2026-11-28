@@ -1,5 +1,9 @@
 # Pakeitimai
 
+## 1.8.3
+- 🏠 Skirtukas **Namas** kompaktiškesnis: pridavimo data, „liko X d.“, bendra juosta ir 4 skaitikliai (Būtini darbai / Būtini pirkiniai / Kiti darbai / Kiti pirkiniai) dabar vienoje mažoje kortelėje – 4 skaitikliai vienoje eilutėje.
+- Mažesni filtro mygtukai (Visi / Darbai / Pirkiniai, patalpos) ir tarpai, todėl sąrašas matomas iškart.
+
 ## 1.8.2
 - Iššokantys langai telefone: kol langas atidarytas, fono sąrašas nebejuda tempiant pirštu.
 - Telefono mygtukas „Atgal“ dabar uždaro atidarytą langą, o ne išeina iš priedo.
