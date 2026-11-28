@@ -52,6 +52,13 @@ function inTxt(ts) {
 }
 const euro = p => p == null ? '' : p.toFixed(2).replace('.', ',') + ' €';
 const title = it => it.custom_name || it.name || it.url;
+// spalva – iš pavadinimo arba nuorodos (pavadinime jos dažnai nebūna)
+function colour(it) {
+  const t = `${it.custom_name || ''} ${it.name || ''} ${it.url || ''}`;
+  if (/(juod|black|czarn|musta|\bmust\b|melna|schwarz)/i.test(t)) return '<span class="col black">⚫ Juodas</span>';
+  if (/(balt|white|biał|bial|valkoi|valge|weiß|weiss)/i.test(t)) return '<span class="col white">⚪ Baltas</span>';
+  return '';
+}
 const phoneName = s => s.replace(/^mobile_app_/, '').replace(/_/g, ' ');
 
 // ------------------------------------------------------------ sveikata
@@ -95,23 +102,68 @@ function itemHtml(it) {
   const st = STATUS[it.status] || STATUS.unknown;
   const checking = S.checking === it.id;
   const meta = [euro(it.price), it.max_price ? `riba ≤ ${euro(it.max_price)}` : '',
-    checking ? 'tikrinama…' : `tikrinta ${ago(it.checked_at)}`,
-    it.enabled ? (checking ? '' : `kitas ${inTxt(it.next_at)}`) : 'sustabdyta'].filter(Boolean).join(' · ');
+    checking ? 'tikrinama…' : ago(it.checked_at), it.enabled ? '' : 'sustabdyta'].filter(Boolean).join(' · ');
   let note = '';
   if (it.probe === 'blocked') note = '🛡️ Paskutinį kartą parduotuvė užblokavo – rodoma ankstesnė būsena';
   else if (it.probe === 'error') note = '⚠️ Paskutinis tikrinimas nepavyko – rodoma ankstesnė būsena';
-  else if (it.status === 'blocked') note = 'Apsauga nuo botų – tikrinama kas 30 min., jei kartais praleistų';
-  else if (it.status === 'pricey') note = `Yra už ${euro(it.price)} – brangiau nei ${euro(it.max_price)}, todėl neskambinu`;
+  else if (it.status === 'blocked') note = '🛡️ Apsauga nuo botų – tikrinama kas 30 min.';
+  else if (it.status === 'pricey') note = '💸 Brangiau nei riba – neskambinu';
   else if (it.status === 'changed') note = it.error;
   else if ((it.status === 'in' || it.status === 'pre') && it.muted) note = '🔕 Nutildyta';
   if (it.mode === 'watch') note = '👁 Tik stebima – telefonas neskambės' + (note ? ' · ' + note : '');
   const tag = it.source === 'search' ? '<span class="tag">🆕 rasta paieškoje</span>' : '';
   return `<div class="card item s-${it.status} ${it.enabled ? '' : 'off'}" data-id="${it.id}">
-    <div class="badge">${st.ico}</div>
-    <div class="body"><div class="name">${tag}${esc(title(it))}</div><div class="meta">${esc(meta)}</div>
+    <div class="body"><div class="name">${colour(it)}${tag}${esc(title(it))}</div>
+      <div class="st"><span class="pill">${esc(st.pill)}</span><span class="meta">${esc(meta)}</span></div>
       ${note ? `<div class="note">${esc(note)}</div>` : ''}</div>
-    <span class="pill">${esc(st.pill)}</span>
     <a class="go" href="${esc(it.url)}" target="_blank" rel="noopener" title="Atidaryti parduotuvėje" aria-label="Atidaryti parduotuvėje">🛒</a></div>`;
+}
+
+// ------------------------------------------------------------ paskutiniai atsiradimai
+const AVAIL = ['in', 'pre', 'pricey'];
+const MON = ['saus.', 'vas.', 'kov.', 'bal.', 'geg.', 'birž.', 'liep.', 'rugp.', 'rugs.', 'spal.', 'lapkr.', 'gruod.'];
+function whenTxt(ts) {
+  const d = new Date(ts * 1000), now = new Date(S.now * 1000);
+  const hm = d.toLocaleTimeString('lt-LT', { hour: '2-digit', minute: '2-digit' });
+  const day = x => new Date(x.getFullYear(), x.getMonth(), x.getDate()).getTime();
+  const diff = Math.round((day(now) - day(d)) / 86400000);
+  if (diff === 0) return `šiandien ${hm}`;
+  if (diff === 1) return `vakar ${hm}`;
+  return `${MON[d.getMonth()]} ${d.getDate()} d. ${hm}`;
+}
+function durTxt(s) {
+  const m = Math.max(1, Math.round(s / 60));
+  if (m < 60) return `${m} min.`;
+  const h = Math.round(m / 60);
+  return h < 48 ? `${h} val.` : `${Math.round(h / 24)} d.`;
+}
+function appearances() {
+  const ev = [];
+  for (const it of S.items) {
+    const h = it.history || [];  // naujausi pirmi
+    for (let i = 0; i < h.length; i++) {
+      const e = h[i];
+      if (!AVAIL.includes(e.status) || e.old_price !== undefined) continue;
+      const at = Date.parse(e.at) / 1000; if (!at) continue;
+      let gone = null;
+      for (let j = i - 1; j >= 0; j--) if (!AVAIL.includes(h[j].status)) { gone = Date.parse(h[j].at) / 1000; break; }
+      if (gone == null) for (let j = i - 1; j >= 0; j--) if (AVAIL.includes(h[j].status) && h[j].old_price === undefined) { gone = -1; break; }
+      ev.push({ it, at, status: e.status, price: e.price, gone });
+    }
+  }
+  return ev.sort((a, b) => b.at - a.at);
+}
+function renderStats() {
+  const ev = appearances(), el = $('#stats');
+  if (!ev.length) { el.innerHTML = ''; return; }
+  const rows = ev.slice(0, 5).map(e => {
+    const k = e.status === 'pricey' ? ['wr', '💸 per brangu'] : e.it.mode === 'watch' ? ['mu', '👁 stebima'] : ['ok', '✅ pranešta'];
+    const how = e.gone > 0 ? ` · buvo ${durTxt(e.gone - e.at)}` : e.gone == null && AVAIL.includes(e.it.status) ? ' · vis dar yra' : '';
+    return `<div class="ev" data-id="${e.it.id}"><span class="d ${k[0]}"></span><span class="n">${colour(e.it)}${esc(title(e.it))}</span>
+      <span class="p ${e.status === 'pricey' ? 'wr' : ''}">${esc(euro(e.price))}</span>
+      <span class="s">${esc(e.it.shop)} · ${esc(whenTxt(e.at))}${how}</span><span class="k ${k[0]}">${k[1]}</span></div>`;
+  }).join('');
+  el.innerHTML = `<div class="card stats"><h4>📊 Paskutiniai atsiradimai <i>${Math.min(5, ev.length)} iš ${ev.length}</i></h4>${rows}</div>`;
 }
 
 function renderList() {
@@ -124,6 +176,7 @@ function renderList() {
   for (const sh of shops) html += `<div class="shop-h">${esc(sh)}</div>` + rest.filter(it => it.shop === sh).map(itemHtml).join('');
   if (!items.length) html = '<p class="muted center">Dar nieko nesekama. Įklijuok prekės nuorodą viršuje.</p>';
   $('#list').innerHTML = html;
+  renderStats();
   renderSearches();
   $('#foot').textContent = `Tikrinama kas ${S.settings.interval} min. Sekama prekių: ${items.filter(i => i.enabled).length}. Versija ${S.version || ''}`;
   $('#btn-check').classList.toggle('spin', S.checking != null);
@@ -278,6 +331,7 @@ function settingsSheet() {
 }
 
 // ------------------------------------------------------------ įvykiai
+$('#stats').onclick = e => { const r = e.target.closest('.ev'); if (r) itemSheet(+r.dataset.id); };
 $('#list').onclick = e => { if (e.target.closest('a.go')) return; const c = e.target.closest('.item'); if (c) itemSheet(+c.dataset.id); };
 $('#btn-settings').onclick = settingsSheet;
 $('#btn-check').onclick = () => act('check_now').then(() => toast('Tikrinama visa…'));

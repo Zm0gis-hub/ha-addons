@@ -1,5 +1,10 @@
 # Pakeitimai
 
+## 1.3.0
+- 📊 Viršuje kortelė **„Paskutiniai atsiradimai“**: 5 paskutiniai kartai, kai prekė atsirado – kas, kurioje parduotuvėje, kada, už kiek, kiek laiko buvo ir ar pranešta / per brangu / tik stebima.
+- Sąrašas kompaktiškesnis: nebėra kairės ikonos, pavadinimas rodomas visas, prie jo ženklelis ⚫ Juodas / ⚪ Baltas.
+- Būsena (YRA! / Nėra / Per brangu) – ženkleliu antroje eilutėje kartu su kaina, o visa plytelė nuspalvinta pagal būseną.
+
 ## 1.2.0
 - 💸 **Kainos riba** kiekvienai prekei. Baltiems pulteliams iš karto ≤ 100 €: jei atsiranda brangiau – rodoma „Per brangu“, telefonas neskambina.
 - 👁 **Tik stebėti** režimas: prekė tikrinama, bet pranešimai nesiunčiami.
